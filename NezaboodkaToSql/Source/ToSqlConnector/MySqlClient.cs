@@ -675,7 +675,7 @@ namespace Nezaboodka.ToSqlConnector
 
     }
 
-    internal static class Const   // TODO: move credentials somewhere else (maybe to App.config)
+    internal static class Const   // TODO: move credentials to Protected Configuration
     {
         public static string MySqlUserId = "nezaboodka";
         public static string MySqlPass = "nezaboodka_pass";
