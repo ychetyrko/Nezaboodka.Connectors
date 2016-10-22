@@ -2,15 +2,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Data.Common;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using MySql.Data.MySqlClient;
 
 namespace Nezaboodka.ToSqlConnector
 {
-    public class MySqlClient
+    public class MySqlDatabaseClient
     {
         private static readonly Random RandomAddressGenerator = new Random();
         private static readonly Random RandomDelayGenerator = new Random();
@@ -35,18 +33,18 @@ namespace Nezaboodka.ToSqlConnector
         public int RetryLimit { get; set; } // number of attempts, 0 is unlimited by default
         public int MaxDelayBeforeRetryInMilliseconds { get; set; }
 
-        public MySqlClient(string serverAddress, string databaseName, ClientTypeBinder typeBinder)
+        public MySqlDatabaseClient(string serverAddress, string databaseName, ClientTypeBinder typeBinder)
             : this(new string[] {serverAddress}, ServerAddressSelectionMode.FirstAvailable, databaseName, typeBinder)
         {
         }
 
-        public MySqlClient(IList<string> serverAddresses, ServerAddressSelectionMode serverAddressSelectionMode,
+        public MySqlDatabaseClient(IList<string> serverAddresses, ServerAddressSelectionMode serverAddressSelectionMode,
             string databaseName, ClientTypeBinder typeBinder)
             : this(serverAddresses, serverAddressSelectionMode, databaseName, typeBinder, Timeout.Infinite, 0, 5000)
         {
         }
 
-        public MySqlClient(IList<string> serverAddresses, ServerAddressSelectionMode serverAddressSelectionMode,
+        public MySqlDatabaseClient(IList<string> serverAddresses, ServerAddressSelectionMode serverAddressSelectionMode,
             string databaseName, ClientTypeBinder typeBinder, int timeoutInMilliseconds, int retryLimit,
             int maxDelayBeforeRetryInMilliseconds)
         {
@@ -68,12 +66,12 @@ namespace Nezaboodka.ToSqlConnector
             //fContext = new DatabaseClientContext();
         }
 
-        public MySqlClient(MySqlClient existing)
+        public MySqlDatabaseClient(MySqlDatabaseClient existing)
             : this(existing, existing.TypeBinder)
         {
         }
 
-        public MySqlClient(MySqlClient existing, ClientTypeBinder typeBinder)
+        public MySqlDatabaseClient(MySqlDatabaseClient existing, ClientTypeBinder typeBinder)
         {
             FileContentHandler = existing.FileContentHandler;
             ServerAddresses = existing.ServerAddresses;

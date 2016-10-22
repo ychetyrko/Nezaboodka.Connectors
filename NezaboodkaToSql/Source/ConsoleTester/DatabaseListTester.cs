@@ -13,7 +13,7 @@ namespace MySqlTester
 
         public static void GetDatabaseListTest()
         {
-            var client = new MySqlClient("localhost", null, null);
+            var client = new MySqlDatabaseClient("localhost", null, null);
 
             var databaseList = client.GetDatabaseList();
             printList(databaseList);
