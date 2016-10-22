@@ -613,7 +613,7 @@ namespace Nezaboodka.ToSqlConnector
                 }
                 else if (request is AlterDatabaseListRequest)
                 {
-                    AlterDatabaseListExec(request, cmd);
+                    AlterDatabaseListExec((AlterDatabaseListRequest) request, cmd);
                     result = new AlterDatabaseListResponse(GetDatabaseNamesList(cmd));
                 }
             }
@@ -649,28 +649,21 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
-        private void AlterDatabaseListExec(DatabaseRequest request, MySqlCommand cmd)
+        private void AlterDatabaseListExec(AlterDatabaseListRequest request, MySqlCommand cmd)
         {
-            AlterDatabaseListRequest realRequest = request as AlterDatabaseListRequest;
-            if (realRequest == null)
-            {
-                throw new NezaboodkaException("Bad request type: needed AlterDatabaseListRequest.");
-            }
+            if (request.DatabaseNamesToRemove != null)
+                foreach (string name in request.DatabaseNamesToRemove)   // TODO: replace
+                {
+                    cmd.CommandText = string.Format(RequestConsts.DropDatabase, name);
+                    cmd.ExecuteNonQuery();
+                }
 
-            var toRemove = realRequest.DatabaseNamesToRemove ?? new List<string>();
-            var toAdd = realRequest.DatabaseNamesToAdd ?? new List<string>();
-            
-            foreach (string name in toRemove)   // TODO: replace
-            {
-                cmd.CommandText = string.Format(RequestConsts.DropDatabase, name);
-                cmd.ExecuteNonQuery();
-            }
-
-            foreach (string name in toAdd)  // TODO: replace
-            {
-                cmd.CommandText = string.Format(RequestConsts.CreateDatabase, name);
-                cmd.ExecuteNonQuery();
-            }
+            if (request.DatabaseNamesToAdd != null)
+                foreach (string name in request.DatabaseNamesToAdd)  // TODO: replace
+                {
+                    cmd.CommandText = string.Format(RequestConsts.CreateDatabase, name);
+                    cmd.ExecuteNonQuery();
+                }
         }
 
     }
