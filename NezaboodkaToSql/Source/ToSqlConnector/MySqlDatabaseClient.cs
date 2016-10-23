@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using MySql.Data.MySqlClient;
 
@@ -589,7 +590,7 @@ namespace Nezaboodka.ToSqlConnector
             DatabaseResponse result = null;
             MySqlConnectionStringBuilder conStringBuilder = new MySqlConnectionStringBuilder
             {
-                Server = CurrentServerAddress,
+                Server = serverAddress,
                 UserID = Const.MySqlUserId,
                 Password = Const.MySqlPass,
                 Database = DatabaseName,
@@ -611,7 +612,11 @@ namespace Nezaboodka.ToSqlConnector
                 }
                 else if (request is AlterDatabaseListRequest)
                 {
-                    AlterDatabaseListExec((AlterDatabaseListRequest) request, cmd);
+                    cmd.CommandText = RequestConsts.UseAdministrationDatabase;
+                    cmd.ExecuteNonQuery();
+
+                    AlterDatabaseListExec((AlterDatabaseListRequest)request, cmd);
+
                     result = new AlterDatabaseListResponse(GetDatabaseNamesList(cmd));
                 }
             }
@@ -627,6 +632,8 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
+        // Internal
+        
         private List<string> GetDatabaseNamesList(MySqlCommand cmd)
         {
             cmd.CommandText = RequestConsts.DatabaseListRequest;
@@ -650,32 +657,43 @@ namespace Nezaboodka.ToSqlConnector
         private void AlterDatabaseListExec(AlterDatabaseListRequest request, MySqlCommand cmd)
         {
             if (request.DatabaseNamesToRemove != null)
-                foreach (string name in request.DatabaseNamesToRemove)   // TODO: replace
-                {
-                    cmd.CommandText = string.Format(RequestConsts.DropDatabase, name);
-                    cmd.ExecuteNonQuery();
-                }
+            {
+                cmd.CommandText = string.Format(RequestConsts.RemoveDatabaseListPrepareQuery,
+                    FormatDatabaseList(request.DatabaseNamesToRemove));
+                cmd.ExecuteNonQuery();
+            }
 
-            if (request.DatabaseNamesToAdd != null)
-                foreach (string name in request.DatabaseNamesToAdd)  // TODO: replace
-                {
-                    cmd.CommandText = string.Format(RequestConsts.CreateDatabase, name);
-                    cmd.ExecuteNonQuery();
-                }
+            if (request.DatabaseNamesToAdd != null) {
+                cmd.CommandText = string.Format(RequestConsts.AddDatabaseListPrepareQuery,
+                    FormatDatabaseList(request.DatabaseNamesToAdd));
+                cmd.ExecuteNonQuery();
+            }
+
+            cmd.CommandText = RequestConsts.AlterDatabaseListQuery;
+            cmd.ExecuteNonQuery();
+        }
+
+        private string FormatDatabaseList(IList<string> names)
+        {
+            return string.Join(",", names.Select(s => $"('{s}')"));
         }
 
     }
 
     internal static class Const   // TODO: move credentials to Protected Configuration
     {
-        public static string MySqlUserId = "nezaboodka";
+        public static string MySqlUserId = "nezaboodka_admin";
         public static string MySqlPass = "nezaboodka_pass";
     }
 
     internal static class RequestConsts // TODO: make normal requests
     {
+        public static string UseAdministrationDatabase = "USE nezaboodka_admin";
+
         public static string DatabaseListRequest = "SHOW DATABASES";
-        public static string CreateDatabase = "CREATE DATABASE IF NOT EXISTS {0}";
-        public static string DropDatabase = "DROP DATABASE {0}";
+
+        public static string RemoveDatabaseListPrepareQuery = "INSERT INTO `db_rem_list` (`name`) VALUES {0}";
+        public static string AddDatabaseListPrepareQuery = "INSERT INTO `db_add_list` (`name`) VALUES {0}";
+        public static string AlterDatabaseListQuery = "CALL alter_database_list()";
     }
 }
