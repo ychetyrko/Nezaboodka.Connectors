@@ -135,7 +135,9 @@ namespace Nezaboodka.ToSqlConnector
 
         public DatabaseAccessMode GetDatabaseAccessMode()
         {
-            throw new NotImplementedException();    // TODO
+            var request = new GetDatabaseAccessModeRequest();
+            var response = (GetDatabaseAccessModeResponse)ExecuteRequest(request);
+            return response.DatabaseAccessMode;
         }
 
         public DatabaseAccessMode SetDatabaseAccessMode(DatabaseAccessMode databaseAccessMode,
@@ -591,7 +593,6 @@ namespace Nezaboodka.ToSqlConnector
             var dbName = Const.AdministrationDatabaseName;
             if (!(request is AdministrationRequest) || request is RefreshDatabaseCryptoKeyRequest ||
                 request is GetDatabaseConfigurationRequest || request is AlterDatabaseConfigurationRequest ||
-                request is GetDatabaseAccessModeRequest || request is SetDatabaseAccessModeRequest ||
                 request is UnloadDatabaseRequest || request is LoadDatabaseRequest)
             {
                 dbName = DatabaseName;
@@ -621,10 +622,14 @@ namespace Nezaboodka.ToSqlConnector
                 }
                 else if (request is AlterDatabaseListRequest)
                 {
-                    AlterDatabaseListExec((AlterDatabaseListRequest)request, cmd);
+                    AlterDatabaseListExec((AlterDatabaseListRequest) request, cmd);
                     result = new AlterDatabaseListResponse(GetDatabaseNamesList(cmd));
                 }
-            }
+                else if (request is GetDatabaseAccessModeRequest)
+                {
+                    result = new GetDatabaseAccessModeResponse(GetDatabaseAccessModeExec(cmd));
+                }
+        }
             catch (MySqlException ex)
             {
                 throw new NezaboodkaException("Error occured while executing request.");
@@ -683,6 +688,21 @@ namespace Nezaboodka.ToSqlConnector
             return string.Join(",", names.Select(s => $"('{s}')"));
         }
 
+        private DatabaseAccessMode GetDatabaseAccessModeExec(MySqlCommand cmd)
+        {
+            cmd.CommandText = string.Format(RequestConsts.GetDatabaseAccessModeQuery, DatabaseName);
+            MySqlDataReader reader = cmd.ExecuteReader();
+
+            int result = (int)DatabaseAccessMode.NoAccess;
+            if (reader.Read())
+            {
+                result = reader.GetInt32("access");
+            }
+            reader.Close();
+            
+            return (DatabaseAccessMode) result;
+        }
+
     }
 
     internal static class Const   // TODO: move credentials to Protected Configuration
@@ -696,6 +716,7 @@ namespace Nezaboodka.ToSqlConnector
     internal static class RequestConsts
     {
         public static string GetDatabaseListQuery = "SELECT `name` FROM `db_list`";
+        public static string GetDatabaseAccessModeQuery = "SELECT `access` FROM `db_list` WHERE `name` = '{0}'";
 
         public static string RemoveDatabaseListPrepareQuery = "INSERT INTO `db_rem_list` (`name`) VALUES {0}";
         public static string AddDatabaseListPrepareQuery = "INSERT INTO `db_add_list` (`name`) VALUES {0}";

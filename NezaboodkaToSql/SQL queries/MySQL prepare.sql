@@ -12,13 +12,13 @@ USE `nezaboodka_admin`;
 
 /*********************************************
 	Databases list to store user rights:
-		0 - no access
-		1 - read only
-		2 - read-write
+		0 - ReadWrite
+		1 - ReadOnly
+        2 - NoAccess
 */
 CREATE TABLE `db_list`(
-	`name` VARCHAR(64) NOT NULL UNIQUE,
-	`access` TINYINT DEFAULT 2
+	`name` VARCHAR(64) NOT NULL UNIQUE PRIMARY KEY,
+	`access` TINYINT DEFAULT 0	/* ReadWrite access by default for any new database */
 );
 
 /*********************************************
