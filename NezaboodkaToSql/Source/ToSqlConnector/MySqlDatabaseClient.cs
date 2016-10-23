@@ -590,7 +590,7 @@ namespace Nezaboodka.ToSqlConnector
         private DatabaseResponse ExecuteRequestNoRetry(string serverAddress, DatabaseRequest request)
         {
             DatabaseResponse result = null;
-            var dbName = Const.AdministrationDatabaseName;
+            var dbName = Consts.AdministrationDatabaseName;
             if (!(request is AdministrationRequest) || request is RefreshDatabaseCryptoKeyRequest ||
                 request is GetDatabaseConfigurationRequest || request is AlterDatabaseConfigurationRequest ||
                 request is UnloadDatabaseRequest || request is LoadDatabaseRequest)
@@ -601,8 +601,8 @@ namespace Nezaboodka.ToSqlConnector
             MySqlConnectionStringBuilder conStringBuilder = new MySqlConnectionStringBuilder
             {
                 Server = serverAddress,
-                UserID = Const.MySqlUserId,
-                Password = Const.MySqlPass,
+                UserID = Consts.MySqlUserId,
+                Password = Consts.MySqlPass,
                 Database = dbName,
                 PersistSecurityInfo = false
             };
@@ -611,6 +611,8 @@ namespace Nezaboodka.ToSqlConnector
                 new MySqlConnection(conStringBuilder.GetConnectionString(true));
 
             MySqlCommand cmd = con.CreateCommand();
+            // TODO: make test for TimeOut
+            cmd.CommandTimeout = (TimeoutInMilliseconds == -1) ? 0 : TimeoutInMilliseconds;
 
             try
             {
@@ -618,20 +620,20 @@ namespace Nezaboodka.ToSqlConnector
 
                 if (request is GetDatabaseListRequest)
                 {
-                    result = new GetDatabaseListResponse(GetDatabaseNamesList(cmd));
+                    result = GetDatabaseListExec(cmd);
                 }
                 else if (request is AlterDatabaseListRequest)
                 {
-                    AlterDatabaseListExec((AlterDatabaseListRequest) request, cmd);
-                    result = new AlterDatabaseListResponse(GetDatabaseNamesList(cmd));
+                    result = AlterDatabaseListExec((AlterDatabaseListRequest) request, cmd);
                 }
                 else if (request is GetDatabaseAccessModeRequest)
                 {
-                    result = new GetDatabaseAccessModeResponse(GetDatabaseAccessModeExec(cmd));
+                    result = GetDatabaseAccessModeExec(cmd);
                 }
-        }
+            }
             catch (MySqlException ex)
             {
+                // TODO: return ErrorResponse or throw MySqlException further
                 throw new NezaboodkaException("Error occured while executing request.");
             }
             finally
@@ -644,27 +646,13 @@ namespace Nezaboodka.ToSqlConnector
 
         // Internal
         
-        private List<string> GetDatabaseNamesList(MySqlCommand cmd)
+        private DatabaseResponse GetDatabaseListExec(MySqlCommand cmd)
         {
-            cmd.CommandText = RequestConsts.GetDatabaseListQuery;
-
-            List<string> result = new List<string>();
-            MySqlDataReader rd = cmd.ExecuteReader();
-            while (rd.Read())
-            {
-                string row = string.Empty;
-                for (int i = 0; i < rd.FieldCount; ++i)
-                {
-                    row += rd.GetValue(i).ToString();
-                }
-                result.Add(row);
-            }
-            rd.Close();
-
-            return result;
+            var result = GetDatabaseNamesList(cmd);
+            return new GetDatabaseListResponse(result);
         }
-
-        private void AlterDatabaseListExec(AlterDatabaseListRequest request, MySqlCommand cmd)
+        
+        private DatabaseResponse AlterDatabaseListExec(AlterDatabaseListRequest request, MySqlCommand cmd)
         {
             if (request.DatabaseNamesToRemove != null)
             {
@@ -681,36 +669,78 @@ namespace Nezaboodka.ToSqlConnector
 
             cmd.CommandText = RequestConsts.AlterDatabaseListQuery;
             cmd.ExecuteNonQuery();
+
+            var result = GetDatabaseNamesList(cmd);
+            return new AlterDatabaseListResponse(result);
         }
 
-        private string FormatDatabaseList(IList<string> names)
+        private DatabaseResponse GetDatabaseAccessModeExec(MySqlCommand cmd)
+        {
+            DatabaseResponse result = null;
+            cmd.CommandText = string.Format(RequestConsts.GetDatabaseAccessModeQuery, DatabaseName);
+            MySqlDataReader reader = cmd.ExecuteReader();
+
+            int accessModeNumber = (int)DatabaseAccessMode.NoAccess;
+            bool hasRows = reader.HasRows;
+            if (hasRows)
+            {
+                reader.Read();
+                accessModeNumber = reader.GetInt32(Consts.AccessFieldName);
+            }
+            reader.Close();
+
+            if (hasRows)
+            {
+                var accessMode = (DatabaseAccessMode)accessModeNumber;
+                result = new GetDatabaseAccessModeResponse(accessMode);
+            }
+            else
+            {
+                result = new ErrorResponse()
+                {
+                    ErrorStatus = ErrorStatus.AvailabilityError,
+                    ErrorMessage = string.Format(ErrorMessageConsts.DatabaseNotFoundName, DatabaseName)
+                };
+            }
+
+            return result;
+        }
+
+        private List<string> GetDatabaseNamesList(MySqlCommand cmd)
+        {
+            cmd.CommandText = RequestConsts.GetDatabaseListQuery;
+
+            List<string> result = new List<string>();
+            MySqlDataReader rd = cmd.ExecuteReader();
+            while (rd.Read())
+            {
+                string row = rd.GetString(0);
+                result.Add(row);
+            }
+            rd.Close();
+
+            return result;
+        }
+
+        private static string FormatDatabaseList(IEnumerable<string> names)
         {
             return string.Join(",", names.Select(s => $"('{s}')"));
         }
 
-        private DatabaseAccessMode GetDatabaseAccessModeExec(MySqlCommand cmd)
-        {
-            cmd.CommandText = string.Format(RequestConsts.GetDatabaseAccessModeQuery, DatabaseName);
-            MySqlDataReader reader = cmd.ExecuteReader();
-
-            int result = (int)DatabaseAccessMode.NoAccess;
-            if (reader.Read())
-            {
-                result = reader.GetInt32("access");
-            }
-            reader.Close();
-            
-            return (DatabaseAccessMode) result;
-        }
-
     }
 
-    internal static class Const   // TODO: move credentials to Protected Configuration
+    internal static class Consts   // TODO: move credentials to Protected Configuration
     {
         public static string MySqlUserId = "nezaboodka_admin";
         public static string MySqlPass = "nezaboodka_pass";
 
         public static string AdministrationDatabaseName = "nezaboodka_admin";
+        public static string AccessFieldName = "access";
+    }
+
+    internal static class ErrorMessageConsts
+    {
+        public static string DatabaseNotFoundName = "Database {0} not found";
     }
 
     internal static class RequestConsts
