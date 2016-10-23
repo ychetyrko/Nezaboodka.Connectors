@@ -588,12 +588,21 @@ namespace Nezaboodka.ToSqlConnector
         private DatabaseResponse ExecuteRequestNoRetry(string serverAddress, DatabaseRequest request)
         {
             DatabaseResponse result = null;
+            var dbName = Const.AdministrationDatabaseName;
+            if (!(request is AdministrationRequest) || request is RefreshDatabaseCryptoKeyRequest ||
+                request is GetDatabaseConfigurationRequest || request is AlterDatabaseConfigurationRequest ||
+                request is GetDatabaseAccessModeRequest || request is SetDatabaseAccessModeRequest ||
+                request is UnloadDatabaseRequest || request is LoadDatabaseRequest)
+            {
+                dbName = DatabaseName;
+            }
+
             MySqlConnectionStringBuilder conStringBuilder = new MySqlConnectionStringBuilder
             {
                 Server = serverAddress,
                 UserID = Const.MySqlUserId,
                 Password = Const.MySqlPass,
-                Database = DatabaseName,
+                Database = dbName,
                 PersistSecurityInfo = false
             };
 
@@ -612,11 +621,7 @@ namespace Nezaboodka.ToSqlConnector
                 }
                 else if (request is AlterDatabaseListRequest)
                 {
-                    cmd.CommandText = RequestConsts.UseAdministrationDatabase;
-                    cmd.ExecuteNonQuery();
-
                     AlterDatabaseListExec((AlterDatabaseListRequest)request, cmd);
-
                     result = new AlterDatabaseListResponse(GetDatabaseNamesList(cmd));
                 }
             }
@@ -636,7 +641,7 @@ namespace Nezaboodka.ToSqlConnector
         
         private List<string> GetDatabaseNamesList(MySqlCommand cmd)
         {
-            cmd.CommandText = RequestConsts.DatabaseListRequest;
+            cmd.CommandText = RequestConsts.GetDatabaseListQuery;
 
             List<string> result = new List<string>();
             MySqlDataReader rd = cmd.ExecuteReader();
@@ -684,13 +689,13 @@ namespace Nezaboodka.ToSqlConnector
     {
         public static string MySqlUserId = "nezaboodka_admin";
         public static string MySqlPass = "nezaboodka_pass";
+
+        public static string AdministrationDatabaseName = "nezaboodka_admin";
     }
 
-    internal static class RequestConsts // TODO: make normal requests
+    internal static class RequestConsts
     {
-        public static string UseAdministrationDatabase = "USE nezaboodka_admin";
-
-        public static string DatabaseListRequest = "SHOW DATABASES";
+        public static string GetDatabaseListQuery = "SELECT `name` FROM `db_list`";
 
         public static string RemoveDatabaseListPrepareQuery = "INSERT INTO `db_rem_list` (`name`) VALUES {0}";
         public static string AddDatabaseListPrepareQuery = "INSERT INTO `db_add_list` (`name`) VALUES {0}";
