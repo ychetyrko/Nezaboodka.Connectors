@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
 {
@@ -20,7 +19,7 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
         public static string GetRandomDatabaseName(int length, string prefix, string allowedChars)
         {
             // as MySql gives you database names in lowercase
-            return prefix + GetRandomString(length-prefix.Length, allowedChars).ToLower();
+            return prefix + GetRandomString(length - prefix.Length, allowedChars).ToLower();
         }
 
         /// <summary>
@@ -36,7 +35,8 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
             var result = new List<string>();
             for (int i = 0; i < count; ++i)
             {
-                result.Add(GetRandomDatabaseName(nameLength, prefix, allowedChars));
+                string nextName = GetRandomDatabaseName(nameLength, prefix, allowedChars);
+                result.Add(nextName);
             }
             return result;
         }
@@ -45,8 +45,14 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
 
         private static string GetRandomString(int length, string alphabet)
         {
-            return new string(Enumerable.Repeat(alphabet, length)
-              .Select(s => s[random.Next(s.Length)]).ToArray());
+            char[] result = new char[length];
+            for (int i = 0; i < length; ++i)
+            {
+                int r = random.Next(alphabet.Length);
+                result[i] = alphabet[r];
+            }
+
+            return new String(result);
         }
 
         // Constants
