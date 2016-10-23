@@ -14,23 +14,27 @@ namespace Nezaboodka.MySqlClient.UnitTests
         {
             var client = new MySqlDatabaseClient("localhost", null, null);
 
-            var alterList = DatabaseNamesGenerator.RandomDatabaseNames(3, 10, "nz_");
+            var alterList = DatabaseNamesGenerator.RandomDatabaseNames(3, 15, "nz_");
             var databaseNames = client.GetDatabaseList();
+
+            HashSet<string> removeExpectedResult = new HashSet<string>(databaseNames);
+            var addExpectedResult = new HashSet<string>(removeExpectedResult);
             foreach (string name in alterList)
             {
-                databaseNames.Add(name);
+                addExpectedResult.Add(name);
             }
-
-            HashSet<string> expectedResult = new HashSet<string>(databaseNames);
-            var actualResult = client.AlterDatabaseList(alterList, null);
 
             try
             {
-                Assert.IsTrue(expectedResult.SetEquals(actualResult));
+                var actualResult = client.AlterDatabaseList(alterList, null);
+                Assert.IsTrue(addExpectedResult.SetEquals(actualResult));
+
+                actualResult = client.AlterDatabaseList(null, alterList);
+                Assert.IsTrue(removeExpectedResult.SetEquals(actualResult));
             }
             finally
             {
-                client.AlterDatabaseList(null, alterList);  // remove added databases
+                // TODO: clear environment here
             }
         }
     }
