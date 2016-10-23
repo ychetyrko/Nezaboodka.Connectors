@@ -130,7 +130,7 @@ namespace Nezaboodka.ToSqlConnector
 
         public DatabaseConfiguration AlterDatabaseConfiguration(DatabaseConfiguration databaseConfiguration)
         {
-            throw new NotImplementedException();
+            throw new NotImplementedException();    // TODO: <!> translate DatabaseConfiguration
         }
 
         public DatabaseAccessMode GetDatabaseAccessMode()
@@ -143,7 +143,7 @@ namespace Nezaboodka.ToSqlConnector
         public DatabaseAccessMode SetDatabaseAccessMode(DatabaseAccessMode databaseAccessMode,
             bool createDatabaseSnapshot)
         {
-            throw new NotImplementedException();    // TODO
+            throw new NotImplementedException();    // TODO: implement SetDatabaseAccessMode
         }
 
         public void UnloadDatabase()
@@ -168,7 +168,7 @@ namespace Nezaboodka.ToSqlConnector
 
         public void CleanupRemovedDatabases()
         {
-            // don't need cleanup
+            // TODO: remove databases only from db_list, move them to db_cleanup_list, then cleanup by request
         }
 
         // Database
@@ -276,7 +276,7 @@ namespace Nezaboodka.ToSqlConnector
 
         public IList<QueryResult> SaveObjectsInQueries(IList<SaveQuery> queries)
         {
-            throw new NotImplementedException(); // TODO: implement SaveObjectsInQueries
+            throw new NotImplementedException();
             //var request = new SaveObjectsRequest(queries);
             //foreach (SaveQuery query in queries)
             //    for (int i = 0; i < query.InObjects.Count; i++)
@@ -353,7 +353,7 @@ namespace Nezaboodka.ToSqlConnector
 
         public IList<DeleteResult> DeleteObjectsInQueries(IList<DeleteQuery> queries)
         {
-            throw new NotImplementedException(); // TODO: implement DeleteObjectsInQueries
+            throw new NotImplementedException();
             //var request = new DeleteObjectsRequest(queries);
             //var response = (DeleteObjectsResponse)ExecuteRequest(request);
             //return response.Results;
@@ -409,7 +409,7 @@ namespace Nezaboodka.ToSqlConnector
 
         public IList<QueryResult> GetObjectsInQueries(IList<GetQuery> queries)
         {
-            throw new NotImplementedException(); // TODO: implement GetObjectsInQueries
+            throw new NotImplementedException();
             //var request = new GetObjectsRequest(queries);
             //var response = (GetObjectsResponse)ExecuteRequest(request);
             //return response.Results;
@@ -468,7 +468,7 @@ namespace Nezaboodka.ToSqlConnector
 
         public IList<QueryResult> LookupObjectsInQueries(IList<LookupQuery> queries)
         {
-            throw new NotImplementedException(); // TODO: implement LookupObjectsInQueries
+            throw new NotImplementedException();
             //var request = new LookupObjectsRequest(queries);
             //var response = (LookupObjectsResponse)ExecuteRequest(request);
             //return response.Results;
@@ -481,7 +481,7 @@ namespace Nezaboodka.ToSqlConnector
 
         public IList<QueryResult> SearchObjects(IList<SearchQuery> queries)
         {
-            throw new NotImplementedException(); // TODO: implement SearchObjects
+            throw new NotImplementedException();
             //var request = new SearchObjectsRequest(queries);
             //var response = (SearchObjectsResponse)ExecuteRequest(request);
             //return response.Results;
@@ -522,7 +522,7 @@ namespace Nezaboodka.ToSqlConnector
             int searchLimit, string forVar, FileObject after, string where, string having,
             IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn, FileRange fileRange)
         {
-            throw new NotImplementedException(); // TODO: implement CreateSearchFilesQuery
+            throw new NotImplementedException();
         }
 
         // ExecuteRequest
@@ -633,8 +633,12 @@ namespace Nezaboodka.ToSqlConnector
             }
             catch (MySqlException ex)
             {
-                // TODO: return ErrorResponse or throw MySqlException further
-                throw new NezaboodkaException("Error occured while executing request.");
+                // TODO: separate TimeoutException handling
+                //result = new ErrorResponse()
+                //{
+                //    ErrorStatus = ErrorStatus.Timeout
+                //};
+                throw new NezaboodkaException(ex.Message);
             }
             finally
             {
