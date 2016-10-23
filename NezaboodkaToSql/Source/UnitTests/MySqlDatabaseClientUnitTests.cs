@@ -14,7 +14,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
         {
             var client = new MySqlDatabaseClient("localhost", null, null);
 
-            var alterList = DatabaseNamesGenerator.RandomDatabaseNames(3, 15, "nz_");
+            var alterList = DatabaseNamesGenerator.GetRandomDatabaseNamesList(3, 15, "nz_");
             var databaseNames = client.GetDatabaseList();
 
             HashSet<string> removeExpectedResult = new HashSet<string>(databaseNames);
@@ -37,5 +37,28 @@ namespace Nezaboodka.MySqlClient.UnitTests
                 // TODO: clear environment here
             }
         }
+
+        [TestMethod]
+        public void GetDatabaseAccessModeNewDatabaseTest()
+        {
+            DatabaseAccessMode expectedResult = DatabaseAccessMode.ReadWrite;
+
+            var adminClient = new MySqlDatabaseClient("localhost", null, null);
+            var dbName = DatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
+            var dbList = new List<string>() { dbName };
+            adminClient.AlterDatabaseList(dbList, null);
+
+            var client = new MySqlDatabaseClient("localhost", dbName, null);
+            DatabaseAccessMode actualResult = client.GetDatabaseAccessMode();
+            try
+            {
+                Assert.AreEqual(expectedResult, actualResult);
+            }
+            finally
+            {
+                adminClient.AlterDatabaseList(null, dbList);
+            }
+        }
+
     }
 }

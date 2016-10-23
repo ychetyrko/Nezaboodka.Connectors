@@ -1,13 +1,17 @@
 /*********************************************
+
 	Create Nezaboodka administrative database
 		and grant all rights to nezaboodka user for it
+        
 **********************************************/
 
 CREATE DATABASE IF NOT EXISTS `nezaboodka_admin`;
 USE `nezaboodka_admin`;
 
 /*********************************************
-		Preparing administrative table
+
+	Prepare administrative database tables
+        
 **********************************************/
 
 /*********************************************
@@ -18,7 +22,8 @@ USE `nezaboodka_admin`;
 */
 CREATE TABLE `db_list`(
 	`name` VARCHAR(64) NOT NULL UNIQUE PRIMARY KEY,
-	`access` TINYINT DEFAULT 0	/* ReadWrite access by default for any new database */
+	`access` TINYINT DEFAULT 0
+    /* set 'ReadWrite' access by default for any new database */
 );
 
 /*********************************************
@@ -35,16 +40,18 @@ CREATE TABLE `db_rem_list`(
 	`name` VARCHAR(64) NOT NULL UNIQUE
 );
 
-/*********************************************
-	Trigger on creating database
-*/
 
 /*********************************************
-	Stored procedures to effectively
-		add/remove databases
-*/
+
+		Stored procedures and functions
+        
+**********************************************/
+
 DELIMITER //
 
+/*********************************************
+	Effectively alter database list
+*/
 CREATE PROCEDURE remove_databases ()
 BEGIN
 	DECLARE done INT DEFAULT FALSE;
@@ -114,23 +121,34 @@ BEGIN
     CALL add_databases();
 END //
 
+/*
+	Protocol for altering database list:
+    
+	1. fill `db_rem_list` and `db_add_list` tables with database names;
+	2. call `alter_database_list`
+		(or add_databases / remove_databases separately)
+        
+**********************************************/
+
+/*********************************************
+	TODO: other stored procedures...
+*/
+
 DELIMITER ;
 
-/*********************************************
-	TODO: everything...
-*/
-
-
+/******************************************************************************/
 
 /*********************************************
-	Create Nezaboodka users
-		and grant rights for databases
-*/
+
+		Create Nezaboodka users
+			and grant rights for databases
+        
+**********************************************/
 
 CREATE USER 'nezaboodka_admin'@'%' IDENTIFIED BY  'nezaboodka' password expire;
 GRANT ALL ON *.* TO 'nezaboodka_admin'@'%';
 
-/*	Localhost users	*/
+/*	Localhost user	*/
 CREATE USER 'nezaboodka_admin'@'localhost' IDENTIFIED BY  'nezaboodka' password expire;
 GRANT ALL ON *.* TO 'nezaboodka_admin'@'localhost';
 

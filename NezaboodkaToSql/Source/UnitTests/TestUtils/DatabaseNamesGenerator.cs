@@ -15,8 +15,8 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
         /// <param name="length">Length of name</param>
         /// <param name="prefix">Name prefix</param>
         /// <param name="allowedChars">Characters used for generating random string</param>
-        /// <returns></returns>
-        public static string GetRandomDatabaseName(int length, string prefix, string allowedChars)
+        /// <returns>Random database name</returns>
+        public static string GetRandomDatabaseName(int length, string prefix, string allowedChars = Constants.DefaultAlphabet)
         {
             // as MySql gives you database names in lowercase
             return prefix + GetRandomString(length - prefix.Length, allowedChars).ToLower();
@@ -29,8 +29,8 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
         /// <param name="nameLength">Length of each name</param>
         /// <param name="prefix">Prefix to add to each name</param>
         /// <param name="allowedChars">Characters used for generating random string</param>
-        /// <returns></returns>
-        public static List<string> RandomDatabaseNames(int count, int nameLength, string prefix, string allowedChars = Constants.DefaultAlphabet)
+        /// <returns>List of random database names</returns>
+        public static List<string> GetRandomDatabaseNamesList(int count, int nameLength, string prefix, string allowedChars = Constants.DefaultAlphabet)
         {
             var result = new List<string>();
             for (int i = 0; i < count; ++i)
