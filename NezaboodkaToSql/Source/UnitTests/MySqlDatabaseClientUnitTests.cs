@@ -60,5 +60,13 @@ namespace Nezaboodka.MySqlClient.UnitTests
             }
         }
 
+        [TestMethod]
+        [ExpectedException(typeof(NezaboodkaAvailabilityException))]
+        public void GetDatabaseAccessModeDatabaseNotExistsTest()
+        {
+            var dbName = DatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
+            var client = new MySqlDatabaseClient("localhost", dbName, null);
+            client.GetDatabaseAccessMode();
+        }
     }
 }
