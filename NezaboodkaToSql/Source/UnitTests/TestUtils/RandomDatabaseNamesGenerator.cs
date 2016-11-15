@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
 {
-    static class DatabaseNamesGenerator
+    static class RandomDatabaseNamesGenerator
     {
         private static readonly Random random = new Random();
 

@@ -14,7 +14,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
         {
             var client = new MySqlDatabaseClient("localhost", null, null);
 
-            var alterList = DatabaseNamesGenerator.GetRandomDatabaseNamesList(3, 15, "nz_");
+            var alterList = RandomDatabaseNamesGenerator.GetRandomDatabaseNamesList(3, 15, "nz_");
             var databaseNames = client.GetDatabaseList();
 
             HashSet<string> removeExpectedResult = new HashSet<string>(databaseNames);
@@ -44,7 +44,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
             DatabaseAccessMode expectedResult = DatabaseAccessMode.ReadWrite;
 
             var adminClient = new MySqlDatabaseClient("localhost", null, null);
-            var dbName = DatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
+            var dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
             var dbList = new List<string>() { dbName };
             adminClient.AlterDatabaseList(dbList, null);
 
@@ -64,7 +64,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
         [ExpectedException(typeof(NezaboodkaAvailabilityException))]
         public void GetDatabaseAccessModeDatabaseNotExistsTest()
         {
-            var dbName = DatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
+            var dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
             var client = new MySqlDatabaseClient("localhost", dbName, null);
             client.GetDatabaseAccessMode();
         }
