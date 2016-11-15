@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -13,6 +14,9 @@ namespace Nezaboodka.ToSqlConnector
     {
         private static readonly Random RandomAddressGenerator = new Random();
         private static readonly Random RandomDelayGenerator = new Random();
+
+        private static Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>> _requestExec =
+            new Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>>();
 
         // Public
 
@@ -49,6 +53,8 @@ namespace Nezaboodka.ToSqlConnector
             string databaseName, ClientTypeBinder typeBinder, int timeoutInMilliseconds, int retryLimit,
             int maxDelayBeforeRetryInMilliseconds)
         {
+            RegisterRequests();
+
             FileContentHandler = new FileContentHandler();
             ServerAddresses = new ReadOnlyCollection<string>(serverAddresses);
             ServerAddressSelectionMode = serverAddressSelectionMode;
@@ -74,6 +80,8 @@ namespace Nezaboodka.ToSqlConnector
 
         public MySqlDatabaseClient(MySqlDatabaseClient existing, ClientTypeBinder typeBinder)
         {
+            RegisterRequests();
+
             FileContentHandler = existing.FileContentHandler;
             ServerAddresses = existing.ServerAddresses;
             ServerAddressSelectionMode = existing.ServerAddressSelectionMode;
@@ -617,19 +625,11 @@ namespace Nezaboodka.ToSqlConnector
             try
             {
                 con.Open();
-
-                if (request is GetDatabaseListRequest)
-                {
-                    result = GetDatabaseListExec(cmd);
-                }
-                else if (request is AlterDatabaseListRequest)
-                {
-                    result = AlterDatabaseListExec((AlterDatabaseListRequest) request, cmd);
-                }
-                else if (request is GetDatabaseAccessModeRequest)
-                {
-                    result = GetDatabaseAccessModeExec(cmd);
-                }
+                result = _requestExec[request.GetType()].Invoke(request, cmd);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                throw new NezaboodkaException(ex.Message);
             }
             catch (MySqlException ex)
             {
@@ -649,36 +649,53 @@ namespace Nezaboodka.ToSqlConnector
         }
 
         // Internal
-        
-        private DatabaseResponse GetDatabaseListExec(MySqlCommand cmd)
+
+        private void RegisterRequests()
         {
-            var result = GetDatabaseNamesList(cmd);
+            _requestExec.Add(typeof(GetDatabaseListRequest), GetDatabaseListExec);
+            _requestExec.Add(typeof(AlterDatabaseListRequest), AlterDatabaseListExec);
+            _requestExec.Add(typeof(GetDatabaseAccessModeRequest), GetDatabaseAccessModeExec);
+        }
+
+        private DatabaseResponse GetDatabaseListExec(DatabaseRequest request, MySqlCommand cmd)
+        {
+            cmd.CommandText = RequestConsts.GetDatabaseListQuery;
+            MySqlDataReader reader = cmd.ExecuteReader();
+            
+            var result = ReadDatabaseNamesList(reader);
             return new GetDatabaseListResponse(result);
         }
         
-        private DatabaseResponse AlterDatabaseListExec(AlterDatabaseListRequest request, MySqlCommand cmd)
+        private DatabaseResponse AlterDatabaseListExec(DatabaseRequest request, MySqlCommand cmd)
         {
-            if (request.DatabaseNamesToRemove != null)
+            AlterDatabaseListRequest realRequest = request as AlterDatabaseListRequest;
+            if (realRequest == null)
             {
-                cmd.CommandText = string.Format(RequestConsts.RemoveDatabaseListPrepareQuery,
-                    FormatDatabaseList(request.DatabaseNamesToRemove));
-                cmd.ExecuteNonQuery();
+                return new DatabaseResponse();
             }
 
-            if (request.DatabaseNamesToAdd != null) {
-                cmd.CommandText = string.Format(RequestConsts.AddDatabaseListPrepareQuery,
-                    FormatDatabaseList(request.DatabaseNamesToAdd));
-                cmd.ExecuteNonQuery();
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = string.Empty;
+
+            if (realRequest.DatabaseNamesToRemove != null)
+            {
+                cmd.CommandText += string.Format(RequestConsts.RemoveDatabaseListPrepareQuery,
+                    FormatDatabaseList(realRequest.DatabaseNamesToRemove));
             }
 
-            cmd.CommandText = RequestConsts.AlterDatabaseListQuery;
-            cmd.ExecuteNonQuery();
+            if (realRequest.DatabaseNamesToAdd != null) {
+                cmd.CommandText += string.Format(RequestConsts.AddDatabaseListPrepareQuery,
+                    FormatDatabaseList(realRequest.DatabaseNamesToAdd));
+            }
 
-            var result = GetDatabaseNamesList(cmd);
+            cmd.CommandText += RequestConsts.AlterDatabaseListQuery;
+            MySqlDataReader reader = cmd.ExecuteReader();
+
+            var result = ReadDatabaseNamesList(reader);
             return new AlterDatabaseListResponse(result);
         }
 
-        private DatabaseResponse GetDatabaseAccessModeExec(MySqlCommand cmd)
+        private DatabaseResponse GetDatabaseAccessModeExec(DatabaseRequest request, MySqlCommand cmd)
         {
             DatabaseResponse result = null;
             cmd.CommandText = string.Format(RequestConsts.GetDatabaseAccessModeQuery, DatabaseName);
@@ -709,20 +726,16 @@ namespace Nezaboodka.ToSqlConnector
 
             return result;
         }
-
-        private List<string> GetDatabaseNamesList(MySqlCommand cmd)
+        
+        private List<string> ReadDatabaseNamesList(MySqlDataReader reader)
         {
-            cmd.CommandText = RequestConsts.GetDatabaseListQuery;
-
             List<string> result = new List<string>();
-            MySqlDataReader rd = cmd.ExecuteReader();
-            while (rd.Read())
+            while (reader.Read())
             {
-                string row = rd.GetString(0);
+                string row = reader.GetString(0);
                 result.Add(row);
             }
-            rd.Close();
-
+            reader.Close();
             return result;
         }
 
@@ -735,25 +748,25 @@ namespace Nezaboodka.ToSqlConnector
 
     internal static class Consts   // TODO: move credentials to Protected Configuration
     {
-        public static string MySqlUserId = "nezaboodka_admin";
-        public static string MySqlPass = "nezaboodka_pass";
+        public static string MySqlUserId => "nz_admin";
+        public static string MySqlPass => "nezaboodka";
 
-        public static string AdministrationDatabaseName = "nezaboodka_admin";
-        public static string AccessFieldName = "access";
+        public static string AdministrationDatabaseName => "nz_admin_db";
+        public static string AccessFieldName => "access";
     }
 
     internal static class ErrorMessageConsts
     {
-        public static string DatabaseNotFoundName = "Database {0} not found";
+        public static string DatabaseNotFoundName => "Database {0} not found";
     }
 
     internal static class RequestConsts
     {
-        public static string GetDatabaseListQuery = "SELECT `name` FROM `db_list`";
-        public static string GetDatabaseAccessModeQuery = "SELECT `access` FROM `db_list` WHERE `name` = '{0}'";
+        public static string GetDatabaseListQuery => "SELECT `name` FROM `db_list`;";
+        public static string GetDatabaseAccessModeQuery => "SELECT `access` FROM `db_list` WHERE `name` = '{0}';";
 
-        public static string RemoveDatabaseListPrepareQuery = "INSERT INTO `db_rem_list` (`name`) VALUES {0}";
-        public static string AddDatabaseListPrepareQuery = "INSERT INTO `db_add_list` (`name`) VALUES {0}";
-        public static string AlterDatabaseListQuery = "CALL alter_database_list()";
+        public static string RemoveDatabaseListPrepareQuery => "INSERT INTO `db_rem_list` (`name`) VALUES {0};";
+        public static string AddDatabaseListPrepareQuery => "INSERT INTO `db_add_list` (`name`) VALUES {0};";
+        public static string AlterDatabaseListQuery => "CALL alter_database_list();";
     }
 }

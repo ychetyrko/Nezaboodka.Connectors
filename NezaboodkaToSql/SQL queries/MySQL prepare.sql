@@ -5,8 +5,8 @@
         
 **********************************************/
 
-CREATE DATABASE IF NOT EXISTS `nezaboodka_admin`;
-USE `nezaboodka_admin`;
+CREATE DATABASE IF NOT EXISTS `nz_admin_db`;
+USE `nz_admin_db`;
 
 /*********************************************
 
@@ -20,8 +20,9 @@ USE `nezaboodka_admin`;
 		1 - ReadOnly
         2 - NoAccess
 */
+DROP TABLE IF EXISTS `db_list`;
 CREATE TABLE `db_list`(
-	`name` VARCHAR(64) NOT NULL UNIQUE PRIMARY KEY,
+	`name` VARCHAR(64) PRIMARY KEY NOT NULL UNIQUE,
 	`access` TINYINT DEFAULT 0
     /* set 'ReadWrite' access by default for any new database */
 );
@@ -29,6 +30,7 @@ CREATE TABLE `db_list`(
 /*********************************************
 	List of databases to add
 */
+DROP TABLE IF EXISTS `db_add_list`;
 CREATE TABLE `db_add_list`(
 	`name` VARCHAR(64) NOT NULL UNIQUE
 );
@@ -36,6 +38,7 @@ CREATE TABLE `db_add_list`(
 /*********************************************
 	List of databases to remove
 */
+DROP TABLE IF EXISTS `db_rem_list`;
 CREATE TABLE `db_rem_list`(
 	`name` VARCHAR(64) NOT NULL UNIQUE
 );
@@ -50,8 +53,19 @@ CREATE TABLE `db_rem_list`(
 DELIMITER //
 
 /*********************************************
+	Prepare empty database for work
+*/
+DROP PROCEDURE IF EXISTS prepare_db //
+CREATE PROCEDURE prepare_db(db_name VARCHAR(64))
+BEGIN
+	# TODO: create `type` and `field` tables
+END //
+
+
+/*********************************************
 	Effectively alter database list
 */
+DROP PROCEDURE IF EXISTS remove_databases //
 CREATE PROCEDURE remove_databases ()
 BEGIN
 	DECLARE done INT DEFAULT FALSE;
@@ -82,6 +96,7 @@ BEGIN
     TRUNCATE TABLE db_rem_list;
 END //
 
+DROP PROCEDURE IF EXISTS add_databases //
 CREATE PROCEDURE add_databases ()
 BEGIN
 	DECLARE done INT DEFAULT FALSE;
@@ -108,6 +123,8 @@ BEGIN
         PREPARE procPrep FROM @prepStr;
         EXECUTE procPrep;
         DEALLOCATE PREPARE procPrep;
+        
+        CALL prepare_db(db_name);
     END LOOP;
     
     CLOSE cur;
@@ -115,10 +132,13 @@ BEGIN
     TRUNCATE TABLE db_add_list;
 END //
 
+DROP PROCEDURE IF EXISTS alter_database_list //
 CREATE PROCEDURE alter_database_list ()
 BEGIN
 	CALL remove_databases();
     CALL add_databases();
+    
+    SELECT `name` FROM `db_list`;
 END //
 
 /*
@@ -127,7 +147,7 @@ END //
 	1. fill `db_rem_list` and `db_add_list` tables with database names;
 	2. call `alter_database_list`
 		(or add_databases / remove_databases separately)
-        
+	
 **********************************************/
 
 /*********************************************
@@ -145,11 +165,11 @@ DELIMITER ;
         
 **********************************************/
 
-CREATE USER 'nezaboodka_admin'@'%' IDENTIFIED BY  'nezaboodka' password expire;
-GRANT ALL ON *.* TO 'nezaboodka_admin'@'%';
+CREATE USER `nz_admin`@'%' IDENTIFIED BY  'nezaboodka';
+GRANT ALL ON *.* TO `nz_admin`@'%';
 
 /*	Localhost user	*/
-CREATE USER 'nezaboodka_admin'@'localhost' IDENTIFIED BY  'nezaboodka' password expire;
-GRANT ALL ON *.* TO 'nezaboodka_admin'@'localhost';
+CREATE USER `nz_admin`@'localhost' IDENTIFIED BY  'nezaboodka';
+GRANT ALL ON *.* TO `nz_admin`@'localhost';
 
 FLUSH PRIVILEGES;
