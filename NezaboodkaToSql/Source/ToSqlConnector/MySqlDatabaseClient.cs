@@ -15,7 +15,7 @@ namespace Nezaboodka.ToSqlConnector
         private static readonly Random RandomAddressGenerator = new Random();
         private static readonly Random RandomDelayGenerator = new Random();
 
-        private static Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>> _requestExec =
+        private Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>> _requestExec =
             new Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>>();
 
         // Public
