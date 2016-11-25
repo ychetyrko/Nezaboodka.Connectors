@@ -47,12 +47,15 @@
     </When>
     <Otherwise>
       <ItemGroup>
-        <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework" />
+        <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework">
+          <Private>False</Private>
+        </Reference>
       </ItemGroup>
     </Otherwise>
   </Choose>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="DbQueryBuilderTests.cs" />
     <Compile Include="MySqlDatabaseClientUnitTests.cs" />
     <Compile Include="TestUtils\RandomDatabaseNamesGenerator.cs" />
   </ItemGroup>

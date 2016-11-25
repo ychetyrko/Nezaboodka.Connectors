@@ -46,7 +46,7 @@
   <ItemGroup>
     <Compile Include="MySqlDatabaseClient.cs" />
     <Compile Include="AssemblyInfo.cs" />
-    <Compile Include="DbQueries.cs" />
+    <Compile Include="DbQueryBuilder.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Libraries\Source\Client\Nezaboodka.Client.csproj">
