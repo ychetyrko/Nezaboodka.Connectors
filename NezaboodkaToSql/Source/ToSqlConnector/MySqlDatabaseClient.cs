@@ -137,7 +137,9 @@ namespace Nezaboodka.ToSqlConnector
 
         public DatabaseConfiguration AlterDatabaseConfiguration(DatabaseConfiguration databaseConfiguration)
         {
-            throw new NotImplementedException();    // TODO: <!> translate DatabaseConfiguration
+            var request = new AlterDatabaseConfigurationRequest(databaseConfiguration);
+            var response = (AlterDatabaseConfigurationResponse)ExecuteRequest(request);
+            return response.DatabaseConfiguration;
         }
 
         public DatabaseAccessMode GetDatabaseAccessMode()
@@ -668,6 +670,7 @@ namespace Nezaboodka.ToSqlConnector
             _requestExec.Add(typeof(GetDatabaseListRequest), GetDatabaseListExec);
             _requestExec.Add(typeof(AlterDatabaseListRequest), AlterDatabaseListExec);
             _requestExec.Add(typeof(GetDatabaseAccessModeRequest), GetDatabaseAccessModeExec);
+            _requestExec.Add(typeof(AlterDatabaseConfigurationRequest), AlterDatabaseConfigurationExec);
         }
 
         private DatabaseResponse GetDatabaseListExec(DatabaseRequest request, MySqlCommand cmd)
@@ -739,6 +742,35 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
+        private DatabaseResponse AlterDatabaseConfigurationExec(DatabaseRequest request, MySqlCommand cmd)
+        {
+            AlterDatabaseConfigurationRequest realRequest = request as AlterDatabaseConfigurationRequest;
+
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = string.Empty;
+
+            // !!! only writes schema --> NO MERGE
+            // TODO: enable MERGE schema
+            // TODO: add SecondaryIndexDefinitions & ReferentialIntexDefinitions
+
+            var newSchema = realRequest.DatabaseConfiguration.DatabaseSchema;
+
+            cmd.CommandText = DbQueryBuilder.AlterDatabaseSchemaQuery(DatabaseName, newSchema.TypeDefinitions);
+            cmd.ExecuteNonQuery();
+
+            //var result = new AlterDatabaseConfigurationResponse()
+            //{
+            //    DatabaseConfiguration = newConfig;
+            //};
+            var result = new ErrorResponse()
+            {
+                ErrorStatus = ErrorStatus.Success,
+                ErrorMessage = "Query is built"
+            };
+            return result;
+        }
+
+        // Readers
 
         private List<string> ReadDatabaseNamesList(MySqlDataReader reader)
         {
