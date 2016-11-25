@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using MySql.Data.MySqlClient;
 
@@ -667,7 +666,7 @@ namespace Nezaboodka.ToSqlConnector
         {
             cmd.CommandType = CommandType.Text;
 
-            cmd.CommandText = RequestConsts.GetDatabaseListQuery;
+            cmd.CommandText = DbQueries.GetDatabaseListQuery;
             MySqlDataReader reader = cmd.ExecuteReader();
             
             var result = ReadDatabaseNamesList(reader);
@@ -683,16 +682,14 @@ namespace Nezaboodka.ToSqlConnector
 
             if (realRequest.DatabaseNamesToRemove != null)
             {
-                cmd.CommandText += string.Format(RequestConsts.RemoveDatabaseListPrepareQuery,
-                    FormatDatabaseNamesList(realRequest.DatabaseNamesToRemove));
+                cmd.CommandText += DbQueries.RemoveDatabaseListPrepareQuery(realRequest.DatabaseNamesToRemove);
             }
 
             if (realRequest.DatabaseNamesToAdd != null) {
-                cmd.CommandText += string.Format(RequestConsts.AddDatabaseListPrepareQuery,
-                    FormatDatabaseNamesList(realRequest.DatabaseNamesToAdd));
+                cmd.CommandText += DbQueries.AddDatabaseListPrepareQuery(realRequest.DatabaseNamesToAdd);
             }
 
-            cmd.CommandText += RequestConsts.AlterDatabaseListQuery;
+            cmd.CommandText += DbQueries.AlterDatabaseListQuery;
             MySqlDataReader reader = cmd.ExecuteReader();
 
             var result = ReadDatabaseNamesList(reader);
@@ -705,7 +702,7 @@ namespace Nezaboodka.ToSqlConnector
             cmd.CommandText = string.Empty;
 
             DatabaseResponse result = null;
-            cmd.CommandText = string.Format(RequestConsts.GetDatabaseAccessModeQuery, DatabaseName);
+            cmd.CommandText = DbQueries.GetDatabaseAccessModeQuery(DatabaseName);
             MySqlDataReader reader = cmd.ExecuteReader();
 
             int accessModeNumber = (int)DatabaseAccessMode.NoAccess;
@@ -747,12 +744,6 @@ namespace Nezaboodka.ToSqlConnector
             reader.Close();
             return result;
         }
-
-        private static string FormatDatabaseNamesList(IEnumerable<string> names)
-        {
-            return string.Join(",", names.Select(s => $"('{s}')"));
-        }
-
     }
 
     internal static class Consts   // TODO: move credentials to Protected Configuration
@@ -769,11 +760,6 @@ namespace Nezaboodka.ToSqlConnector
         public static string DatabaseNotFoundName(string dbName)
         {
             return "Database " + dbName + " not found";
-        } 
-
-        public static string BadRequestType(Type expected, Type received)
-        {
-            return "Internal client error. Bad request type:" + expected + " expected, got " + received;
         }
     }
 }
