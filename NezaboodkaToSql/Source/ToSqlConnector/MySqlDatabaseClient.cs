@@ -15,7 +15,7 @@ namespace Nezaboodka.ToSqlConnector
         private static readonly Random RandomAddressGenerator = new Random();
         private static readonly Random RandomDelayGenerator = new Random();
 
-        private Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>> _requestExec =
+        private readonly Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>> _requestExec =
             new Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>>();
 
         // Public
@@ -177,6 +177,7 @@ namespace Nezaboodka.ToSqlConnector
         public void CleanupRemovedDatabases()
         {
             // TODO: remove databases only from db_list, move them to db_cleanup_list, then cleanup by request
+            throw new NotImplementedException();
         }
 
         // Database
@@ -499,11 +500,13 @@ namespace Nezaboodka.ToSqlConnector
 
         public FileObject GetFile(string fileName)
         {
-            FileObject result = null;
-            IList results = SearchFiles(fileName, null, 1, null, null, null, null, null, null);
-            if (results != null && results.Count == 1)
-                result = results[0] as FileObject;
-            return result;
+            throw new NotImplementedException();
+
+            //FileObject result = null;
+            //IList results = SearchFiles(fileName, null, 1, null, null, null, null, null, null);
+            //if (results != null && results.Count == 1)
+            //    result = results[0] as FileObject;
+            //return result;
         }
 
         public IList SearchFiles(string fileMaskToMatch, int searchLimit, FileObject startAfter,
@@ -517,13 +520,15 @@ namespace Nezaboodka.ToSqlConnector
             string forVar, FileObject after, string where, string having,
             IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn)
         {
-            var fileRange = new FileRange();
-            SearchQuery query = CreateSearchFilesQuery(fileMaskToMatch, fileMaskToNotMatch, searchLimit,
-                forVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
-            var queries = new SearchQuery[] {query};
-            var request = new SearchObjectsRequest(queries);
-            var response = (SearchObjectsResponse) ExecuteRequest(request);
-            return response.Results[0].Objects;
+            throw new NotImplementedException();
+
+            //var fileRange = new FileRange();
+            //SearchQuery query = CreateSearchFilesQuery(fileMaskToMatch, fileMaskToNotMatch, searchLimit,
+            //    forVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
+            //var queries = new SearchQuery[] {query};
+            //var request = new SearchObjectsRequest(queries);
+            //var response = (SearchObjectsResponse) ExecuteRequest(request);
+            //return response.Results[0].Objects;
         }
 
         public SearchQuery CreateSearchFilesQuery(string fileMaskToMatch, string fileMaskToNotMatch,
@@ -619,8 +624,9 @@ namespace Nezaboodka.ToSqlConnector
                 new MySqlConnection(conStringBuilder.GetConnectionString(true));
 
             MySqlCommand cmd = con.CreateCommand();
+
             // TODO: make test for TimeOut
-            cmd.CommandTimeout = (TimeoutInMilliseconds == -1) ? 0 : TimeoutInMilliseconds;
+            cmd.CommandTimeout = (TimeoutInMilliseconds == Timeout.Infinite) ? 0 : TimeoutInMilliseconds;
 
             try
             {
@@ -659,6 +665,8 @@ namespace Nezaboodka.ToSqlConnector
 
         private DatabaseResponse GetDatabaseListExec(DatabaseRequest request, MySqlCommand cmd)
         {
+            cmd.CommandType = CommandType.Text;
+
             cmd.CommandText = RequestConsts.GetDatabaseListQuery;
             MySqlDataReader reader = cmd.ExecuteReader();
             
@@ -669,10 +677,6 @@ namespace Nezaboodka.ToSqlConnector
         private DatabaseResponse AlterDatabaseListExec(DatabaseRequest request, MySqlCommand cmd)
         {
             AlterDatabaseListRequest realRequest = request as AlterDatabaseListRequest;
-            if (realRequest == null)
-            {
-                return new DatabaseResponse();
-            }
 
             cmd.CommandType = CommandType.Text;
             cmd.CommandText = string.Empty;
@@ -680,12 +684,12 @@ namespace Nezaboodka.ToSqlConnector
             if (realRequest.DatabaseNamesToRemove != null)
             {
                 cmd.CommandText += string.Format(RequestConsts.RemoveDatabaseListPrepareQuery,
-                    FormatDatabaseList(realRequest.DatabaseNamesToRemove));
+                    FormatDatabaseNamesList(realRequest.DatabaseNamesToRemove));
             }
 
             if (realRequest.DatabaseNamesToAdd != null) {
                 cmd.CommandText += string.Format(RequestConsts.AddDatabaseListPrepareQuery,
-                    FormatDatabaseList(realRequest.DatabaseNamesToAdd));
+                    FormatDatabaseNamesList(realRequest.DatabaseNamesToAdd));
             }
 
             cmd.CommandText += RequestConsts.AlterDatabaseListQuery;
@@ -697,6 +701,9 @@ namespace Nezaboodka.ToSqlConnector
 
         private DatabaseResponse GetDatabaseAccessModeExec(DatabaseRequest request, MySqlCommand cmd)
         {
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = string.Empty;
+
             DatabaseResponse result = null;
             cmd.CommandText = string.Format(RequestConsts.GetDatabaseAccessModeQuery, DatabaseName);
             MySqlDataReader reader = cmd.ExecuteReader();
@@ -720,13 +727,15 @@ namespace Nezaboodka.ToSqlConnector
                 result = new ErrorResponse()
                 {
                     ErrorStatus = ErrorStatus.AvailabilityError,
-                    ErrorMessage = string.Format(ErrorMessageConsts.DatabaseNotFoundName, DatabaseName)
+                    ErrorMessage = ErrorMessagesFormatter.DatabaseNotFoundName(DatabaseName)
                 };
             }
 
             return result;
         }
-        
+
+        // Utils
+
         private List<string> ReadDatabaseNamesList(MySqlDataReader reader)
         {
             List<string> result = new List<string>();
@@ -739,7 +748,7 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
-        private static string FormatDatabaseList(IEnumerable<string> names)
+        private static string FormatDatabaseNamesList(IEnumerable<string> names)
         {
             return string.Join(",", names.Select(s => $"('{s}')"));
         }
@@ -755,18 +764,16 @@ namespace Nezaboodka.ToSqlConnector
         public static string AccessFieldName => "access";
     }
 
-    internal static class ErrorMessageConsts
+    internal static class ErrorMessagesFormatter
     {
-        public static string DatabaseNotFoundName => "Database {0} not found";
-    }
+        public static string DatabaseNotFoundName(string dbName)
+        {
+            return "Database " + dbName + " not found";
+        } 
 
-    internal static class RequestConsts
-    {
-        public static string GetDatabaseListQuery => "SELECT `name` FROM `db_list`;";
-        public static string GetDatabaseAccessModeQuery => "SELECT `access` FROM `db_list` WHERE `name` = '{0}';";
-
-        public static string RemoveDatabaseListPrepareQuery => "INSERT INTO `db_rem_list` (`name`) VALUES {0};";
-        public static string AddDatabaseListPrepareQuery => "INSERT INTO `db_add_list` (`name`) VALUES {0};";
-        public static string AlterDatabaseListQuery => "CALL alter_database_list();";
+        public static string BadRequestType(Type expected, Type received)
+        {
+            return "Internal client error. Bad request type:" + expected + " expected, got " + received;
+        }
     }
 }
