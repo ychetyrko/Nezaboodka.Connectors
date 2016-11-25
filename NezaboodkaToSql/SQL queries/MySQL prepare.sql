@@ -1,4 +1,4 @@
-/*********************************************
+﻿/*********************************************
 
 	Create Nezaboodka administrative database
 		and grant all rights to nezaboodka user for it
@@ -98,7 +98,7 @@ BEGIN
 					\'OrdinalIgnoreCase\',
 					\'StringSort\',
 					\'Ordinal\'
-				),
+				) NOT NULL DEFAULT \'None\',
 			`back_ref_name` VARCHAR(128) DEFAULT NULL,
 			`back_ref_id` INT DEFAULT NULL,
 			FOREIGN KEY(`owner_type_id`)
