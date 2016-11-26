@@ -19,24 +19,20 @@ namespace Nezaboodka.ToSqlConnector
                    $"WHERE `name` = '{dbName}';";
         }
 
-        public static string RemoveDatabaseListPrepareQuery(IEnumerable<string> namesList)
+        public static string AlterDatabaseListQuery(IEnumerable<string> namesToRemove, IEnumerable<string> namesToAdd)
         {
-            string namesListStr = FormatStringList(namesList);
-            return "INSERT INTO `db_rem_list` " +
-                   "(`name`) " +
-                   $"VALUES {namesListStr};";
+            string result = string.Empty;
+
+            if (namesToRemove != null)
+                result += RemoveDatabaseListPrepareQuery(namesToRemove);
+
+            if (namesToAdd != null)
+                result += AddDatabaseListPrepareQuery(namesToAdd);
+
+            result += "CALL alter_database_list();";
+
+            return result;
         }
-
-        public static string AddDatabaseListPrepareQuery(IEnumerable<string> namesList)
-        {
-            string namesListStr = FormatStringList(namesList);
-            return "INSERT INTO `db_add_list` " +
-                   "(`name`) " +
-                   $"VALUES {namesListStr};";
-        } 
-
-        public static string AlterDatabaseListQuery =>
-            "CALL alter_database_list();";
 
         // !! NO MERGE proveded
         // TODO: merge existing schema with new
@@ -71,8 +67,36 @@ namespace Nezaboodka.ToSqlConnector
                    $"VALUES {fieldsListStr}; " +
                    $"CALL alter_db_schema('{dbName}');";
         }
-        
+
         // Private
+
+        private static string RemoveDatabaseListPrepareQuery(IEnumerable<string> namesList)
+        {
+            string namesListStr = FormatStringList(namesList);
+
+            if (string.IsNullOrEmpty(namesListStr))
+            {
+                return string.Empty;
+            }
+
+            return "INSERT INTO `db_rem_list` " +
+                   "(`name`) " +
+                   $"VALUES {namesListStr};";
+        }
+
+        private static string AddDatabaseListPrepareQuery(IEnumerable<string> namesList)
+        {
+            string namesListStr = FormatStringList(namesList);
+
+            if (string.IsNullOrEmpty(namesListStr))
+            {
+                return string.Empty;
+            }
+
+            return "INSERT INTO `db_add_list` " +
+                   "(`name`) " +
+                   $"VALUES {namesListStr};";
+        }
 
         private static string FormatValuesList(IEnumerable<string> values)
         {

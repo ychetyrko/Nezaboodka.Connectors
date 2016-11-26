@@ -676,7 +676,6 @@ namespace Nezaboodka.ToSqlConnector
         private DatabaseResponse GetDatabaseListExec(DatabaseRequest request, MySqlCommand cmd)
         {
             cmd.CommandType = CommandType.Text;
-
             cmd.CommandText = DbQueryBuilder.GetDatabaseListQuery;
             MySqlDataReader reader = cmd.ExecuteReader();
             
@@ -689,18 +688,7 @@ namespace Nezaboodka.ToSqlConnector
             AlterDatabaseListRequest realRequest = request as AlterDatabaseListRequest;
 
             cmd.CommandType = CommandType.Text;
-            cmd.CommandText = string.Empty;
-
-            if (realRequest.DatabaseNamesToRemove != null)
-            {
-                cmd.CommandText += DbQueryBuilder.RemoveDatabaseListPrepareQuery(realRequest.DatabaseNamesToRemove);
-            }
-
-            if (realRequest.DatabaseNamesToAdd != null) {
-                cmd.CommandText += DbQueryBuilder.AddDatabaseListPrepareQuery(realRequest.DatabaseNamesToAdd);
-            }
-
-            cmd.CommandText += DbQueryBuilder.AlterDatabaseListQuery;
+            cmd.CommandText = DbQueryBuilder.AlterDatabaseListQuery(realRequest.DatabaseNamesToRemove, realRequest.DatabaseNamesToAdd);
             MySqlDataReader reader = cmd.ExecuteReader();
 
             var result = ReadDatabaseNamesList(reader);
@@ -710,9 +698,6 @@ namespace Nezaboodka.ToSqlConnector
         private DatabaseResponse GetDatabaseAccessModeExec(DatabaseRequest request, MySqlCommand cmd)
         {
             cmd.CommandType = CommandType.Text;
-            cmd.CommandText = string.Empty;
-
-            DatabaseResponse result = null;
             cmd.CommandText = DbQueryBuilder.GetDatabaseAccessModeQuery(DatabaseName);
             MySqlDataReader reader = cmd.ExecuteReader();
 
@@ -725,6 +710,7 @@ namespace Nezaboodka.ToSqlConnector
             }
             reader.Close();
 
+            DatabaseResponse result = null;
             if (hasRows)
             {
                 var accessMode = (DatabaseAccessMode)accessModeNumber;
