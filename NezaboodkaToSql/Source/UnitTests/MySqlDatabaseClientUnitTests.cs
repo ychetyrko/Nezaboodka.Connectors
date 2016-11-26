@@ -8,7 +8,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
     [TestClass]
     public class MySqlDatabaseClientUnitTests
     {
-        
+
         [TestMethod]
         public void AlterDatabaseListTest()
         {
@@ -39,7 +39,33 @@ namespace Nezaboodka.MySqlClient.UnitTests
         }
 
         [TestMethod]
-        public void GetDatabaseAccessModeNewDatabaseTest()
+        public void AlterDatabaseListTest_EmptyLists()
+        {
+            var client = new MySqlDatabaseClient("localhost", null, null);
+
+            var alterList = new List<string>(); // empty list
+            var databaseNames = client.GetDatabaseList();
+
+            HashSet<string> expectedResult = new HashSet<string>(databaseNames);
+            
+            var actualResult = client.AlterDatabaseList(alterList, alterList);
+            Assert.IsTrue(expectedResult.SetEquals(actualResult));
+        }
+
+        [TestMethod]
+        public void AlterDatabaseListTest_NullLists()
+        {
+            var client = new MySqlDatabaseClient("localhost", null, null);
+            var databaseNames = client.GetDatabaseList();
+
+            HashSet<string> expectedResult = new HashSet<string>(databaseNames);
+
+            var actualResult = client.AlterDatabaseList(null, null);
+            Assert.IsTrue(expectedResult.SetEquals(actualResult));
+        }
+
+        [TestMethod]
+        public void GetDatabaseAccessModeTest_NewDatabase()
         {
             DatabaseAccessMode expectedResult = DatabaseAccessMode.ReadWrite;
 
@@ -48,10 +74,10 @@ namespace Nezaboodka.MySqlClient.UnitTests
             var dbList = new List<string>() { dbName };
             adminClient.AlterDatabaseList(dbList, null);
 
-            var client = new MySqlDatabaseClient("localhost", dbName, null);
-            DatabaseAccessMode actualResult = client.GetDatabaseAccessMode();
             try
             {
+                var client = new MySqlDatabaseClient("localhost", dbName, null);
+                DatabaseAccessMode actualResult = client.GetDatabaseAccessMode();
                 Assert.AreEqual(expectedResult, actualResult);
             }
             finally
@@ -62,7 +88,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
 
         [TestMethod]
         [ExpectedException(typeof(NezaboodkaAvailabilityException))]
-        public void GetDatabaseAccessModeDatabaseNotExistsTest()
+        public void GetDatabaseAccessModeTest_DatabaseNotExists()
         {
             var dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
             var client = new MySqlDatabaseClient("localhost", dbName, null);
