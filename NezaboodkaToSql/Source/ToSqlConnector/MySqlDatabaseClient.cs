@@ -607,12 +607,12 @@ namespace Nezaboodka.ToSqlConnector
             var dbName = Consts.AdministrationDatabaseName;
             if (!(request is AdministrationRequest) || request is RefreshDatabaseCryptoKeyRequest ||
                 request is GetDatabaseConfigurationRequest || request is AlterDatabaseConfigurationRequest ||
-                request is GetDatabaseAccessModeRequest || request is SetDatabaseAccessModeRequest ||
+                //request is GetDatabaseAccessModeRequest || request is SetDatabaseAccessModeRequest || // <-- !! requests for AdministrationDatabase
                 request is UnloadDatabaseRequest || request is LoadDatabaseRequest)
             {
                 dbName = DatabaseName;
 
-                if (null == dbName)
+                if (string.IsNullOrEmpty(dbName))
                     return new ErrorResponse()
                     {
                         ErrorStatus = ErrorStatus.AvailabilityError,

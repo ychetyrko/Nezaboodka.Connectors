@@ -16,7 +16,8 @@ namespace Nezaboodka.ToSqlConnector
         {
             return "SELECT `access` " +
                    "FROM `db_list` " +
-                   $"WHERE `name` = '{dbName}';";
+                   $"WHERE `name` = '{dbName}'" +
+                   "LIMIT 1;";  // optimization
         }
 
         public static string AlterDatabaseListQuery(IEnumerable<string> namesToRemove, IEnumerable<string> namesToAdd)
@@ -46,12 +47,14 @@ namespace Nezaboodka.ToSqlConnector
                 string typeName = typeDefinition.TypeName;
                 string tableName = GenerateLowerName(typeName);
                 string typeRec = $"'{typeName}', '{tableName}', '{typeDefinition.BaseTypeName}'";
+
                 typesList.Add(typeRec);
 
                 foreach (var fieldDefinition in typeDefinition.FieldDefinitions)
                 {
                     string columnName = GenerateLowerName(fieldDefinition.FieldName);
                     string fieldRec = $"'{fieldDefinition.FieldName}', '{columnName}', '{typeName}', '{fieldDefinition.FieldTypeName}', '{fieldDefinition.CompareOptions}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.BackReferenceFieldName}'";
+
                     fieldsList.Add(fieldRec);
                 }
             }
