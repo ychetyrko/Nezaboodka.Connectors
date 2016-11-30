@@ -1,11 +1,12 @@
-﻿/*********************************************
+/*********************************************
 
 	Create Nezaboodka administrative database
 		and grant all rights to nezaboodka user for it
         
 **********************************************/
 
-CREATE DATABASE IF NOT EXISTS `nz_admin_db`;
+DROP DATABASE IF EXISTS `nz_admin_db`;
+CREATE DATABASE `nz_admin_db`;
 USE `nz_admin_db`;
 
 /*********************************************
@@ -20,7 +21,6 @@ USE `nz_admin_db`;
 		1 - ReadOnly
         2 - NoAccess
 */
-DROP TABLE IF EXISTS `db_list`;
 CREATE TABLE `db_list`(
 	`name` VARCHAR(64) PRIMARY KEY NOT NULL UNIQUE,
 	`access` TINYINT DEFAULT 0
@@ -30,7 +30,6 @@ CREATE TABLE `db_list`(
 /*********************************************
 	List of databases to add
 */
-DROP TABLE IF EXISTS `db_add_list`;
 CREATE TABLE `db_add_list`(
 	`name` VARCHAR(64) NOT NULL UNIQUE
 );
@@ -38,7 +37,6 @@ CREATE TABLE `db_add_list`(
 /*********************************************
 	List of databases to remove
 */
-DROP TABLE IF EXISTS `db_rem_list`;
 CREATE TABLE `db_rem_list`(
 	`name` VARCHAR(64) NOT NULL UNIQUE
 );
@@ -55,7 +53,6 @@ DELIMITER //
 /*********************************************
 	Prepare empty database for work
 */
-DROP PROCEDURE IF EXISTS prepare_db //
 CREATE PROCEDURE prepare_db(db_name VARCHAR(64))
 BEGIN
 	
@@ -67,6 +64,7 @@ BEGIN
 			`table_name` VARCHAR(64) NOT NULL UNIQUE,
 			`base_type_name` VARCHAR(128) NOT NULL,
 			`base_type_id` INT DEFAULT NULL,
+            
 			FOREIGN KEY(`base_type_id`)
 				REFERENCES `type`(`id`)
 				ON DELETE CASCADE
@@ -101,12 +99,15 @@ BEGIN
 				) NOT NULL DEFAULT \'None\',
 			`back_ref_name` VARCHAR(128) DEFAULT NULL,
 			`back_ref_id` INT DEFAULT NULL,
+            
 			FOREIGN KEY(`owner_type_id`)
 				REFERENCES `type`(`id`)
 				ON DELETE CASCADE,
+                
 			FOREIGN KEY(`ref_type_id`)
 				REFERENCES `type`(`id`)
 				ON DELETE SET NULL,
+                
 			FOREIGN KEY(`back_ref_id`)
 				REFERENCES `field`(`id`)
 				ON DELETE SET NULL
@@ -116,12 +117,33 @@ BEGIN
 	EXECUTE procPrep;
 	DEALLOCATE PREPARE procPrep;
     
+    # Type-Field optimization
+    SET @prepStr=CONCAT('
+		CREATE TABLE `', db_name, '`.`type_field_map` (
+			`type_id` INT NOT NULL,
+			`field_id` INT NOT NULL,
+            
+			FOREIGN KEY (`type_id`)
+				REFERENCES `type`(`id`)
+				ON DELETE CASCADE,
+                
+			FOREIGN KEY (`field_id`)
+				REFERENCES `field`(`id`)
+				ON DELETE CASCADE
+		);
+	');
+	PREPARE procPrep FROM @prepStr;
+	EXECUTE procPrep;
+	DEALLOCATE PREPARE procPrep;
+    
+    
     # DbKey
     SET @prepStr=CONCAT('
 		CREATE TABLE `', db_name, '`.`db_key` (
 			`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 			`raw_rev` BIGINT(0) NOT NULL DEFAULT 1,
 			`real_type_id` INT NOT NULL,
+            
 			FOREIGN KEY (`real_type_id`)
 				REFERENCES `type`(`id`)
 				ON DELETE CASCADE
@@ -137,7 +159,6 @@ END //
 /*********************************************
 	Effectively alter database list
 */
-DROP PROCEDURE IF EXISTS remove_databases //
 CREATE PROCEDURE remove_databases ()
 BEGIN
 	DECLARE done INT DEFAULT FALSE;
@@ -170,7 +191,6 @@ BEGIN
     TRUNCATE TABLE db_rem_list;
 END //
 
-DROP PROCEDURE IF EXISTS add_databases //
 CREATE PROCEDURE add_databases ()
 BEGIN
     DECLARE done INT DEFAULT FALSE;
@@ -212,7 +232,6 @@ BEGIN
     TRUNCATE TABLE db_add_list;
 END //
 
-DROP PROCEDURE IF EXISTS alter_database_list //
 CREATE PROCEDURE alter_database_list()
 BEGIN
 	CALL remove_databases();
@@ -234,7 +253,6 @@ END //
 /*********************************************
 	Alter database schema support tables (`type`, `field`)
 */
-DROP PROCEDURE IF EXISTS alter_db_schema //
 CREATE PROCEDURE alter_db_schema(db_name VARCHAR(64))
 BEGIN
 	DECLARE done INT DEFAULT FALSE;
@@ -244,22 +262,21 @@ BEGIN
     DECLARE i INT DEFAULT 0;
 	
     SET @prepStr = CONCAT('
-		SELECT COUNT(*) FROM `', db_name ,'`.`type`
+		SELECT COUNT(`id`) FROM `', db_name ,'`.`type`
 		INTO @typesCount;
 	');
-    
     PREPARE p_get_types_count FROM @prepStr;
 	EXECUTE p_get_types_count;
 	DEALLOCATE PREPARE p_get_types_count;
     
     SET @ti = 0;
     typeLoop: LOOP
+    
 		IF @ti = @typesCount THEN
 			LEAVE typeLoop;
 		END IF;
-		
         
-        # Get type id
+        # Get type id -> @cur_type_id
 		SET @prepStr = CONCAT('
 			SET @cur_type_id = (
 				SELECT `id`
@@ -267,16 +284,16 @@ BEGIN
 				LIMIT ', @ti,', 1
 			);
         ');
-        PREPARE p_update_type FROM @prepStr;
-        EXECUTE p_update_type;
-        DEALLOCATE PREPARE p_update_type;
+        PREPARE p_get_type_id FROM @prepStr;
+        EXECUTE p_get_type_id;
+        DEALLOCATE PREPARE p_get_type_id;
 		
         /* DEBUG */
 		#	SELECT @ti as 'No', @cur_type_id;
         /* ^ DEBUG */
         
         
-        # Get type name
+        # Get type name -> @cur_type_name
         SET @prepStr = CONCAT('
 			SET @cur_type_name = (
 				SELECT `name`
@@ -284,14 +301,14 @@ BEGIN
 				WHERE `id`=@cur_type_id
 			);
         ');
-        PREPARE p_update_type FROM @prepStr;
-        EXECUTE p_update_type;
-        DEALLOCATE PREPARE p_update_type;
+        PREPARE p_get_type_name FROM @prepStr;
+        EXECUTE p_get_type_name;
+        DEALLOCATE PREPARE p_get_type_name;
         
         /* DEBUG */
 		#	SELECT @ti as 'No', @cur_type_name as 'name';
         /* ^ DEBUG */
-                
+		
         # Update base type id-s
         SET @prepStr = CONCAT('
 			UPDATE `', db_name, '`.`type`
@@ -320,9 +337,42 @@ BEGIN
 			SET `ref_type_id` = @cur_type_id
 			WHERE `type_name` = @cur_type_name;
         ');
-        PREPARE p_update_fields_type FROM @prepStr;
-        EXECUTE p_update_fields_type;
-        DEALLOCATE PREPARE p_update_fields_type;
+        PREPARE p_update_fields_ref FROM @prepStr;
+        EXECUTE p_update_fields_ref;
+        DEALLOCATE PREPARE p_update_fields_ref;
+        
+        
+        # Type-Field Optimization table fill
+        SET @bi = @cur_type_id;
+        fields_loop: LOOP
+        
+			IF @bi IS NULL THEN
+				LEAVE fields_loop;
+			END IF;
+            
+            SET @prepStr = CONCAT('
+				INSERT INTO `', db_name, '`.`type_field_map` (`type_id`, `field_id`)
+					SELECT @cur_type_id, `id`
+					FROM `', db_name, '`.`field`
+					WHERE `id` = @bi;
+            ');
+			PREPARE p_base_type_id FROM @prepStr;
+			EXECUTE p_base_type_id;
+			DEALLOCATE PREPARE p_base_type_id;
+            
+            SET @prepStr = CONCAT('
+				SET @bi = (
+					SELECT `base_type_id`
+					FROM `', db_name ,'`.`type`
+					WHERE `id` = @bi
+                    LIMIT 1
+				);
+			');
+			PREPARE p_next_base_type FROM @prepStr;
+			EXECUTE p_next_base_type;
+			DEALLOCATE PREPARE p_next_base_type;
+            
+		END LOOP fields_loop;
         
         SET @ti = @ti + 1;
 	END LOOP typeLoop;
@@ -336,6 +386,30 @@ END //
 	2. call `alter_db_schema`
 	
 **********************************************/
+
+
+/*********************************************
+	Get table for db_key -> @t_table_name
+*/
+CREATE PROCEDURE get_type_table(db_name VARCHAR(64), db_key BIGINT(0))
+BEGIN
+	SET @prepStr = CONCAT('
+		SET @t_table_name = (
+			SELECT `table_name`
+			FROM `', db_name, '`.`type`
+			WHERE `id` = (
+				SELECT `real_type_id`
+				FROM `', db_name, '`.`db_key`
+				WHERE `sys_id` = db_key
+				LIMIT 1
+			)
+			LIMIT 1;
+		);
+	');
+	PREPARE p_get_ FROM @prepStr;
+	EXECUTE p_get_type_id;
+	DEALLOCATE PREPARE p_get_type_id;
+END //
 
 /*********************************************
 	TODO: other stored procedures...
