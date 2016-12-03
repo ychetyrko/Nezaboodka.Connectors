@@ -58,12 +58,12 @@ CREATE PROCEDURE prepare_db(db_name VARCHAR(64))
 BEGIN
 	
 	# Class
-	SET @prepStr=CONCAT('
+	SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`type` (
 			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`name` VARCHAR(128) NOT NULL UNIQUE,
+			`name` VARCHAR(128) NOT NULL UNIQUE COLLATE `utf8_bin`,
 			`table_name` VARCHAR(64) NOT NULL UNIQUE,
-			`base_type_name` VARCHAR(128) NOT NULL,
+			`base_type_name` VARCHAR(128) NOT NULL COLLATE `utf8_bin`,
 			`base_type_id` INT DEFAULT NULL,
             
 			FOREIGN KEY(`base_type_id`)
@@ -71,19 +71,19 @@ BEGIN
 				ON DELETE CASCADE
 		);
 	');
-	PREPARE procPrep FROM @prepStr;
-	EXECUTE procPrep;
-	DEALLOCATE PREPARE procPrep;
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
     
     # Field
-    SET @prepStr=CONCAT('
+    SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`field` (
 			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`owner_type_name` VARCHAR(128) NOT NULL,
+			`owner_type_name` VARCHAR(128) NOT NULL COLLATE `utf8_bin`,
 			`owner_type_id` INT DEFAULT NULL,
-			`name` VARCHAR(128) NOT NULL,
+			`name` VARCHAR(128) NOT NULL COLLATE `utf8_bin`,
 			`col_name` VARCHAR(64) NOT NULL,
-			`type_name` VARCHAR(64) DEFAULT NULL,
+			`type_name` VARCHAR(64) DEFAULT NULL COLLATE `utf8_bin`,
 			`ref_type_id` INT DEFAULT NULL,
 			`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 			`compare_options` ENUM
@@ -98,7 +98,7 @@ BEGIN
 					\'StringSort\',
 					\'Ordinal\'
 				) NOT NULL DEFAULT \'None\',
-			`back_ref_name` VARCHAR(128) DEFAULT NULL,
+			`back_ref_name` VARCHAR(128) DEFAULT NULL COLLATE `utf8_bin`,
 			`back_ref_id` INT DEFAULT NULL,
             
 			FOREIGN KEY(`owner_type_id`)
@@ -114,12 +114,12 @@ BEGIN
 				ON DELETE SET NULL
 		);
     ');
-    PREPARE procPrep FROM @prepStr;
-	EXECUTE procPrep;
-	DEALLOCATE PREPARE procPrep;
+    PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
     
     # Type-Field optimization
-    SET @prepStr=CONCAT('
+    SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`type_field_map` (
 			`type_id` INT NOT NULL,
 			`field_id` INT NOT NULL,
@@ -133,13 +133,13 @@ BEGIN
 				ON DELETE CASCADE
 		);
 	');
-	PREPARE procPrep FROM @prepStr;
-	EXECUTE procPrep;
-	DEALLOCATE PREPARE procPrep;
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
     
     
     # DbKey
-    SET @prepStr=CONCAT('
+    SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`db_key` (
 			`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 			`raw_rev` BIGINT(0) NOT NULL DEFAULT 1,
@@ -150,9 +150,9 @@ BEGIN
 				ON DELETE CASCADE
 		);
 	');
-	PREPARE procPrep FROM @prepStr;
-	EXECUTE procPrep;
-	DEALLOCATE PREPARE procPrep;
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
     
 END //
 
@@ -176,12 +176,12 @@ BEGIN
 			LEAVE proc_loop;
 		END IF;
 		
-        SET @prepStr=CONCAT('
+        SET @prep_str=CONCAT('
 			DROP DATABASE IF EXISTS ', db_name, ';
         ');
-		PREPARE procPrep FROM @prepStr;
-		EXECUTE procPrep;
-		DEALLOCATE PREPARE procPrep;
+		PREPARE proc_prep FROM @prep_str;
+		EXECUTE proc_prep;
+		DEALLOCATE PREPARE proc_prep;
         
         DELETE FROM db_list
         WHERE `name` = db_name;
@@ -210,20 +210,20 @@ BEGIN
 		END IF;
 		
         # Using prepared statement argument as database name is restricted => 
-        SET @prepStr=CONCAT('
+        SET @prep_str=CONCAT('
 			CREATE DATABASE `', db_name, '`;
         ');
-		PREPARE p_create_db FROM @prepStr;
+		PREPARE p_create_db FROM @prep_str;
         EXECUTE p_create_db;
         DEALLOCATE PREPARE p_create_db;
         
         CALL prepare_db(db_name);
         
         # Inserting values in prepared statement is not available yet =>
-        SET @prepStr=CONCAT('
+        SET @prep_str=CONCAT('
 			INSERT INTO `db_list` (`name`) value (\'', db_name ,'\');
         ');
-		PREPARE p_add_to_db FROM @prepStr;
+		PREPARE p_add_to_db FROM @prep_str;
         EXECUTE p_add_to_db;
         DEALLOCATE PREPARE p_add_to_db;
     END LOOP;
@@ -258,102 +258,141 @@ END //
 CREATE PROCEDURE prepare_alter_proc_for_db(db_name VARCHAR(64))
 BEGIN
 	
-    SET @prepStr = CONCAT('
+    # Get types count -> @types_count
+    SET @prep_str = CONCAT('
 		SELECT COUNT(`id`) FROM `', db_name ,'`.`type`
 		INTO @types_count;
 	');
-    PREPARE p_get_types_count FROM @prepStr;
-    
-	EXECUTE p_get_types_count;
+    PREPARE p_get_types_count FROM @prep_str;
     
     # Get type id and name -> @cur_type_id, @cur_type_name
-	SET @prepStr = CONCAT('
+	SET @prep_str = CONCAT('
 		SELECT `id`, `name`
 		FROM `', db_name ,'`.`type`
 		LIMIT ?, 1
 		INTO @cur_type_id, @cur_type_name;
 	');
-	PREPARE p_get_type_id_name FROM @prepStr;
+	PREPARE p_get_type_id_name FROM @prep_str;
     
     # Get type id and table name -> @cur_type_id, @cur_table_name
-	SET @prepStr = CONCAT('
+	SET @prep_str = CONCAT('
 		SELECT `id`, `table_name`
 		FROM `', db_name ,'`.`type`
 		LIMIT ?, 1
 		INTO @cur_type_id, @cur_table_name;
 	');
-	PREPARE p_get_type_id_tablename FROM @prepStr;
+	PREPARE p_get_type_id_tablename FROM @prep_str;
     
     # Update base type id-s
-	SET @prepStr = CONCAT('
+	SET @prep_str = CONCAT('
 		UPDATE `', db_name, '`.`type`
 		SET `base_type_id` = ?
 		WHERE `base_type_name` = ?;
 	');
-	PREPARE p_update_type FROM @prepStr;
+	PREPARE p_update_base_type FROM @prep_str;
     
     # Update owner type id
-	SET @prepStr = CONCAT('
+	SET @prep_str = CONCAT('
 		UPDATE `', db_name, '`.`field`
 		SET `owner_type_id` = ?
 		WHERE `owner_type_name` = ?;
 	');
-	PREPARE p_update_fields_type FROM @prepStr;
+	PREPARE p_update_fields_owner FROM @prep_str;
     
-    # Update fields' ref type id (if ref type)
-	SET @prepStr = CONCAT('
+    # Update fields ref type id (if ref type)
+	SET @prep_str = CONCAT('
 		UPDATE `', db_name, '`.`field`
 		SET `ref_type_id` = ?
 		WHERE `type_name` = ?;
 	');
-	PREPARE p_update_fields_ref FROM @prepStr;
+	PREPARE p_update_fields_ref FROM @prep_str;
     
-    # Type-Field optimization table filling
-    SET @prepStr = CONCAT('
+    
+	# Type-Field optimization table filling
+    SET @prep_str = CONCAT('
 		INSERT INTO `', db_name, '`.`type_field_map` (`type_id`, `field_id`)
 			SELECT ?, `id`
 			FROM `', db_name, '`.`field`
-			WHERE `id` = ?;
+			WHERE `owner_type_id` = ?
 	');
-	PREPARE p_map_base_type_fields FROM @prepStr;
+	PREPARE p_map_base_type_fields FROM @prep_str;
 	
-	# Get base type id to continue filling
-	SET @prepStr = CONCAT('
+	# Get base type id to continue filling -> @bi
+	SET @prep_str = CONCAT('
 		SELECT `base_type_id`
 		FROM `', db_name ,'`.`type`
 		WHERE `id` = ?
 		LIMIT 1
         INTO @bi;
 	');
-	PREPARE p_next_base_type FROM @prepStr;
+	PREPARE p_next_base_type FROM @prep_str;
     
-    # Get fields count by type id -> @fields_count
-	SET @prepStr = CONCAT('
+    
+    # Get field id, ref_type_id, back_ref_name -> @cur_field_id, @cur_ref_type_id, @cur_back_ref_name
+	SET @prep_str = CONCAT('
+		SELECT `id`, `ref_type_id`, `back_ref_name`
+		FROM `', db_name, '`.`field`
+		LIMIT ?, 1
+		INTO @cur_field_id, @cur_ref_type_id, @cur_back_ref_name;
+	');
+	PREPARE p_get_field_id_ref_type_id_back_ref_name FROM @prep_str;
+    
+    # Get field back_ref_id by type and name -> @cur_back_ref_id
+	SET @prep_str = CONCAT('
+		SELECT `f`.`id`
+		FROM `', db_name ,'`.`field` as `f`
+		INNER JOIN `', db_name ,'`.`type_field_map` as `m`
+			ON `f`.`id` = `m`.`field_id`
+			AND `m`.`type_id` = ?
+			AND `f`.`name` = ?
+		LIMIT 1
+		INTO @cur_back_ref_id;
+	');
+	PREPARE p_get_back_ref_id FROM @prep_str;
+    
+    # Update field back_ref_id
+	SET @prep_str = CONCAT('
+		UPDATE `', db_name ,'`.`field`
+		SET `back_ref_id` = ?
+		WHERE `id` = ?;
+	');
+	PREPARE p_update_field_back_ref_id FROM @prep_str;
+	
+    
+    # Get fields count -> @fields_count
+	SET @prep_str = CONCAT('
+        SELECT COUNT(`id`)
+		FROM `', db_name ,'`.`field`
+        INTO @fields_count;
+	');
+    PREPARE p_get_fields_count FROM @prep_str;
+    
+    # Get fields count by type id -> @type_fields_count
+	SET @prep_str = CONCAT('
         SELECT COUNT(`field_id`)
 		FROM `', db_name ,'`.`type_field_map`
         WHERE `type_id` = ?
-        INTO @fields_count;
+        INTO @type_fields_count;
 	');
-    PREPARE p_get_fields_count FROM @prepStr;
+    PREPARE p_get_type_fields_count FROM @prep_str;
     
 END //
 
 CREATE PROCEDURE deallocate_alter_proc()
 BEGIN
 	DEALLOCATE PREPARE p_get_types_count;
-    
     DEALLOCATE PREPARE p_get_type_id_name;
     DEALLOCATE PREPARE p_get_type_id_tablename;
-    
-    DEALLOCATE PREPARE p_update_type;
-    
-    DEALLOCATE PREPARE p_update_fields_type;
+    DEALLOCATE PREPARE p_update_base_type;
+    DEALLOCATE PREPARE p_update_fields_owner;
     DEALLOCATE PREPARE p_update_fields_ref;
-    
     DEALLOCATE PREPARE p_map_base_type_fields;
     DEALLOCATE PREPARE p_next_base_type;
-    
+    DEALLOCATE PREPARE p_get_field_id_ref_type_id_back_ref_name;
+    DEALLOCATE PREPARE p_get_back_ref_id;
+    DEALLOCATE PREPARE p_update_field_back_ref_id;
     DEALLOCATE PREPARE p_get_fields_count;
+    DEALLOCATE PREPARE p_get_type_fields_count;
 END //
 
 CREATE PROCEDURE alter_table_for_type(db_name VARCHAR(64), type_no INT)
@@ -362,12 +401,10 @@ BEGIN
 	
     SET @t_no = type_no;
     EXECUTE p_get_type_id_tablename USING @t_no;
+    #SELECT @cur_type_id as 'Type Id', @cur_table_name AS 'Table name';
     
-    SELECT @cur_type_id as 'Type Id', @cur_table_name AS 'Table name';
-    
-    EXECUTE p_get_fields_count USING @cur_type_id;
-    
-    SELECT @cur_type_id as 'count';
+    EXECUTE p_get_type_fields_count USING @cur_type_id;
+    #SELECT @type_fields_count as 'count';
     
     /*	Field table columns
 		`id` INT,
@@ -393,7 +430,7 @@ BEGIN
     
 # TODO: move to preparation routine
     # Get field info by type id and field number in table
-	SET @prepStr = CONCAT('
+	SET @prep_str = CONCAT('
 		SELECT `col_name`
         FROM `', db_name ,'`.`field`
         WHERE `id` = (
@@ -405,7 +442,7 @@ BEGIN
         LIMIT 1
         INTO @cur_field_col_name;
 	');
-    PREPARE p_get_field FROM @prepStr;
+    PREPARE p_get_field FROM @prep_str;
     
     
 /* ***** Main cycle on fields ****** */
@@ -413,7 +450,7 @@ BEGIN
     SET @fi = 0;
     f_loop: LOOP 
 		
-        IF @fi = @fields_count THEN
+        IF @fi = @type_fields_count THEN
 			LEAVE f_loop;
         END IF;
 		
@@ -432,7 +469,7 @@ BEGIN
     
     # Create table for type with all fields
     #  (table name can't be a parameter => prepare each time)
-    SET @prepStr = CONCAT('
+    SET @prep_str = CONCAT('
 		CREATE TABLE `', db_name ,'`.`', @cur_table_name, '` (
 			id BIGINT(0) PRIMARY KEY NOT NULL
             
@@ -443,7 +480,8 @@ BEGIN
 				ON DELETE CASCADE
         );
 	');
-	PREPARE p_create_table FROM @prepStr;
+	PREPARE p_create_table FROM @prep_str;
+    
 	EXECUTE p_create_table;
     
 	DEALLOCATE PREPARE p_create_table;
@@ -457,7 +495,9 @@ BEGIN
 
 	CALL prepare_alter_proc_for_db(db_name);
     
-/* ***** Main cycle on types ****** */
+    EXECUTE p_get_types_count;	# -> @types_count
+    
+/* ***** Cycle on types to set base_type_id ****** */
 
     SET @ti = 0;
     typeLoop: LOOP
@@ -466,18 +506,18 @@ BEGIN
 			LEAVE typeLoop;
 		END IF;
         
-        EXECUTE p_get_type_id_name USING @ti;
+        EXECUTE p_get_type_id_name USING @ti;	# -> @cur_type_id, @cur_type_name
 		#SELECT @ti as 'No', @cur_type_id as 'id', @cur_type_name as 'name';
         
-        EXECUTE p_update_type USING @cur_type_id, @cur_type_name;
-        EXECUTE p_update_fields_type USING @cur_type_id, @cur_type_name;
+        EXECUTE p_update_base_type USING @cur_type_id, @cur_type_name;
+        EXECUTE p_update_fields_owner USING @cur_type_id, @cur_type_name;
         EXECUTE p_update_fields_ref USING @cur_type_id, @cur_type_name;
         
         SET @ti = @ti + 1;
 	END LOOP typeLoop;
     
     
-/* ***** Cycle on fields ****** */
+/* ***** 2nd cycle on types to set type-field mapping and fields' ref_id ****** */
 
     SET @ti = 0;
     typeLoop_2: LOOP
@@ -486,7 +526,9 @@ BEGIN
 			LEAVE typeLoop_2;
 		END IF;
         
-        EXECUTE p_get_type_id_name USING @ti;
+        EXECUTE p_get_type_id_name USING @ti;	# -> @cur_type_id, @cur_type_name
+        
+	/* ***** Inner cycle on fields to set ref_id ****** */
         
         SET @bi = @cur_type_id;
         fields_loop: LOOP
@@ -496,7 +538,7 @@ BEGIN
 			END IF;
             
             #SELECT @bi as 'base id';
-            
+                        
 			EXECUTE p_map_base_type_fields USING @cur_type_id, @bi;
 			EXECUTE p_next_base_type USING @bi;
             
@@ -506,8 +548,28 @@ BEGIN
 	END LOOP typeLoop_2;
     
     
-# TODO:  2nd fields cycle to set back_ref_id
+/* ***** Cycle on fields to set back_ref_id ****** */
 
+	EXECUTE p_get_fields_count;	# -> @fields_count
+    #SELECT @fields_count;
+    
+	SET @fi = 0;
+    fieldsLoop: LOOP
+		
+		IF @fi = @fields_count THEN
+			LEAVE fieldsLoop;
+		END IF;
+               
+        EXECUTE p_get_field_id_ref_type_id_back_ref_name USING @fi;
+        
+        IF NOT @cur_ref_type_id IS NULL THEN
+			EXECUTE p_get_back_ref_id USING @cur_ref_type_id, @cur_back_ref_name;
+			EXECUTE p_update_field_back_ref_id USING @cur_back_ref_id, @cur_field_id;
+		END IF;
+        
+        SET @fi = @fi + 1;
+	END LOOP fieldsLoop;
+    
     
 /* ***** Create table for each type ****** */
     
@@ -543,7 +605,7 @@ END //
 */
 CREATE PROCEDURE get_type_table(db_name VARCHAR(64), db_key BIGINT(0))
 BEGIN
-	SET @prepStr = CONCAT('
+	SET @prep_str = CONCAT('
 		SELECT `table_name`
 		FROM `', db_name, '`.`type`
 		WHERE `id` = (
@@ -555,7 +617,7 @@ BEGIN
 		LIMIT 1;
 		INTO @t_table_name;
 	');
-	PREPARE p_get_type_table FROM @prepStr;
+	PREPARE p_get_type_table FROM @prep_str;
 	EXECUTE p_get_type_table;
 	DEALLOCATE PREPARE p_get_type_table;
 END //
