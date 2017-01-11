@@ -6,8 +6,15 @@ namespace Nezaboodka.Ndef
     {
         public INdefTypeBinder TypeBinder { get; private set; }
 
-        public AnyTypeFormatter(INdefTypeBinder typeBinder)
+        public AnyTypeFormatter(Type formalType) : base()
         {
+            FormalType = formalType;
+            SerializableTypeName = null;
+        }
+            
+        public override void Initialize(INdefTypeBinder typeBinder, CodeGenerator codegen)
+        {
+            base.Initialize(typeBinder, codegen);
             TypeBinder = typeBinder;
         }
 
@@ -17,9 +24,9 @@ namespace Nezaboodka.Ndef
             if (value != null)
             {
                 NdefTypeInfo typeInfo = TypeBinder.LookupTypeInfo(value);
-                result = typeInfo.ValueFormatter.AnyToNdefValue(formalType, value);
+                result = typeInfo.Formatter.Boxed.ToNdefValue(formalType, value);
                 if (formalType == typeof(object) && result.Kind != NdefValueKind.Object)
-                    result.ActualSerializableTypeName = typeInfo.ValueFormatter.SerializableTypeName;
+                    result.ActualSerializableTypeName = typeInfo.Formatter.SerializableTypeName;
             }
             else
                 result = NdefValue.NullValue;
@@ -44,14 +51,14 @@ namespace Nezaboodka.Ndef
                 {
                     if (o.DeserializedInstance == null)
                     {
-                        if (!string.IsNullOrEmpty(o.TypeName))
-                            o.TypeInfo = typeBinder.LookupTypeInfoByName(o.TypeName);
-                        else if (o.Kind == NdefObjectKind.List) // untyped list
-                            o.TypeInfo = typeBinder.LookupTypeInfoByType(typeBinder.PreferredListType.MakeGenericType(listItemType));
+                        if (!string.IsNullOrEmpty(o.Header.TypeName))
+                            o.Header.TypeInfo = typeBinder.LookupTypeInfoByName(o.Header.TypeName);
+                        else if (o.Header.Kind == NdefObjectKind.List) // untyped list
+                            o.Header.TypeInfo = typeBinder.LookupTypeInfoByType(typeBinder.PreferredListType.MakeGenericType(listItemType));
                         else
                             throw new ArgumentException("object type info cannot be empty");
-                        o.DeserializedInstance = typeBinder.CreateObject(o.TypeInfo, o.TypeInfo.TypeNumber,
-                            o.TypeInfo.SerializableName, o.LogicalKey);
+                        INdefFormatter<object> f = o.Header.TypeInfo.Formatter.Boxed;
+                        o.DeserializedInstance = f.CreateObjectInstance(formalType, o.Header);
                     }
                     result = o.DeserializedInstance;
                 }
@@ -65,7 +72,7 @@ namespace Nezaboodka.Ndef
                     if (!string.IsNullOrEmpty(value.ActualSerializableTypeName))
                     {
                         NdefTypeInfo typeInfo = typeBinder.LookupTypeInfoByName(value.ActualSerializableTypeName);
-                        result = typeInfo.ValueFormatter.AnyFromNdefValue(formalType, value);
+                        result = typeInfo.Formatter.Boxed.FromNdefValue(formalType, value);
                     }
                     else
                         result = value.AsScalar;

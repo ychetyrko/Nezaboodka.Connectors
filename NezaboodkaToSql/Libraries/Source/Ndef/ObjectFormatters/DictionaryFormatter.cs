@@ -2,35 +2,39 @@
 
 namespace Nezaboodka.Ndef
 {
-    public class DictionaryFormatter : AbstractObjectFormatter
+    public class DictionaryFormatter : AbstractObjectFormatter<Dictionary<string, object>>
     {
-        public INdefValueFormatter ValueFormatter { get; private set; }
+        public INdefFormatter<object> ValueFormatter { get; private set; }
 
-        public DictionaryFormatter(INdefValueFormatter valueFormatter)
+        public DictionaryFormatter()
         {
-            ValueFormatter = valueFormatter;
+            SerializableTypeName = "Nezaboodka.Dictionary";
         }
 
-        public override IEnumerable<NdefLine> ToNdefLines(object obj, int[] fieldNumbers)
+        public override void Initialize(INdefTypeBinder typeBinder, CodeGenerator codegen)
         {
-            var dictionary = (Dictionary<string, object>)obj;
-            var f = new NdefLine();
+            base.Initialize(typeBinder, codegen);
+            ValueFormatter = typeBinder.LookupFormatter<INdefFormatter<object>>(typeof(object));
+        }
+
+        public override IEnumerable<NdefElement> ToNdefElements(Dictionary<string, object> dictionary, int[] fieldNumbers)
+        {
+            var f = new NdefElement();
             foreach (KeyValuePair<string, object> x in dictionary)
             {
                 f.Field.Name = x.Key;
-                f.Value = ValueFormatter.AnyToNdefValue(ValueFormatter.TypeOfValue, x.Value);
+                f.Value = ValueFormatter.ToNdefValue(ValueFormatter.FormalType, x.Value);
                 if (!f.Value.IsUndefined)
                     yield return f;
             }
         }
 
-        public override void FromNdefLines(object obj, IEnumerable<NdefLine> lines)
+        public override void FromNdefElements(Dictionary<string, object> dictionary, IEnumerable<NdefElement> elements)
         {
-            var dictionary = (Dictionary<string, object>)obj;
-            foreach (NdefLine line in lines)
+            foreach (NdefElement element in elements)
             {
-                object value = ValueFormatter.AnyFromNdefValue(ValueFormatter.TypeOfValue, line.Value);
-                dictionary.Add(line.Field.Name, value);
+                object value = ValueFormatter.FromNdefValue(ValueFormatter.FormalType, element.Value);
+                dictionary.Add(element.Field.Name, value);
             }
         }
     }

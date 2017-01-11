@@ -24,7 +24,8 @@ namespace Nezaboodka.Ndef
         {
             return new NdefValue()
             {
-                AsScalar = value.ToString()
+                AsScalar = value.ToString(),
+                HasNoLineFeeds = true
             };
         }
 

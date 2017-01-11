@@ -6,7 +6,7 @@ namespace Nezaboodka
     {
         public string TypeName { get; set; }
         public Dictionary<string, object> Fields { get; set; }
-        public object this[string key]
+        public object this[string field]
         {
             get
             {
@@ -15,7 +15,7 @@ namespace Nezaboodka
                 {
                     try
                     {
-                        result = Fields[key];
+                        result = Fields[field];
                     }
                     catch (KeyNotFoundException)
                     {
@@ -25,7 +25,7 @@ namespace Nezaboodka
             }
             set
             {
-                Fields[key] = value;
+                Fields[field] = value;
             }
         }
     }

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text;
 
 namespace Nezaboodka.Ndef
 {
@@ -9,7 +8,7 @@ namespace Nezaboodka.Ndef
         {
             NdefValue result;
             if (value != null)
-                result = new NdefValue() { AsScalar = Convert.ToBase64String(value) };
+                result = new NdefValue() { AsScalar = Convert.ToBase64String(value), HasNoLineFeeds = true };
             else
                 result = NdefValue.NullValue;
             return result;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -24,8 +24,8 @@ namespace Nezaboodka.Ndef
                         k = -1;
                         break;
                     case NdefConst.ExplicitTypeNamePrefix: // `
-                    case NdefConst.LogicalKeyPrefix: // #
-                    case NdefConst.SerialKeyPrefix: // @
+                    case NdefConst.ObjectKeyPrefix: // #
+                    case NdefConst.ObjectNumberPrefix: // ^
                         prefix = text[i];
                         i = FindFirstNonWhitespaceChar(text, i + 1);
                         k = FindFirstWhitespaceChar(text, i);
@@ -59,8 +59,8 @@ namespace Nezaboodka.Ndef
             if (i >= 0)
             {
                 prefix = text[i];
-                if (prefix == NdefConst.ObjectStartMarker || prefix == NdefConst.LogicalKeyPrefix ||
-                    prefix == NdefConst.SerialKeyPrefix)
+                if (prefix == NdefConst.ObjectStartMarker || prefix == NdefConst.ObjectKeyPrefix ||
+                    prefix == NdefConst.ObjectNumberPrefix)
                 {
                     i = FindFirstNonWhitespaceChar(text, i + 1);
                     k = FindFirstWhitespaceChar(text, i);
@@ -273,29 +273,15 @@ namespace Nezaboodka.Ndef
 
         // Helpers for code generated object formatters
 
-        public static INdefValueFormatter<T> LookupFormatter<T>(this INdefTypeBinder typeBinder)
+        public static T LookupFormatter<T>(this INdefTypeBinder typeBinder, Type type) where T: INdefFormatter
         {
-            NdefTypeInfo typeInfo = typeBinder.LookupTypeInfoByType(typeof(T));
-            return (INdefValueFormatter<T>)typeInfo.ValueFormatter;
+            return (T)LookupFormatterBase(typeBinder, type);
         }
 
-        public static NdefLine ToNdefLine<T>(this INdefValueFormatter<T> formatter, T value, int field)
+        public static INdefFormatter LookupFormatterBase(this INdefTypeBinder typeBinder, Type type)
         {
-            return new NdefLine()
-            {
-                Field = new NdefField() { Number = field },
-                Value = formatter.ToNdefValue(typeof(T), value)
-            };
-        }
-
-        public static NdefValue ToNdefValue<T>(this INdefValueFormatter<T> formatter, T value)
-        {
-            return formatter.ToNdefValue(typeof(T), value);
-        }
-
-        public static T FromNdefValue<T>(this INdefValueFormatter<T> formatter, NdefValue value)
-        {
-            return formatter.FromNdefValue(typeof(T), value);
+            NdefTypeInfo typeInfo = typeBinder.LookupTypeInfoByType(type);
+            return typeInfo.Formatter;
         }
     }
 }

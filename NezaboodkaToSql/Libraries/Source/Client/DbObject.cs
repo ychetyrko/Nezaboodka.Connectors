@@ -1,4 +1,6 @@
-﻿namespace Nezaboodka
+﻿using Nezaboodka.Ndef;
+
+namespace Nezaboodka
 {
     public class DbObject
     {
@@ -15,9 +17,10 @@
         public override string ToString()
         {
             if (IsObject)
-                return string.Format("* {0} #{1}", GetType().Name, Key.ToString());
+                return string.Format("{0} {1} {2}{3}\n{4}", NdefConst.ObjectStartMarker, GetType().Name,
+                    NdefConst.ObjectKeyPrefix, Key.ToString(), NdefConst.ObjectEndMarker);
             else
-                return string.Format("#{0}", Key.ToString());
+                return string.Format("{0}{1}", NdefConst.ObjectKeyPrefix, Key.ToString());
         }
     }
 }

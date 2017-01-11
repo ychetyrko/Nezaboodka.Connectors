@@ -6,7 +6,7 @@ namespace Nezaboodka.Ndef
     {
         public override NdefValue ToNdefValue(Type formalType, ArraySegment<byte> value)
         {
-            var result = new NdefValue() { AsScalar = Convert.ToBase64String(value.Array, value.Offset, value.Count) };
+            var result = new NdefValue() { AsScalar = Convert.ToBase64String(value.Array, value.Offset, value.Count), HasNoLineFeeds = true };
             return result;
         }
 

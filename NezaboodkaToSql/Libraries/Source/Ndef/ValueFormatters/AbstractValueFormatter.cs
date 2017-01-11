@@ -1,29 +1,18 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Nezaboodka.Ndef
 {
-    public abstract class AbstractValueFormatter<T> : INdefValueFormatter<T>
+    public abstract class AbstractValueFormatter<T> : AbstractFormatter<T>
     {
-        public Type TypeOfValue { get { return typeof(T); } }
-        public string SerializableTypeName { get; protected set; }
-
-        public abstract NdefValue ToNdefValue(Type formalType, T value);
-        public abstract T FromNdefValue(Type formalType, NdefValue value);
-
-        public NdefValue AnyToNdefValue(Type formalType, object value)
+        public override void FromNdefElements(T obj, IEnumerable<NdefElement> elements)
         {
-            if (value != null)
-                return ToNdefValue(formalType, (T)value);
-            else
-                return NdefValue.NullValue;
+            throw new InvalidOperationException("cannot serialize scalar value as an object");
         }
 
-        public object AnyFromNdefValue(Type formalType, NdefValue value)
+        public override IEnumerable<NdefElement> ToNdefElements(T obj, int[] fieldNumbers)
         {
-            if (!value.IsUndefined && !value.IsNull)
-                return FromNdefValue(formalType, value);
-            else
-                return null;
+            throw new InvalidOperationException("cannot deserialize scalar value as an object");
         }
     }
 }

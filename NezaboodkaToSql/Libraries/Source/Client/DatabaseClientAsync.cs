@@ -1,11 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-using System.Net;
-using System.Threading.Tasks;
-using System.Text;
-using System.Threading;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using Nezaboodka.Ndef;
 
 namespace Nezaboodka
@@ -232,19 +232,19 @@ namespace Nezaboodka
             return ((SaveObjectsResponse)response).Results;
         }
 
-        public async Task<DeleteResult> DeleteObjectAsync(DbKey objectKey)
+        public async Task<long> DeleteObjectAsync(DbKey objectKey)
         {
             return await DeleteObjectsAsync(new DeleteQuery(new DbKey[] { objectKey }, false))
                 .ConfigureAwait(false);
         }
 
-        public async Task<DeleteResult> DeleteObjectAsync(DbKey objectKey, bool errorOnObjectNotFound)
+        public async Task<long> DeleteObjectAsync(DbKey objectKey, bool errorOnObjectNotFound)
         {
             return await DeleteObjectsAsync(new DeleteQuery(new DbKey[] { objectKey }, 
                 errorOnObjectNotFound)).ConfigureAwait(false);
         }
 
-        public async Task<DeleteResult> DeleteObjectAsync(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
+        public async Task<long> DeleteObjectAsync(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
             bool errorOnObjectNotFound)
         {
             return await DeleteObjectsAsync(new DeleteQuery(new DbKey[] { objectKey }, 
@@ -252,55 +252,54 @@ namespace Nezaboodka
                 errorOnObjectNotFound)).ConfigureAwait(false);
         }
 
-        public async Task<DeleteResult> DeleteObjectsAsync(List<DbKey> objectKeys)
+        public async Task<long> DeleteObjectsAsync(List<DbKey> objectKeys)
         {
             return await DeleteObjectsAsync(new DeleteQuery(objectKeys, false)).ConfigureAwait(false);
         }
 
-        public async Task<DeleteResult> DeleteObjectsAsync(DbKey[] objectKeys)
+        public async Task<long> DeleteObjectsAsync(DbKey[] objectKeys)
         {
             return await DeleteObjectsAsync(new DeleteQuery(objectKeys, false)).ConfigureAwait(false);
         }
 
-        public async Task<DeleteResult> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
+        public async Task<long> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
             List<DbKey> objectKeys)
         {
             return await DeleteObjectsAsync(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, 
                 false)).ConfigureAwait(false);
         }
 
-        public async Task<DeleteResult> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
+        public async Task<long> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
             DbKey[] objectKeys)
         {
             return await DeleteObjectsAsync(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
                 false)).ConfigureAwait(false);
         }
 
-        public async Task<DeleteResult> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
+        public async Task<long> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
             List<DbKey> objectKeys, bool errorOnObjectNotFound)
         {
             return await DeleteObjectsAsync(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
                 errorOnObjectNotFound)).ConfigureAwait(false); ;
         }
 
-        public async Task<DeleteResult> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
+        public async Task<long> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
             DbKey[] objectKeys, bool errorOnObjectNotFound)
         {
             return await DeleteObjectsAsync(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
                 errorOnObjectNotFound)).ConfigureAwait(false); ;
         }
 
-        public async Task<DeleteResult> DeleteObjectsAsync(DeleteQuery query)
+        public async Task<long> DeleteObjectsAsync(DeleteQuery query)
         {
-            IList<DeleteResult> results = await DeleteObjectsInQueriesAsync(new DeleteQuery[] { query }).ConfigureAwait(false);
-            return results[0];
+            return await DeleteObjectsInQueriesAsync(new DeleteQuery[] { query }).ConfigureAwait(false);
         }
 
-        public async Task<IList<DeleteResult>> DeleteObjectsInQueriesAsync(IList<DeleteQuery> queries)
+        public async Task<long> DeleteObjectsInQueriesAsync(IList<DeleteQuery> queries)
         {
             var request = new DeleteObjectsRequest(queries);
             DatabaseResponse response = await ExecuteRequestAsync(request).ConfigureAwait(false);
-            return ((DeleteObjectsResponse)response).Results;
+            return ((DeleteObjectsResponse)response).DeletedObjectCount;
         }
 
         public async Task<object> GetObjectAsync(DbKey objectKey)
@@ -479,12 +478,12 @@ namespace Nezaboodka
         }
 
         public async Task<IList> SearchFilesAsync(string fileMaskToMatch, string fileMaskToNotMatch, int searchLimit,
-            string forVar, FileObject after, string where, string having,
+            string forEachVar, FileObject after, string where, string having,
             IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn)
         {
             var fileRange = new FileRange();
             SearchQuery query = CreateSearchFilesQuery(fileMaskToMatch, fileMaskToNotMatch, searchLimit,
-                forVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
+                forEachVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
             var queries = new SearchQuery[] { query };
             var request = new SearchObjectsRequest(queries);
             var response = (SearchObjectsResponse)await ExecuteRequestAsync(request).ConfigureAwait(false);
@@ -499,14 +498,14 @@ namespace Nezaboodka
             string serverAddress = CurrentServerAddress;
             if (ServerAddressSelectionMode == ServerAddressSelectionMode.RandomPerCall)
                 CurrentServerAddressNumber = (CurrentServerAddressNumber + 1) % ServerAddresses.Count;
-            Stopwatch stopwatch = null;
+            var stopwatch = new Stopwatch();
             int totalElapsedTimeInMilliseconds = 0;
             int retryCount = 0;
             int basePartOfDelayInMilliseconds = 0;
             bool success = false;
             while (!success)
             {
-                stopwatch = Stopwatch.StartNew();
+                stopwatch.Restart();
                 result = await ExecuteRequestNoRetryAsync(serverAddress, request).ConfigureAwait(false);
                 int elapsedMilliseconds = (int)stopwatch.ElapsedMilliseconds;
                 if (result is ErrorResponse)
@@ -571,54 +570,38 @@ namespace Nezaboodka
             HttpWebRequest webRequest = CreateWebRequest(requestUriString, TimeoutInMilliseconds, fContext,
                 useEnvironmentChangeNumbers);
             using (Stream requestStream = webRequest.GetRequestStream())
+            using (var ndefWriter = new NdefWriter(requestStream))
             {
-                var streamWriter = new StreamWriter(requestStream, Encoding.UTF8);
-                var serializer = new NdefSerializer(TypeBinder, !(request is SaveObjectsRequest), new object[] { request });
-                var writer = new NdefTextWriter(streamWriter);
-                var writeObjectsRequest = request as WriteObjectsRequest;
-                if (writeObjectsRequest != null)
-                    writer.WriteBlockHeader(null);
-                writer.WriteObjectsFrom(serializer);
-                if (writeObjectsRequest != null)
-                {
-                    writer.OpenWriteBlockFooter(0);
-                    streamWriter.Flush();
-                    await FileContentHandler.WriteFilesToStreamAsync(writeObjectsRequest, requestStream)
+                ndefWriter.WriteDataSetStart(false, null);
+                var saveObjectsRequest = request as SaveObjectsRequest;
+                var objectsReader = new ObjectsReader(TypeBinder, saveObjectsRequest == null, new object[] { request });
+                NdefSerializer.WriteObjects(objectsReader, ndefWriter);
+                ndefWriter.WriteDataSetEnd();
+                if (saveObjectsRequest != null)
+                    await FileContentHandler.WriteFilesAsync(saveObjectsRequest, objectsReader.VisitedObjects, ndefWriter)
                         .ConfigureAwait(false);
-                }
-                else
-                    streamWriter.Flush();
             }
             DatabaseClientContext newContext = new DatabaseClientContext(fContext);
-            DatabaseResponse response;
+            DatabaseResponse response = null;
             using (HttpWebResponse webResponse = await GetWebResponseAsync(webRequest, newContext,
                 useEnvironmentChangeNumbers).ConfigureAwait(false))
             {
                 Interlocked.Exchange(ref fContext, newContext);
                 using (Stream responseStream = webResponse.GetResponseStream())
                 {
-                    var textReader = new StreamReader(responseStream, Encoding.UTF8);
                     if (webResponse.StatusCode == HttpStatusCode.OK)
                     {
-                        var reader = new NdefTextReader(textReader);
-                        var roots = new List<object>();
-                        long binaryDataLength;
-                        Stream sourceStream = NdefText.LoadFromNdefIterator(reader, false, false, TypeBinder, roots,
-                            out binaryDataLength);
-                        response = roots[0] as DatabaseResponse;
+                        var deserializer = new NdefDeserializer(responseStream, NdefLinkingMode.OneWayLinkingAndOriginalOrder);
+                        deserializer.SetTypeBinder(TypeBinder);
+                        if (deserializer.MoveToNextDataSet())
+                            response = deserializer.ReadObjects().FirstOrDefault() as DatabaseResponse;
                         if (response != null)
-                        {
-                            ReadObjectsResponse readObjectsResponse = response as ReadObjectsResponse;
-                            if (readObjectsResponse != null)
-                                await FileContentHandler.ReadFilesFromStreamAsync(readObjectsResponse, sourceStream)
-                                    .ConfigureAwait(false);
-                        }
+                            await FileContentHandler.ReadFilesAsync(deserializer).ConfigureAwait(false);
                         else
-                            throw new NezaboodkaException(string.Format(
-                                "invalid response object type {0} in response stream", roots[0].GetType()));
+                            throw new NezaboodkaException("invalid response");
                     }
                     else
-                        throw new WebException(textReader.ReadToEnd());
+                        throw new WebException(new StreamReader(responseStream).ReadToEnd());
                 }
             }
             return response;
@@ -661,7 +644,4 @@ namespace Nezaboodka
             return result;
         }
     }
-
-    public delegate Task WriteFilesToStreamDelegateAsync(WriteObjectsRequest request, Stream stream, long totalLength);
-    public delegate Task ReadFilesFromStreamDelegateAsync(ReadObjectsResponse response, Stream stream, long totalLength);
 }

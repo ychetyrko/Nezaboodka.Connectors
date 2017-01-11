@@ -46,7 +46,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+    <DebugType>none</DebugType>
     <Optimize>True</Optimize>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -55,6 +55,7 @@
     <OutputPath>..\..\Build\Release\bin\Nezaboodka.Client</OutputPath>
     <IntermediateOutputPath>..\..\Build\Release\obj\Nezaboodka.Client</IntermediateOutputPath>
     <Prefer32Bit>false</Prefer32Bit>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -76,6 +77,7 @@
     <Compile Include="ClientTypeSystem.cs" />
     <Compile Include="DbDynamic.cs" />
     <Compile Include="DbKey.cs" />
+    <Compile Include="DbObjectFormatter.cs" />
     <Compile Include="EnvironmentConfiguration.cs" />
     <Compile Include="FileContentHandler.cs" />
     <Compile Include="FileContentHandlerAsync.cs" />
@@ -85,6 +87,9 @@
     <Compile Include="DatabaseClient.cs" />
     <Compile Include="DbObject.cs" />
     <Compile Include="ClientExceptions.cs" />
+    <Compile Include="NdefDeserializer.cs" />
+    <Compile Include="NdefLinker.cs" />
+    <Compile Include="NdefStream.cs" />
     <Compile Include="NdefText.cs" />
     <Compile Include="DbUtils.cs" />
     <Compile Include="QueryParser.cs" />

@@ -20,7 +20,7 @@ namespace Nezaboodka.Ndef
             if (value == default(DateTimeOffset))
                 result = NdefValue.NullValue;
             else
-                result = new NdefValue() { AsScalar = value.ToString("o") };
+                result = new NdefValue() { AsScalar = value.ToString("o"), HasNoLineFeeds = true };
             return result;
         }
 

@@ -71,6 +71,11 @@
       <Link>AssemblyInfo.Common.cs</Link>
     </Compile>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="NdefReadableBinaryStream.cs" />
+    <Compile Include="NdefWritableBinaryStream.cs" />
+    <Compile Include="ObjectsReader.cs" />
+    <Compile Include="TextAndBinaryReader.cs" />
+    <Compile Include="ValueFormatters\AbstractFormatter.cs" />
     <Compile Include="ValueFormatters\BinarySegmentFormatter.cs" />
     <Compile Include="ValueFormatters\BitArrayFormatter.cs" />
     <Compile Include="ValueFormatters\DateTimeOffsetFormatter.cs" />
@@ -79,8 +84,6 @@
     <Compile Include="ObjectFormatters\ListFormatter.cs" />
     <Compile Include="ObjectFormatters\DictionaryFormatter.cs" />
     <Compile Include="ObjectFormatters\AbstractObjectFormatter.cs" />
-    <Compile Include="ValueFormatters\ListValueFormatter.cs" />
-    <Compile Include="ValueFormatters\ObjectValueFormatter.cs" />
     <Compile Include="ValueFormatters\AnyTypeFormatter.cs" />
     <Compile Include="ValueFormatters\BinaryDataFormatter.cs" />
     <Compile Include="ValueFormatters\StringFormatter.cs" />
@@ -88,15 +91,13 @@
     <Compile Include="ValueFormatters\DateTimeFormatter.cs" />
     <Compile Include="DataTypes.cs" />
     <Compile Include="ObjectFormatters\ObjectFormatter.cs" />
-    <Compile Include="NdefLinker.cs" />
-    <Compile Include="NdefDeserializer.cs" />
     <Compile Include="Interfaces.cs" />
     <Compile Include="NdefSerializer.cs" />
     <Compile Include="NdefUtils.cs" />
-    <Compile Include="NdefTextReader.cs" />
-    <Compile Include="NdefIterator.cs" />
-    <Compile Include="NdefTextWriter.cs" />
-    <Compile Include="FormatterAssemblyGenerator.cs" />
+    <Compile Include="NdefReader.cs" />
+    <Compile Include="AbstractNdefReader.cs" />
+    <Compile Include="NdefWriter.cs" />
+    <Compile Include="CodeGenerator.cs" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
