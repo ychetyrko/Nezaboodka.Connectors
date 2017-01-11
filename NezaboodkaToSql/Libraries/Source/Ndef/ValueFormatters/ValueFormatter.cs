@@ -9,7 +9,7 @@ namespace Nezaboodka.Ndef
 
         // Public
 
-        public ValueFormatter() : this(null)
+        public ValueFormatter() : this(typeof(T).FullName)
         {
         }
 
@@ -32,7 +32,8 @@ namespace Nezaboodka.Ndef
         {
             return new NdefValue()
             {
-                AsScalar = value.ToString()
+                AsScalar = value.ToString(),
+                HasNoLineFeeds = true
             };
         }
 

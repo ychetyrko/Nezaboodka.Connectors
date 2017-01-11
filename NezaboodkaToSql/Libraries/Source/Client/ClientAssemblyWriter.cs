@@ -5,12 +5,16 @@ using System.Reflection;
 using System.Text;
 using Microsoft.CSharp;
 using System.CodeDom.Compiler;
-using Nezaboodka.Ndef;
 
 namespace Nezaboodka
 {
     public class ClientAssemblyWriter
     {
+        private StringBuilder fStringBuilder;
+        private int fCurrentIndent;
+
+        // Public
+
         public List<string> ImportedNamespaces { get; private set; }
         public List<string> ReferencedAssemblies { get; private set; }
 
@@ -186,10 +190,10 @@ namespace Nezaboodka
 
         private void WriteFormattersDeclaration(IEnumerable<FieldDefinition> classDistincTypes)
         {
-            //private INdefValueFormatter<string> fStringFormatter;
+            //private INdefFormatter<string> fStringFormatter;
             foreach (FieldDefinition fieldDef in classDistincTypes)
             {
-                WriteFromNewLine("private INdefValueFormatter<{0}> {1};", GetTypeName(fieldDef, false),
+                WriteFromNewLine("private INdefFormatter<{0}> {1};", GetTypeName(fieldDef, false),
                     GetFormatterNameByType(fieldDef));
             }
         }
@@ -249,14 +253,14 @@ namespace Nezaboodka
         {
             //public UserSerializer(INdefTypeBinder typeBinder)
             //{
-            //    fStringFormatter = (INdefValueFormatter<string>)typeBinder.LookupTypeInfo(typeof(string)).Formatter;
+            //    fStringFormatter = (INdefFormatter<string>)typeBinder.LookupTypeInfo(typeof(string)).Formatter;
             //}
             WriteFromNewLine("public {0}(INdefTypeBinder typeBinder)", formatterClassName);
             WriteCodeBlockBegin();
             ChangeIndent(+1);
             foreach (FieldDefinition fieldDef in classDistinctTypes)
             {
-                WriteFromNewLine("{0} = typeBinder.LookupFormatter<{1}>();",
+                WriteFromNewLine("{0} = typeBinder.LookupFormatter<INdefFormatter<{1}>>(typeof({1}));",
                     GetFormatterNameByType(fieldDef), GetTypeName(fieldDef, false));
             }
             ChangeIndent(-1);
@@ -269,12 +273,14 @@ namespace Nezaboodka
             //{
             //    return new NdefLine() { FieldName = "Name", Value = fStringFormatter.ToNdefValue(typeof(string), obj.Name)};
             //}
+            string fieldTypeName = fieldDef.IsList ? string.Format("List<{0}>", fieldDef.FieldTypeName) : fieldDef.FieldTypeName;
             WriteFromNewLine("public NdefValue {0}({1} obj)", fieldDef.FieldName, className);
             WriteCodeBlockBegin();
             ChangeIndent(+1);
             //WriteFromNewLine("return new NdefLine() {{ FieldName = \"{0}\", Value = {1}.ToNdefValue(typeof({2}), obj.{0})}};",
             //    fieldInfo.Name, GetFormatterNameByType(fieldInfo.FieldType), GetTypeName(fieldInfo.FieldType, false));
-            WriteFromNewLine("return {0}.ToNdefValue(obj.{1});", GetFormatterNameByType(fieldDef), fieldDef.FieldName);
+            WriteFromNewLine("return {0}.ToNdefValue(typeof({1}), obj.{2});",
+                GetFormatterNameByType(fieldDef), fieldTypeName, fieldDef.FieldName);
             ChangeIndent(-1);
             WriteCodeBlockEnd();
         }
@@ -285,10 +291,12 @@ namespace Nezaboodka
             //{
             //    obj.Name = fStringFormatter.FromNdefValue(typeof(string), line.Value);
             //}
+            string fieldTypeName = fieldDef.IsList ? string.Format("List<{0}>", fieldDef.FieldTypeName) : fieldDef.FieldTypeName;
             WriteFromNewLine("public void {0}({1} obj, NdefValue value)", fieldDef.FieldName, className);
             WriteCodeBlockBegin();
             ChangeIndent(+1);
-            WriteFromNewLine("obj.{0} = {1}.FromNdefValue(value);", fieldDef.FieldName, GetFormatterNameByType(fieldDef));
+            WriteFromNewLine("obj.{0} = {1}.FromNdefValue(typeof({2}), value);",
+                fieldDef.FieldName, GetFormatterNameByType(fieldDef), fieldTypeName);
             ChangeIndent(-1);
             WriteCodeBlockEnd();
         }
@@ -562,11 +570,6 @@ namespace Nezaboodka
                 || (type.IsGenericType && type.GetGenericTypeDefinition() == interfaceType)
                 || type.GetInterfaces().Any((Type x) => x.IsGenericType && x.GetGenericTypeDefinition() == interfaceType);
         }
-
-        // Fields
-
-        private StringBuilder fStringBuilder;
-        private int fCurrentIndent;
     }
 
     public static partial class Const
@@ -627,12 +630,5 @@ namespace Nezaboodka
             {typeof(string), "null"},
             {typeof(DateTimeOffset), "DateTimeOffset.MinValue"}
         };
-    }
-
-    public class DbObjectFormatter
-    {
-        public DbObjectFormatter(INdefTypeBinder typeBinder)
-        {
-        }
     }
 }

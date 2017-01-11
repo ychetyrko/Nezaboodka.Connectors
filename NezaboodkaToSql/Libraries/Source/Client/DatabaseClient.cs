@@ -1,12 +1,11 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
-using System.Reflection;
-using System.Text;
 using System.Threading;
 using Nezaboodka.Ndef;
 
@@ -283,84 +282,73 @@ namespace Nezaboodka
         public IList<QueryResult> SaveObjectsInQueries(IList<SaveQuery> queries)
         {
             var request = new SaveObjectsRequest(queries);
-            foreach (SaveQuery query in queries)
-                for (int i = 0; i < query.InObjects.Count; i++)
-                {
-                    FileObject fileObject = query.InObjects[i] as FileObject;
-                    if (fileObject != null)
-                    {
-                        if (request.FileObjects == null)
-                            request.FileObjects = new List<FileObject>();
-                        request.FileObjects.Add(fileObject);
-                    }
-                }
             var response = (SaveObjectsResponse)ExecuteRequest(request);
             return response.Results;
         }
 
-        public DeleteResult DeleteObject(DbKey objectKey)
+        public long DeleteObject(DbKey objectKey)
         {
             return DeleteObjects(new DeleteQuery(new DbKey[] { objectKey }, false));
         }
 
-        public DeleteResult DeleteObject(DbKey objectKey, bool errorOnObjectNotFound)
+        public long DeleteObject(DbKey objectKey, bool errorOnObjectNotFound)
         {
             return DeleteObjects(new DeleteQuery(new DbKey[] { objectKey }, errorOnObjectNotFound));
         }
 
-        public DeleteResult DeleteObject(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
+        public long DeleteObject(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
             bool errorOnObjectNotFound)
         {
             return DeleteObjects(new DeleteQuery(new DbKey[] { objectKey }, 
                 new List<TypeAndFields>() { typeAndFieldsWithObjectsToDelete }, errorOnObjectNotFound));
         }
 
-        public DeleteResult DeleteObjects(List<DbKey> objectKeys)
+        public long DeleteObjects(List<DbKey> objectKeys)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, false));
         }
 
-        public DeleteResult DeleteObjects(DbKey[] objectKeys)
+        public long DeleteObjects(DbKey[] objectKeys)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, false));
         }
 
-        public DeleteResult DeleteObjects(List<DbKey> objectKeys, 
+        public long DeleteObjects(List<DbKey> objectKeys, 
             IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, false));
         }
 
-        public DeleteResult DeleteObjects(DbKey[] objectKeys,
+        public long DeleteObjects(DbKey[] objectKeys,
             IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, false));
         }
 
-        public DeleteResult DeleteObjects(List<DbKey> objectKeys, 
+        public long DeleteObjects(List<DbKey> objectKeys, 
             IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, bool errorOnObjectNotFound)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, 
                 errorOnObjectNotFound));
         }
 
-        public DeleteResult DeleteObjects(DbKey[] objectKeys,
+        public long DeleteObjects(DbKey[] objectKeys,
             IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, bool errorOnObjectNotFound)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
                 errorOnObjectNotFound));
         }
 
-        public DeleteResult DeleteObjects(DeleteQuery query)
+        public long DeleteObjects(DeleteQuery query)
         {
-            return DeleteObjectsInQueries(new DeleteQuery[] { query })[0];
+            return DeleteObjectsInQueries(new DeleteQuery[] { query });
         }
 
-        public IList<DeleteResult> DeleteObjectsInQueries(IList<DeleteQuery> queries)
+        public long DeleteObjectsInQueries(IList<DeleteQuery> queries)
         {
             var request = new DeleteObjectsRequest(queries);
             var response = (DeleteObjectsResponse)ExecuteRequest(request);
-            return response.Results;
+            return response.DeletedObjectCount;
         }
 
         public object GetObject(DbKey objectKey)
@@ -507,12 +495,12 @@ namespace Nezaboodka
         }
 
         public IList SearchFiles(string fileMaskToMatch, string fileMaskToNotMatch, int searchLimit, 
-            string forVar, FileObject after, string where, string having,
+            string forEachVar, FileObject after, string where, string having,
             IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn)
         {
             var fileRange = new FileRange();
             SearchQuery query = CreateSearchFilesQuery(fileMaskToMatch, fileMaskToNotMatch, searchLimit,
-                forVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
+                forEachVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
             var queries = new SearchQuery[] { query };
             var request = new SearchObjectsRequest(queries);
             var response = (SearchObjectsResponse)ExecuteRequest(request);
@@ -520,11 +508,11 @@ namespace Nezaboodka
         }
 
         public SearchQuery CreateSearchFilesQuery(string fileMaskToMatch, string fileMaskToNotMatch,
-            int searchLimit, string forVar, FileObject after, string where, string having,
+            int searchLimit, string forEachVar, FileObject after, string where, string having,
             IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn, FileRange fileRange)
         {
-            if (string.IsNullOrEmpty(forVar))
-                forVar = "X: FileObject";
+            if (string.IsNullOrEmpty(forEachVar))
+                forEachVar = "X: FileObject";
             if (!string.IsNullOrEmpty(fileMaskToMatch) || !string.IsNullOrEmpty(fileMaskToNotMatch))
             {
                 Parameter[] tempParameters;
@@ -538,7 +526,7 @@ namespace Nezaboodka
                 tempParameters[tempParameters.Length - 2] = new Parameter("FileMaskToMatch", fileMaskToMatch);
                 tempParameters[tempParameters.Length - 1] = new Parameter("FileMaskToNotMatch", fileMaskToNotMatch);
                 parameters = tempParameters;
-                string currentVarName = GetObjectVariableName(forVar);
+                string currentVarName = GetObjectVariableName(forEachVar);
                 if (!string.IsNullOrEmpty(where))
                     where = string.Format("IsFileNameMatch({0}.FileName, {1}, {2}) and ({3})",
                         currentVarName, "{FileMaskToMatch}", "{FileMaskToNotMatch}", where);
@@ -549,8 +537,8 @@ namespace Nezaboodka
             var result = new SearchQuery()
             {
                 Parameters = parameters,
-                GetVar = forVar,
-                FromIndex = "FileObject[+FileName]!",
+                LookupVar = forEachVar,
+                LookupIn = "FileObject[+FileName]!",
                 AfterObject = after,
                 Where = where,
                 Having = having,
@@ -569,14 +557,14 @@ namespace Nezaboodka
             string serverAddress = CurrentServerAddress;
             if (ServerAddressSelectionMode == ServerAddressSelectionMode.RandomPerCall)
                 CurrentServerAddressNumber = (CurrentServerAddressNumber + 1) % ServerAddresses.Count;
-            Stopwatch stopwatch = null;
+            var stopwatch = new Stopwatch();
             int totalElapsedTimeInMilliseconds = 0;
             int retryCount = 0;
             int basePartOfDelayInMilliseconds = 0;
             bool success = false;
             while (!success)
             {
-                stopwatch = Stopwatch.StartNew();
+                stopwatch.Restart();
                 result = ExecuteRequestNoRetry(serverAddress, request);
                 int elapsedMilliseconds = (int)stopwatch.ElapsedMilliseconds;
                 if (result is ErrorResponse)
@@ -639,64 +627,47 @@ namespace Nezaboodka
                 useEnvironmentChangeNumbers = true;
             }
             //Temporary!!! Debug!!!
-            using (var fileStream = new FileStream(Path.Combine(Path.GetDirectoryName(
-                Assembly.GetExecutingAssembly().Location), "Log.ndef"), FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
-            {
-                var streamWriter = new StreamWriter(fileStream, Encoding.UTF8);
-                var serializer = new NdefSerializer(TypeBinder, !(request is SaveObjectsRequest), new object[] { request });
-                var writer = new NdefTextWriter(streamWriter);
-                writer.WriteObjectsFrom(serializer);
-                streamWriter.Flush();
-            }
+            //using (var fileStream = new FileStream(Path.Combine(Path.GetDirectoryName(
+            //    Assembly.GetEntryAssembly().Location), "Log.ndef"), FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+            //using (var ndefWriter = new NdefWriter(fileStream))
+            //{
+            //    var objectsReader = new ObjectsReader(TypeBinder, !(request is SaveObjectsRequest), new object[] { request });
+            //    new NdefSerializer(ndefWriter).WriteDataSet(objectsReader);
+            //}
             //Temporary!!! Debug!!!
             HttpWebRequest webRequest = CreateWebRequest(requestUriString, TimeoutInMilliseconds, fContext,
                 useEnvironmentChangeNumbers);
             using (Stream requestStream = webRequest.GetRequestStream())
+            using (var ndefWriter = new NdefWriter(requestStream))
             {
-                var streamWriter = new StreamWriter(requestStream, Encoding.UTF8);
-                var serializer = new NdefSerializer(TypeBinder, !(request is SaveObjectsRequest), new object[] { request });
-                var writer = new NdefTextWriter(streamWriter);
-                var writeObjectsRequest = request as WriteObjectsRequest;
-                if (writeObjectsRequest != null)
-                    writer.WriteBlockHeader(null);
-                writer.WriteObjectsFrom(serializer);
-                if (writeObjectsRequest != null)
-                {
-                    writer.OpenWriteBlockFooter(0);
-                    streamWriter.Flush();
-                    FileContentHandler.WriteFilesToStream(writeObjectsRequest, requestStream);
-                }
-                else
-                    streamWriter.Flush();
+                ndefWriter.WriteDataSetStart(false, null);
+                var saveObjectsRequest = request as SaveObjectsRequest;
+                var objectsReader = new ObjectsReader(TypeBinder, saveObjectsRequest == null, new object[] { request });
+                NdefSerializer.WriteObjects(objectsReader, ndefWriter);
+                ndefWriter.WriteDataSetEnd();
+                if (saveObjectsRequest != null)
+                    FileContentHandler.WriteFiles(saveObjectsRequest, objectsReader.VisitedObjects, ndefWriter);
             }
             DatabaseClientContext newContext = new DatabaseClientContext(fContext);
-            DatabaseResponse response;
+            DatabaseResponse response = null;
             using (HttpWebResponse webResponse = GetWebResponse(webRequest, newContext, useEnvironmentChangeNumbers))
             {
                 Interlocked.Exchange(ref fContext, newContext);
                 using (Stream responseStream = webResponse.GetResponseStream())
                 {
-                    var textReader = new StreamReader(responseStream, Encoding.UTF8);
                     if (webResponse.StatusCode == HttpStatusCode.OK)
                     {
-                        var reader = new NdefTextReader(textReader);
-                        var roots = new List<object>();
-                        long binaryDataLength;
-                        Stream sourceStream = NdefText.LoadFromNdefIterator(reader, false, false, TypeBinder, roots,
-                            out binaryDataLength);
-                        response = roots[0] as DatabaseResponse;
+                        var deserializer = new NdefDeserializer(responseStream, NdefLinkingMode.OneWayLinkingAndOriginalOrder);
+                        deserializer.SetTypeBinder(TypeBinder);
+                        if (deserializer.MoveToNextDataSet())
+                            response = deserializer.ReadObjects().FirstOrDefault() as DatabaseResponse;
                         if (response != null)
-                        {
-                            ReadObjectsResponse readObjectsResponse = response as ReadObjectsResponse;
-                            if (readObjectsResponse != null)
-                                FileContentHandler.ReadFilesFromStream(readObjectsResponse, sourceStream);
-                        }
+                            FileContentHandler.ReadFiles(deserializer);
                         else
-                            throw new NezaboodkaException(string.Format(
-                                "invalid response object type {0} in response stream", roots[0].GetType()));
+                            throw new NezaboodkaException("invalid response");
                     }
                     else
-                        throw new WebException(textReader.ReadToEnd());
+                        throw new WebException(new StreamReader(responseStream).ReadToEnd());
                 }
             }
             return response;
@@ -811,9 +782,6 @@ namespace Nezaboodka
         RandomPerSession,
         RandomPerCall
     }
-
-    public delegate void WriteFilesToStreamDelegate(WriteObjectsRequest request, Stream stream, long totalLength);
-    public delegate void ReadFilesFromStreamDelegate(ReadObjectsResponse response, Stream stream, long totalLength);
 
     // Constants
 

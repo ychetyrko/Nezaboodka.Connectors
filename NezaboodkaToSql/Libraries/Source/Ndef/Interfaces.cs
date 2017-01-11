@@ -4,25 +4,28 @@ using System.Collections.Generic;
 
 namespace Nezaboodka.Ndef
 {
-    public interface INdefIterator
+    public interface INdefReader
     {
-        NdefBlock CurrentBlock { get; }
+        NdefDataSet CurrentDataSet { get; }
         NdefObject CurrentObject { get; }
-        bool MoveToNextBlockHeader();
-        bool MoveToNextObjectHeader();
-        bool MoveToNextFieldOrListItem();
-        Stream OpenReadBlockFooter(); // returns null if no binary data
+        NdefElement CurrentElement { get; } //TODO: Сделать NdefElement классом. Сейчас обращение CurrentElement возвращает огромную структуру как значение.
+        bool MoveToNextDataSet();
+        bool MoveToNextObject();
+        bool MoveToNextElement();
     }
 
     public interface INdefWriter
     {
-        void WriteBlockHeader(string header);
-        void WriteObjectHeader(string type, NdefObjectKind kind, string serialKey, string logicalKey);
-        void WriteFieldNameAndValue(string name, string explicitTypeName, string scalar, string serialKey, string logicalKey);
-        void WriteFieldNameForNestedObjectOrList(string name);
-        void WriteListItem(NdefValueUpdateMode valueUpdateMode, string explicitTypeName, string scalar, string serialKey, string logicalKey);
-        void WriteObjectFooter();
-        Stream OpenWriteBlockFooter(long length);
+        void WriteDataSetStart(bool isExtensionOfPreviousDataSet, string header);
+        void WriteDataSetEnd();
+        void WriteObjectStart(bool noBraces, string type, string key, string number);
+        void WriteObjectEnd(bool noBraces);
+        void WriteFieldName(string name); // string.IsNullOrEmpty(name) означает поле без имени, объект как целое
+        void WriteListItem(bool isRemoved);
+        void WriteValue(string type, string value, bool hasNoLineFeeds);
+        void WriteReference(string key, string number);
+        Stream WriteBinaryData(long length);
+        void Flush();
     }
 
     public interface INdefTypeBinder
@@ -32,52 +35,28 @@ namespace Nezaboodka.Ndef
         NdefTypeInfo LookupTypeInfo(object obj);
         NdefTypeInfo LookupTypeInfoByType(Type type);
         NdefTypeInfo LookupTypeInfoByName(string typeName);
-        NdefTypeInfo LookupTypeInfoByField(NdefTypeInfo ndefTypeInfo, NdefField ndefField, bool adjustToActualType);
-        object CreateObject(NdefTypeInfo typeInfo, int typeNumber, string typeName, string key);
-        long GetObjectLogicalId(string key);
-        string GetObjectKeyFromLogicalId(long logicalId);
-        string GetObjectKey(object obj);
+        NdefTypeInfo LookupTypeInfoByField(NdefTypeInfo ndefTypeInfo, NdefField ndefField, bool adjustToActualType, out Type formalType);
         bool IsStubObject(object obj);
         void MarkAsStubObject(object obj);
         bool IsImplicitObject(object obj);
         void MarkAsImplicitObject(object obj);
-        NdefField GetBackReferenceField(NdefTypeInfo ndefTypeInfo, NdefField ndefField,
-            out bool isList, out NdefTypeInfo fieldTypeInfo);
     }
 
-    public interface INdefObjectFormatter
+    public interface INdefFormatter
     {
-        IEnumerable<NdefLine> ToNdefLines(object obj, int[] fieldNumbers);
-        void FromNdefLines(object obj, IEnumerable<NdefLine> lines);
-    }
-
-    public interface INdefValueFormatter
-    {
-        Type TypeOfValue { get; }
+        INdefFormatter<object> Boxed { get; }
+        Type FormalType { get; }
         string SerializableTypeName { get; }
-        NdefValue AnyToNdefValue(Type formalType, object value);
-        object AnyFromNdefValue(Type formalType, NdefValue value);
+        void Initialize(INdefTypeBinder typeBinder, CodeGenerator codegen);
+        void Configure(INdefTypeBinder typeBinder, CodeGenerator codegen);
     }
 
-    public interface INdefValueFormatter<T> : INdefValueFormatter
+    public interface INdefFormatter<T> : INdefFormatter
     {
         NdefValue ToNdefValue(Type formalType, T value);
         T FromNdefValue(Type formalType, NdefValue value);
-    }
-
-    public static class NdefConst
-    {
-        public const char BlockStartMarker = '@';
-        public const char BlockEndMarker = '.';
-        public const char ObjectStartMarker = '>';
-        public const char ObjectEndMarker = '<';
-        public const char SerialKeyPrefix = '@';
-        public const char LogicalKeyPrefix = '#';
-        public const char ExplicitTypeNamePrefix = '`';
-        public const char ValueSeparator = ':';
-        public const char QuotationMarker = '|';
-        public const char ListItemMarker = '*';
-        public const char ListItemToRemoveMarker = '~';
-        public const char CommentMarker = '/';
+        IEnumerable<NdefElement> ToNdefElements(T obj, int[] fieldNumbers);
+        void FromNdefElements(T obj, IEnumerable<NdefElement> elements);
+        T CreateObjectInstance(Type formalType, NdefObjectHeader objectHeader);
     }
 }

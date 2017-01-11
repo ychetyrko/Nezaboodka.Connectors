@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Nezaboodka
 {
@@ -23,6 +20,7 @@ namespace Nezaboodka
             StringLiteral,
             IntegerLiteral,
             RealLiteral,
+            Tilde,
             Exclamation,
             OpenBrace,
             CloseBrace,
@@ -65,6 +63,9 @@ namespace Nezaboodka
             NextToken();
         }
 
+        // Examples:
+        // Group{Id, Title}
+        // Group{Id, Title}, ExtGroup, AdminGroup~{Permissions}, HiddenGroup~
         public static List<TypeAndFields> ParseTypeAndFieldsList(string text)
         {
             var parser = new QueryParser(text);
@@ -73,6 +74,11 @@ namespace Nezaboodka
             return result;
         }
 
+        // Examples:
+        // Group{Id, Title}
+        // ExtGroup
+        // AdminGroup~{Permissions}
+        // HiddenGroup~
         public static TypeAndFields ParseTypeAndFields(string text)
         {
             var parser = new QueryParser(text);
@@ -99,6 +105,11 @@ namespace Nezaboodka
         {
             TypeAndFields result = new TypeAndFields();
             result.TypeName = ParseIdentifier();
+            if (fToken.Id == TokenId.Tilde)
+            {
+                result.Inversion = true;
+                NextToken();
+            }
             if (fToken.Id == TokenId.OpenBrace)
                 result.FieldNames = ParseFieldNameList();
             return result;
@@ -256,6 +267,10 @@ namespace Nezaboodka
                     }
                     else
                         tokenId = TokenId.Question;
+                    break;
+                case '~':
+                    NextCharacter();
+                    tokenId = TokenId.Tilde;
                     break;
                 case '[':
                     NextCharacter();

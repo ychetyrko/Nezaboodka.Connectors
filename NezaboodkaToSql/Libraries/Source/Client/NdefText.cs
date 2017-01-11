@@ -2,133 +2,90 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Text;
 using Nezaboodka.Ndef;
 
 namespace Nezaboodka
 {
     public static class NdefText
     {
-        public static string SaveToNdefText(object anObject, INdefTypeBinder typeBinder)
+        public static string SaveToNdefText(object anObject, ClientTypeBinder typeBinder)
         {
             return SaveToNdefText(anObject, typeBinder, true);
         }
 
-        public static string SaveToNdefText(object anObject, INdefTypeBinder typeBinder, bool stepIntoNestedDbObjects)
+        public static string SaveToNdefText(object anObject, ClientTypeBinder typeBinder, bool stepIntoNestedDbObjects)
         {
             var roots = new object[1] { anObject };
             return SaveToNdefText(roots, typeBinder, stepIntoNestedDbObjects);
         }
 
-        public static string SaveToNdefText(IEnumerable roots, INdefTypeBinder typeBinder)
+        public static string SaveToNdefText(IEnumerable roots, ClientTypeBinder typeBinder)
         {
             return SaveToNdefText(roots, typeBinder, true);
         }
 
-        public static string SaveToNdefText(IEnumerable roots, INdefTypeBinder typeBinder, bool stepIntoNestedDbObjects)
+        public static string SaveToNdefText(IEnumerable roots, ClientTypeBinder typeBinder, bool stepIntoNestedDbObjects)
         {
-            using (var buffer = new StringWriter() { NewLine = "\n" })
+            using (var stream = new MemoryStream())
             {
-                var serializer = new NdefSerializer(typeBinder, stepIntoNestedDbObjects, roots);
-                var writer = new NdefTextWriter(buffer);
-                writer.WriteObjectsFrom(serializer);
-                buffer.Flush();
-                return buffer.ToString();
+                using (var ndefWriter = new NdefWriter(stream))
+                {
+                    var objectsReader = new ObjectsReader(typeBinder, stepIntoNestedDbObjects, roots);
+                    NdefSerializer.WriteObjects(objectsReader, ndefWriter);
+                }
+                stream.Position = 0;
+                var reader = new TextAndBinaryReader(stream);
+                string result = reader.ReadToEnd();
+                return result;
             }
         }
 
-        public static void SaveToNdefFile(object anObject, INdefTypeBinder typeBinder, string filePath)
+        public static void SaveToNdefFile(object anObject, ClientTypeBinder typeBinder, string filePath)
         {
-            string ndefText = SaveToNdefText(anObject, typeBinder);
-            File.WriteAllText(filePath, ndefText);
-        }
-
-        public static void SaveToNdefStream(IEnumerable roots, INdefTypeBinder typeBinder, Stream stream)
-        {
-            using (var textWriter = new StreamWriter(stream, Encoding.UTF8))
+            using (var stream = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
             {
-                SaveToNdefStream(roots, typeBinder, textWriter, true);
+                var roots = new object[1] { anObject };
+                SaveToNdefStream(roots, typeBinder, stream);
             }
         }
 
-        public static void SaveToNdefStream(IEnumerable roots, INdefTypeBinder typeBinder,
-            StreamWriter streamWriter, bool flush)
+        public static void SaveToNdefStream(IEnumerable roots, ClientTypeBinder typeBinder, Stream stream)
         {
-            var serializer = new NdefSerializer(typeBinder, true, roots);
-            var writer = new NdefTextWriter(streamWriter);
-            writer.WriteObjectsFrom(serializer);
-            if (flush)
-                streamWriter.Flush();
+            using (var ndefWriter = new NdefWriter(stream))
+            {
+                var objectsReader = new ObjectsReader(typeBinder, true, roots);
+                NdefSerializer.WriteObjects(objectsReader, ndefWriter);
+            }
         }
 
-        public static object LoadFromNdefFile(string filePath, INdefTypeBinder typeBinder)
+        public static object LoadFromNdefFile(string filePath, ClientTypeBinder typeBinder)
         {
             string ndefText = File.ReadAllText(filePath);
             return LoadFromNdefText(ndefText, typeBinder);
         }
 
-        public static object LoadFromNdefText(string ndefText, INdefTypeBinder typeBinder)
+        public static object LoadFromNdefText(string ndefText, ClientTypeBinder typeBinder)
         {
             object result = null;
             var roots = new List<object>();
-            LoadFromNdefText(ndefText, false, false, typeBinder, roots);
+            LoadFromNdefText(ndefText, typeBinder, roots);
             if (roots.Count > 0)
                 result = roots[0];
             return result;
         }
 
-        public static void LoadFromNdefText(string ndefText, bool ignoreUnknownFields,
-            bool skipOtherTypes, INdefTypeBinder typeBinder, IList result)
+        public static void LoadFromNdefText(string ndefText, ClientTypeBinder typeBinder, IList result)
         {
-            using (var stringReader = new StringReader(ndefText))
-            {
-                var reader = new NdefTextReader(stringReader);
-                var deserializer = new NdefDeserializer(reader, ignoreUnknownFields);
-                foreach (object x in deserializer.ReadAllBlocks<object>(typeBinder,
-                    NdefLinkingMode.OneWayLinkingAndOriginalOrder, skipOtherTypes))
-                {
+            LoadFromNdefStream(new MemoryStream(NdefConst.Encoding.GetBytes(ndefText)), typeBinder, result);
+        }
+
+        public static void LoadFromNdefStream(Stream stream, ClientTypeBinder typeBinder, IList result)
+        {
+            var deserializer = new NdefDeserializer(stream, NdefLinkingMode.OneWayLinkingAndOriginalOrder);
+            deserializer.SetTypeBinder(typeBinder);
+            if (deserializer.MoveToNextDataSet())
+                foreach (object x in deserializer.ReadObjects())
                     result.Add(x);
-                }
-            }
-        }
-
-        public static void LoadFromNdefTextWithTwoWayLinking(string ndefText, bool ignoreUnknownFields,
-            bool skipOtherTypes, INdefTypeBinder typeBinder, IList result)
-        {
-            using (var stringReader = new StringReader(ndefText))
-            {
-                var reader = new NdefTextReader(stringReader);
-                var deserializer = new NdefDeserializer(reader, ignoreUnknownFields);
-                foreach (object x in deserializer.ReadAllBlocks<object>(typeBinder,
-                    NdefLinkingMode.TwoWayLinkingAndNormalizedOrder, skipOtherTypes))
-                {
-                    result.Add(x);
-                }
-            }
-        }
-
-        public static Stream LoadFromNdefStream(Stream stream, bool ignoreUnknownFields,
-            bool skipOtherTypes, INdefTypeBinder typeBinder, IList result, out long binaryDataLength)
-        {
-            using (var streamReader = new StreamReader(stream))
-            {
-                var reader = new NdefTextReader(streamReader);
-                return LoadFromNdefIterator(reader, ignoreUnknownFields, skipOtherTypes, typeBinder, result,
-                    out binaryDataLength);
-            }
-        }
-
-        public static Stream LoadFromNdefIterator(INdefIterator iterator, bool ignoreUnknownFields,
-            bool skipOtherTypes, INdefTypeBinder typeBinder, IList result, out long binaryDataLength)
-        {
-            var deserializer = new NdefDeserializer(iterator, ignoreUnknownFields);
-            foreach (object x in deserializer.ReadAllBlocks<object>(typeBinder,
-                NdefLinkingMode.OneWayLinkingAndOriginalOrder, skipOtherTypes))
-            {
-                result.Add(x);
-            }
-            binaryDataLength = 0;
-            return null;
         }
 
         public static string LoadNdefTextFromResource(Assembly assembly, string resourceName)

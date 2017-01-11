@@ -1,7 +1,6 @@
-using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Text;
 
 namespace Nezaboodka
 {
@@ -286,66 +285,9 @@ namespace Nezaboodka
     {
     }
 
-    // ReadWriteObjects
-
-    public class WriteObjectsRequest : DatabaseRequest
-    {
-        public IList FileObjects;
-    }
-
-    public class ReadObjectsResponse : DatabaseResponse
-    {
-        public IList FileObjects;
-    }
-
-    public struct FileRange
-    {
-        private static readonly char[] DelimiterBetweenPositionAndLength = new char[] { '+' };
-
-        public long Position; // Запись: 0 - Save, не 0 - Append. Чтение: отрицательные значения превращаются в 0.
-        public long Length; // 0 - IsNull
-
-        public bool IsNull()
-        {
-            return Length == 0;
-        }
-
-        public override string ToString()
-        {
-            string result = null;
-            if (!IsNull())
-            {
-                if (Position >= 0)
-                    result = string.Format("{0:X}{1}{2:X}", Position, DelimiterBetweenPositionAndLength[0], Length);
-                else
-                    result = string.Format("{0}{1:X}", DelimiterBetweenPositionAndLength[0], Length);
-            }
-            return result;
-        }
-
-        public static FileRange Parse(string value)
-        {
-            var result = new FileRange();
-            if (!string.IsNullOrEmpty(value))
-            {
-                string[] t = value.Split(DelimiterBetweenPositionAndLength, 2);
-                if (t.Length == 2)
-                {
-                    string p = t[0].Trim();
-                    if (!string.IsNullOrEmpty(p))
-                        result.Position = long.Parse(p, NumberStyles.AllowHexSpecifier);
-                    result.Length = long.Parse(t[1].Trim(), NumberStyles.AllowHexSpecifier);
-                }
-                else
-                    throw new NezaboodkaException(string.Format("invalid file range format: '{0}'", value));
-            }
-            return result;
-        }
-    }
-
     // SaveObjects
 
-    public class SaveObjectsRequest : WriteObjectsRequest
+    public class SaveObjectsRequest : DatabaseRequest
     {
         public IList<SaveQuery> Queries;
 
@@ -379,38 +321,38 @@ namespace Nezaboodka
 
         public string Name;
         public IList<Parameter> Parameters;       // new List<Parameter>() { new Parameter() { Name = "T", Value = "Dev" } }
-        public string ForVar;                     // "G: Group"
-        public IList InObjects;                   // new List<DbObject>() { group1, group2 }
-        public string GetVar;                     // "X: Group"
-        public string FromIndex;                  // "Group[+Title]"
+        public string ForEachVar;                 // "G: Group"
+        public IList ForEachIn;                   // new List<DbObject>() { group1, group2 }
+        public string LookupVar;                  // "X: Group"
+        public string LookupIn;                   // "Group[+Title]"
         public string Where;                      // "X.Title.StartsWith(T)"
         public string Having;                     // "X.Participants.Count > 0"
-        public IList<TypeAndFields> SaveFields;   // new List<TypeAndFields> { TypeAndFields.Parse("Group: Title, Participants") }
-        public IList<TypeAndFields> ReturnFields; // new List<TypeAndFields> { TypeAndFields.Parse("Group: Id, Title, Participants") }
+        public IList<TypeAndFields> SaveFields;   // new List<TypeAndFields> { TypeAndFields.Parse("Group{Title, Participants}") }
+        public IList<TypeAndFields> ReturnFields; // new List<TypeAndFields> { TypeAndFields.Parse("Group{Id, Title, Participants}") }
         public bool ErrorOnRevisionMismatch;
 
         public SaveQuery()
         {
         }
 
-        public SaveQuery(IList inObjects, IList<TypeAndFields> save, IList<TypeAndFields> returnFields, bool errorOnRevisionMismatch)
+        public SaveQuery(IList objects, IList<TypeAndFields> save, IList<TypeAndFields> returnFields, bool errorOnRevisionMismatch)
         {
             SaveFields = save;
             ReturnFields = returnFields;
-            InObjects = inObjects;
+            ForEachIn = objects;
             ErrorOnRevisionMismatch = errorOnRevisionMismatch;
         }
 
-        public SaveQuery(string name, IList<Parameter> parameters, string forVar, IList inObjects, string getVar, 
-            string fromIndex, string where, string having, IList<TypeAndFields> saveFields, IList<TypeAndFields> returnFields, 
+        public SaveQuery(string name, IList<Parameter> parameters, string forEachVar, IList forEachIn, string lookupVar, 
+            string lookupIn, string where, string having, IList<TypeAndFields> saveFields, IList<TypeAndFields> returnFields, 
             bool errorOnRevisionMismatch)
         {
             Name = name;
             Parameters = parameters;
-            ForVar = forVar;
-            InObjects = inObjects;
-            GetVar = getVar;
-            FromIndex = fromIndex;
+            ForEachVar = forEachVar;
+            ForEachIn = forEachIn;
+            LookupVar = lookupVar;
+            LookupIn = lookupIn;
             Where = where;
             Having = having;
             SaveFields = saveFields;
@@ -421,52 +363,50 @@ namespace Nezaboodka
 
     public struct TypeAndFields
     {
-        private static readonly char[] DelimiterBetweenTypeAndFields = new char[] { ':' };
-        private static readonly char[] DelimitersBetweenFieldNames = new char[] { ' ', ',' };
-
-        public const string InversionTag = "~";
-
         public string TypeName;
         public IList<string> FieldNames;
+        public bool Inversion;
+        public bool AllFields { get { return FieldNames == null || FieldNames.Count == 0; } }
 
-        public TypeAndFields(string typeName, IList<string> fieldNames)
+        public TypeAndFields(string typeName, IList<string> fieldNames, bool inversion)
         {
             TypeName = typeName;
             FieldNames = fieldNames;
+            Inversion = inversion;
+        }
+
+        public TypeAndFields(string typeName, IList<string> fieldNames)
+            : this(typeName, fieldNames, false)
+        {
         }
 
         public TypeAndFields(string str)
         {
-            TypeName = null;
-            FieldNames = null;
-            if (!string.IsNullOrEmpty(str))
-            {
-                string[] t = str.Split(DelimiterBetweenTypeAndFields);
-                if (t.Length == 1 || t.Length == 2)
-                {
-                    if (!string.IsNullOrWhiteSpace(t[0]))
-                        TypeName = t[0];
-                    if (t.Length == 2 && !string.IsNullOrWhiteSpace(t[1]))
-                        FieldNames = t[1].Split(DelimitersBetweenFieldNames, StringSplitOptions.RemoveEmptyEntries);
-                }
-                else
-                    throw new NezaboodkaException(string.Format("wrong format of type-and-fields string: {0}", str));
-            }
+            this = QueryParser.ParseTypeAndFields(str);
         }
 
         public static TypeAndFields Parse(string str)
         {
-            return new TypeAndFields(str);
+            return QueryParser.ParseTypeAndFields(str);
         }
 
         public override string ToString()
         {
-            string result;
-            if (FieldNames != null)
-                result = string.Format("{0}{1} {2}", TypeName, DelimiterBetweenTypeAndFields[0], string.Join(", ", FieldNames));
-            else
-                result = TypeName;
-            return result;
+            var result = new StringBuilder(TypeName);
+            if (Inversion)
+                result.Append("~");
+            if (FieldNames != null && FieldNames.Count > 0)
+            {
+                result.Append("{");
+                result.Append(FieldNames[0]);
+                for (int i = 1; i < FieldNames.Count; i++)
+                {
+                    result.Append(",");
+                    result.Append(FieldNames[i]);
+                }
+                result.Append("}");
+            }
+            return result.ToString();
         }
     }
 
@@ -488,15 +428,15 @@ namespace Nezaboodka
 
     public class DeleteObjectsResponse : DatabaseResponse
     {
-        public IList<DeleteResult> Results;
+        public long DeletedObjectCount;
 
         public DeleteObjectsResponse()
         {
         }
 
-        public DeleteObjectsResponse(IList<DeleteResult> results)
+        public DeleteObjectsResponse(long deletedObjectCount)
         {
-            Results = results;
+            DeletedObjectCount = deletedObjectCount;
         }
     }
 
@@ -504,51 +444,31 @@ namespace Nezaboodka
     {
         public string Name;
         public IList<Parameter> Parameters;      // new List<Parameter>() { new Parameter() { Name = "A", Value = "Dev" }, new Parameter() { Name = "B", Value = "Eng" } }
-        public string ForVar;                    // "G: Group"
-        public IList InObjects;                  // new List<DbKey>() { key1.AsId, key2.AsId }
-        public string GetVar;                    // "X: Group"
-        public string FromIndex;                 // "Group[+Title]"
+        public string ForEachVar;                // "G: Group"
+        public IList ForEachIn;                  // new List<DbKey>() { key1.AsId, key2.AsId }
+        public string LookupVar;                 // "X: Group"
+        public string LookupIn;                  // "Group[+Title]"
         public object AfterObject;               // new Group() { Title = A }
         public object UntilObject;               // new Group() { Title = B }
         public string Where;                     // "X.IsDeleted"
-        public IList<SearchQuery> DetailQueries; //TODO
-        public string DeleteVar;                 //TODO: "X"
+        public IList<SearchQuery> DetailQueries; // new SearchQuery() { LookupVar = "U: User", LookupIn = "User.Friends[]", Limit = int.MaxValue }
         public bool ErrorOnObjectNotFound;
-
-        public IList<TypeAndFields> TypesAndFieldsWithDetailObjectsToDelete; // Deprecated
 
         public DeleteQuery()
         {
         }
 
-        public DeleteQuery(IList inObjects, bool errorOnObjectNotFound)
+        public DeleteQuery(IList objects, bool errorOnObjectNotFound)
         {
-            InObjects = inObjects;
+            ForEachIn = objects;
             ErrorOnObjectNotFound = errorOnObjectNotFound;
         }
 
-        public DeleteQuery(IList inObjects, IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, 
+        public DeleteQuery(IList objects, IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, 
             bool errorOnObjectNotFound)
         {
-            InObjects = inObjects;
+            ForEachIn = objects;
             ErrorOnObjectNotFound = errorOnObjectNotFound;
-            TypesAndFieldsWithDetailObjectsToDelete = typesAndFieldsWithDetailObjectsToDelete;
-        }
-    }
-
-    public class DeleteResult
-    {
-        public int QueryNumber;
-        public int AffectedObjectCount;
-        public int AffectedDetailObjectCount;
-
-        public DeleteResult()
-        {
-        }
-
-        public DeleteResult(int queryNumber)
-        {
-            QueryNumber = queryNumber;
         }
     }
 
@@ -568,7 +488,7 @@ namespace Nezaboodka
         }
     }
 
-    public class GetObjectsResponse : ReadObjectsResponse
+    public class GetObjectsResponse : DatabaseResponse
     {
         public IList<QueryResult> Results;
 
@@ -576,9 +496,8 @@ namespace Nezaboodka
         {
         }
 
-        public GetObjectsResponse(IList<QueryResult> results, IList fileObjects)
+        public GetObjectsResponse(IList<QueryResult> results)
         {
-            FileObjects = fileObjects;
             Results = results;
         }
     }
@@ -624,7 +543,7 @@ namespace Nezaboodka
         }
     }
 
-    public class LookupObjectsResponse : ReadObjectsResponse
+    public class LookupObjectsResponse : DatabaseResponse
     {
         public IList<QueryResult> Results;
 
@@ -632,9 +551,8 @@ namespace Nezaboodka
         {
         }
 
-        public LookupObjectsResponse(IList<QueryResult> results, IList fileObjects)
+        public LookupObjectsResponse(IList<QueryResult> results)
         {
-            FileObjects = fileObjects;
             Results = results;
         }
     }
@@ -643,14 +561,14 @@ namespace Nezaboodka
     {
         public string Name;
         public IList<Parameter> Parameters;       // new List<Parameter>() { new Parameter() { Name = "R", Value = 50.0 } }
-        public string ForVar;                     // "U: User"
-        public IList InObjects;                   // new List<DbObject>() { obj1, obj2 }
-        public string GetVar;                     // "X: User"
-        public string FromIndex;                  // "User[+Id]"
+        public string ForEachVar;                 // "U: User"
+        public IList ForEachIn;                   // new List<DbObject>() { obj1, obj2 }
+        public string LookupVar;                  // "X: User"
+        public string LookupIn;                   // "User[+Id]"
         public string Where;                      // "U.Rating >= R && U.Timestamp == X.Timestamp"
         public string Having;                     // "X.Participants.Count > 0"
         public IList<FileRange> FileRanges;       // Length is a maximum range, the actual range may be less
-        public IList<TypeAndFields> ReturnFields; // new List<TypeAndFields> { TypeAndFields.Parse("User: Key") }
+        public IList<TypeAndFields> ReturnFields; // new List<TypeAndFields> { TypeAndFields.Parse("User{Key}") }
         public bool ErrorOnObjectNotFound;
         public IList<SearchQuery> DetailQueries;
 
@@ -658,24 +576,24 @@ namespace Nezaboodka
         {
         }
 
-        public LookupQuery(IList inObjects, string fromIndex, IList<TypeAndFields> returnFields, bool errorOnObjectNotFound)
+        public LookupQuery(IList forEachIn, string lookupIn, IList<TypeAndFields> returnFields, bool errorOnObjectNotFound)
         {
-            InObjects = inObjects;
-            FromIndex = fromIndex;
+            ForEachIn = forEachIn;
+            LookupIn = lookupIn;
             ReturnFields = returnFields;
             ErrorOnObjectNotFound = errorOnObjectNotFound;
         }
 
-        public LookupQuery(string name, IList<Parameter> parameters, string forVar, IList inObjects,
-            string getVar, string fromIndex, string where, string having, IList<FileRange> fileRanges,
+        public LookupQuery(string name, IList<Parameter> parameters, string forEachVar, IList forEachIn,
+            string lookupVar, string lookupIn, string where, string having, IList<FileRange> fileRanges,
             IList<TypeAndFields> returnFields, bool errorOnObjectNotFound, IList<SearchQuery> detailQueries)
         {
             Name = name;
             Parameters = parameters;
-            ForVar = forVar;
-            InObjects = inObjects;
-            GetVar = getVar;
-            FromIndex = fromIndex;
+            ForEachVar = forEachVar;
+            ForEachIn = forEachIn;
+            LookupVar = lookupVar;
+            LookupIn = lookupIn;
             Where = where;
             Having = having;
             FileRanges = fileRanges;
@@ -701,7 +619,7 @@ namespace Nezaboodka
         }
     }
 
-    public class SearchObjectsResponse : ReadObjectsResponse
+    public class SearchObjectsResponse : DatabaseResponse
     {
         public IList<QueryResult> Results;
 
@@ -709,9 +627,8 @@ namespace Nezaboodka
         {
         }
 
-        public SearchObjectsResponse(IList<QueryResult> results, IList fileObjects)
+        public SearchObjectsResponse(IList<QueryResult> results)
         {
-            FileObjects = fileObjects;
             Results = results;
         }
     }
@@ -721,29 +638,29 @@ namespace Nezaboodka
         public string Name;
         public int Limit;
         public IList<Parameter> Parameters;       // new List<Parameter>() { new Parameter() { Name = "T", Value = "Dev" } }
-        public string GetVar;                     // "X: Group"
-        public string FromIndex;                  // "Group[+Title]"
+        public string LookupVar;                  // "X: Group"
+        public string LookupIn;                   // "Group[+Title]"
         public object AfterObject;                // new Group() { Title = "Dev" }
         public int SkipCount;                     // Not supported in detail queries!
         public IList<TextFilter> TextLike;        // Or(X1, ..., Xn)
         public string Where;                      // "X.Title.StartsWith(T)"
         public string Having;                     // "X.Participants.Count > 0"
         public FileRange FileRange;               // Length is a maximum range, the actual range may be less
-        public IList<TypeAndFields> ReturnFields; // new List<TypeAndFields> { TypeAndFields.Parse("Group: Id, Title, Participants") }
+        public IList<TypeAndFields> ReturnFields; // new List<TypeAndFields> { TypeAndFields.Parse("Group{Id, Title, Participants}") }
         public IList<SearchQuery> DetailQueries;
 
         public SearchQuery()
         {
         }
 
-        public SearchQuery(string name, IList<Parameter> parameters, string getVar, string fromIndex, object afterObject,
+        public SearchQuery(string name, IList<Parameter> parameters, string lookupVar, string lookupIn, object afterObject,
             int skipCount, IList<TextFilter> textLike, string where, string having, FileRange fileRange, 
             IList<TypeAndFields> returnFields, int limit, IList<SearchQuery> detailQueries)
         {
             Name = name;
             Parameters = parameters;
-            GetVar = getVar;
-            FromIndex = fromIndex;
+            LookupVar = lookupVar;
+            LookupIn = lookupIn;
             AfterObject = afterObject;
             SkipCount = skipCount;
             Where = where;

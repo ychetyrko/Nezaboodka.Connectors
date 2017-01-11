@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using Nezaboodka.Ndef;
 
 namespace Nezaboodka
 {
@@ -22,23 +24,40 @@ namespace Nezaboodka
             Directory.CreateDirectory(LocalFilesFolder);
         }
 
-        public virtual void WriteFilesToStream(WriteObjectsRequest request, Stream stream)
+        public virtual void WriteFiles(SaveObjectsRequest request, Dictionary<object, long> objectNumberByFileObject,
+            NdefWriter ndefWriter)
         {
-            if (request.FileObjects != null)
-                foreach (FileObject fileObject in request.FileObjects)
-                    WriteFileToStream(fileObject, fileObject.FileContent.FileRange.Position,
-                        fileObject.FileContent.FileRange.Length, stream);
+            ndefWriter.WriteDataSetStart(true, null);
+            foreach (SaveQuery query in request.Queries)
+                for (int i = 0; i < query.ForEachIn.Count; i++)
+                {
+                    FileObject fileObject = query.ForEachIn[i] as FileObject;
+                    if (fileObject != null)
+                    {
+                        ndefWriter.WriteObjectStart(false, null, objectNumberByFileObject[fileObject].ToString(), null);
+                        using (Stream stream = ndefWriter.WriteBinaryData(fileObject.FileContent.FileRange.Length))
+                        {
+                            WriteFileToStream(fileObject, fileObject.FileContent.FileRange.Position,
+                                fileObject.FileContent.FileRange.Length, stream);
+                        }
+                        ndefWriter.WriteObjectEnd(false);
+                    }
+                }
+            ndefWriter.WriteDataSetEnd();
         }
 
-        public virtual void ReadFilesFromStream(ReadObjectsResponse response, Stream stream)
+        public virtual void ReadFiles(NdefDeserializer deserializer)
         {
-            if (response.FileObjects != null)
-                foreach (FileObject fileObject in response.FileObjects)
+            if (deserializer.MoveToNextDataSet() && string.IsNullOrEmpty(deserializer.DataSetHeader))
+                while (deserializer.MoveToNextObject())
+                {
+                    FileObject fileObject = (FileObject)deserializer.CurrentObject;
                     ReadFileFromStream(fileObject, fileObject.FileContent.FileRange.Position,
-                        fileObject.FileContent.FileRange.Length, stream);
+                        fileObject.FileContent.FileRange.Length, deserializer.CurrentStream);
+                }
         }
 
-        // WriteFilesToStream
+        // WriteFiles
 
         protected virtual void WriteFileToStream(FileObject fileObject, long position, long length, Stream stream)
         {
@@ -94,7 +113,7 @@ namespace Nezaboodka
             destination.Write(source, (int)position, (int)length);
         }
 
-        // ReadFilesFromStream
+        // ReadFiles
 
         protected virtual void ReadFileFromStream(FileObject fileObject, long position, long length, Stream stream)
         {
@@ -106,7 +125,7 @@ namespace Nezaboodka
                     ReadToFile(stream, filePath, position, length);
                     break;
                 case ReadingToStream:
-                    var destination = CreateStream(fileObject, position, length);
+                    Stream destination = CreateStream(fileObject, position, length);
                     fileObject.FileContent.FileData = destination;
                     ReadToStream(stream, destination, position, length);
                     break;
@@ -130,13 +149,13 @@ namespace Nezaboodka
         {
             using (var destination = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
             {
+                destination.Position = position;
                 ReadToStream(source, destination, position, length);
             }
         }
 
         protected virtual void ReadToStream(Stream source, Stream destination, long position, long length)
         {
-            destination.Position = position;
             var buffer = new byte[Const.DefaultFileBlockSize];
             int count = 0;
             while (length - count > 0)

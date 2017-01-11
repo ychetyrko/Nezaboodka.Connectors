@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Nezaboodka.Ndef;
 
 namespace Nezaboodka
 {
@@ -8,23 +10,40 @@ namespace Nezaboodka
     {
         // Asynchronous
 
-        public virtual async Task WriteFilesToStreamAsync(WriteObjectsRequest request, Stream stream)
+        public virtual async Task WriteFilesAsync(SaveObjectsRequest request, Dictionary<object, long> objectNumberByFileObject,
+            NdefWriter ndefWriter)
         {
-            if (request.FileObjects != null)
-                foreach (FileObject fileObject in request.FileObjects)
-                    await WriteFileToStreamAsync(fileObject, fileObject.FileContent.FileRange.Position,
-                        fileObject.FileContent.FileRange.Length, stream).ConfigureAwait(false);
+            ndefWriter.WriteDataSetStart(true, null);
+            foreach (SaveQuery query in request.Queries)
+                for (int i = 0; i < query.ForEachIn.Count; i++)
+                {
+                    FileObject fileObject = query.ForEachIn[i] as FileObject;
+                    if (fileObject != null)
+                    {
+                        ndefWriter.WriteObjectStart(false, null, objectNumberByFileObject[fileObject].ToString(), null);
+                        using (Stream stream = ndefWriter.WriteBinaryData(fileObject.FileContent.FileRange.Length))
+                        {
+                            await WriteFileToStreamAsync(fileObject, fileObject.FileContent.FileRange.Position,
+                                fileObject.FileContent.FileRange.Length, stream).ConfigureAwait(false);
+                        }
+                        ndefWriter.WriteObjectEnd(false);
+                    }
+                }
+            ndefWriter.WriteDataSetEnd();
         }
 
-        public virtual async Task ReadFilesFromStreamAsync(ReadObjectsResponse response, Stream stream)
+        public virtual async Task ReadFilesAsync(NdefDeserializer deserializer)
         {
-            if (response.FileObjects != null)
-                foreach (FileObject fileObject in response.FileObjects)
+            if (deserializer.MoveToNextDataSet() && string.IsNullOrEmpty(deserializer.DataSetHeader))
+                while (deserializer.MoveToNextObject())
+                {
+                    FileObject fileObject = (FileObject)deserializer.CurrentObject;
                     await ReadFileFromStreamAsync(fileObject, fileObject.FileContent.FileRange.Position,
-                        fileObject.FileContent.FileRange.Length, stream).ConfigureAwait(false);
+                        fileObject.FileContent.FileRange.Length, deserializer.CurrentStream).ConfigureAwait(false);
+                }
         }
 
-        // WriteFilesToStreamAsync
+        // WriteFilesAsync
 
         protected virtual async Task WriteFileToStreamAsync(FileObject fileObject, long position, long length, Stream stream)
         {
@@ -80,7 +99,7 @@ namespace Nezaboodka
             await destination.WriteAsync(source, (int)position, (int)length).ConfigureAwait(false);
         }
 
-        // ReadFilesFromStreamAsync
+        // ReadFilesAsync
 
         protected virtual async Task ReadFileFromStreamAsync(FileObject fileObject, long position, long length, Stream stream)
         {
@@ -111,13 +130,13 @@ namespace Nezaboodka
         {
             using (var destination = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
             {
+                destination.Position = position;
                 await ReadToStreamAsync(source, destination, position, length).ConfigureAwait(false);
             }
         }
 
         protected virtual async Task ReadToStreamAsync(Stream source, Stream destination, long position, long length)
         {
-            destination.Position = position;
             var buffer = new byte[Const.DefaultFileBlockSize];
             int count = 0;
             while (length - count > 0)

@@ -1,8 +1,7 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Linq;
 using Nezaboodka.Ndef;
 
@@ -10,6 +9,12 @@ namespace Nezaboodka
 {
     public class ClientTypeBinder : INdefTypeBinder
     {
+        public static readonly ClientTypeBinder Default; // initialized in static constructor
+        public static readonly Type[] KnownDatabaseTypes = { typeof(DbObject), typeof(FileObject) };
+        //public static readonly string NdefObjectFormattersSourceCodeForKnownSystemTypes; // initialized in static constructor
+
+        // Fields
+
         private Dictionary<Type, NdefTypeInfo> fTypeInfoByType = new Dictionary<Type, NdefTypeInfo>();
         private Dictionary<string, NdefTypeInfo> fTypeInfoByName = new Dictionary<string, NdefTypeInfo>();
 
@@ -19,104 +24,114 @@ namespace Nezaboodka
         public Type RootTypeForObjectsWithKey { get; private set; }
         public Type PreferredListType { get; private set; }
 
-        public static readonly Type[] KnownDatabaseTypes = { typeof(DbObject), typeof(FileObject) };
-        public static readonly Type[] KnownSystemTypes = {
-            typeof(EnvironmentConfiguration), typeof(NodeTemplateConfiguration), typeof(NodeConfiguration),
-            typeof(ServiceConfiguration), typeof(DatabaseServiceConfiguration), typeof(NodeServiceConfiguration),
-            typeof(DatabaseConfiguration), typeof(DatabaseSchema), typeof(TypeDefinition),
-            typeof(PrimaryIndexDistribution), typeof(PrimaryIndexDistributionRange),
-            typeof(SecondaryIndexDistribution), typeof(SecondaryIndexDistributionRange),
-            typeof(TextIndexCacheDistribution), typeof(TextIndexCacheDistributionRange),
-            typeof(FileStorageDistribution), typeof(FileStorageDistributionRange),
-            typeof(DatabaseRequest), typeof(DatabaseResponse), typeof(ErrorResponse),
-            typeof(AdministrationRequest), typeof(AdministrationResponse),
-            typeof(WriteObjectsRequest), typeof(ReadObjectsResponse),
-            typeof(SaveObjectsRequest), typeof(SaveObjectsResponse), typeof(SaveQuery),
-            typeof(DeleteObjectsRequest), typeof(DeleteObjectsResponse), typeof(DeleteQuery), typeof(DeleteResult),
-            typeof(GetObjectsRequest), typeof(GetObjectsResponse), typeof(GetQuery),
-            typeof(LookupObjectsRequest), typeof(LookupObjectsResponse), typeof(LookupQuery),
-            typeof(SearchObjectsRequest), typeof(SearchObjectsResponse), typeof(SearchQuery),
-            typeof(QueryResult), typeof(Parameter),
-            typeof(TextFilter), typeof(TextCondition),
-            typeof(GetServerInfoRequest), typeof(GetServerInfoResponse),
-            typeof(GetEnvironmentConfigurationRequest), typeof(GetEnvironmentConfigurationResponse), typeof(GetDatabaseListRequest),
-            typeof(GetDatabaseListResponse), typeof(AlterDatabaseListRequest), typeof(AlterDatabaseListResponse),
-            typeof(GetDatabaseConfigurationRequest), typeof(GetDatabaseConfigurationResponse),
-            typeof(AlterDatabaseConfigurationRequest), typeof(AlterDatabaseConfigurationResponse),
-            typeof(GetDatabaseAccessModeRequest), typeof(GetDatabaseAccessModeResponse),
-            typeof(SetDatabaseAccessModeRequest), typeof(SetDatabaseAccessModeResponse),
-            typeof(UnloadDatabaseRequest), typeof(UnloadDatabaseResponse),
-            typeof(LoadDatabaseRequest), typeof(LoadDatabaseResponse),
-            typeof(RefreshDatabaseCryptoKeyRequest), typeof(RefreshDatabaseCryptoKeyResponse),
-            typeof(RefreshEnvironmentCryptoKeyRequest), typeof(RefreshEnvironmentCryptoKeyResponse),
-            typeof(CleanupRemovedDatabasesRequest), typeof(CleanupRemovedDatabasesResponse),
-            typeof(FileContent) };
-        public static readonly INdefValueFormatter[] KnownValueFormatters = {
-            new ValueFormatter<bool>("b"), new ValueFormatter<sbyte>("sb"),
-            new ValueFormatter<byte>("by"), new ValueFormatter<short>("sh"),
-            new ValueFormatter<ushort>("us"), new ValueFormatter<int>("i"),
-            new ValueFormatter<uint>("u"), new ValueFormatter<long>("l"),
-            new ValueFormatter<ulong>("ul"), new ValueFormatter<float>("f"),
-            new ValueFormatter<double>("d"), new ValueFormatter<decimal>("n"),
-            new ValueFormatter<char>("c"), new StringFormatter(),
-            new NullableValueFormatter<bool>("b?"), new NullableValueFormatter<sbyte>("sb?"),
-            new NullableValueFormatter<byte>("by?"), new NullableValueFormatter<short>("sh?"),
-            new NullableValueFormatter<ushort>("us?"), new NullableValueFormatter<int>("i?"),
-            new NullableValueFormatter<uint>("u?"), new NullableValueFormatter<long>("l?"),
-            new NullableValueFormatter<ulong>("ul?"), new NullableValueFormatter<float>("f?"),
-            new NullableValueFormatter<double>("d?"), new NullableValueFormatter<decimal>("n?"),
-            new NullableValueFormatter<char>("c?"), new DateTimeFormatter("dc"),
-            new DateTimeOffsetFormatter("dt"), new BinaryDataFormatter(),
-            new BinarySegmentFormatter(),
-            new ValueFormatter<DbKey>(),
-            new ValueFormatter<DatabaseAccessMode>(),
-            new ValueFormatter<TypeAndFields>(),
-            new ValueFormatter<FileRange>(),
-            new ValueFormatter<FieldDefinition>(),
-            new ValueFormatter<IndexFieldDefinition>(),
-            new ValueFormatter<SecondaryIndexDefinition>(),
-            new ValueFormatter<ReferentialIndexDefinition>(),
-            new ValueFormatter<TextIndexDefinition>() };
-        public static readonly ClientTypeBinder Default; // initialized in static constructor
-        public static readonly string NdefObjectFormattersSourceCodeForKnownSystemTypes; // initialized in static constructor
-
         static ClientTypeBinder()
         {
             Default = new ClientTypeBinder();
-            var assemblyWriter = new ClientAssemblyWriter();
-            IEnumerable<TypeDefinition> typeDefs = ProduceTypeDefinitionsFromSystemTypes(KnownSystemTypes);
-            NdefObjectFormattersSourceCodeForKnownSystemTypes = assemblyWriter.GenerateNdefObjectFormattersSourceCode(
-                typeDefs, typeof(ClientTypeBinder).Namespace);
+            //var assemblyWriter = new ClientAssemblyWriter();
+            //List<TypeDefinition> typeDefs = ProduceTypeDefinitionsFromSystemTypes(CreateKnownFormatters().Select(x => x.ApplicableType)).ToList();
+            //NdefObjectFormattersSourceCodeForKnownSystemTypes = assemblyWriter.GenerateNdefObjectFormattersSourceCode(
+            //    typeDefs, typeof(ClientTypeBinder).Namespace);
+        }
+
+        public static INdefFormatter[] CreateKnownFormatters()
+        {
+            return new INdefFormatter[] {
+                new ObjectFormatter<EnvironmentConfiguration>(), new ObjectFormatter<NodeTemplateConfiguration>(),
+                new ObjectFormatter<NodeConfiguration>(), new ObjectFormatter<ServiceConfiguration>(),
+                new ObjectFormatter<DatabaseServiceConfiguration>(), new ObjectFormatter<NodeServiceConfiguration>(),
+                new ObjectFormatter<DatabaseConfiguration>(), new ObjectFormatter<DatabaseSchema>(),
+                new ObjectFormatter<TypeDefinition>(), new ObjectFormatter<PrimaryIndexDistribution>(),
+                new ObjectFormatter<PrimaryIndexDistributionRange>(), new ObjectFormatter<SecondaryIndexDistribution>(),
+                new ObjectFormatter<SecondaryIndexDistributionRange>(), new ObjectFormatter<TextIndexCacheDistribution>(),
+                new ObjectFormatter<TextIndexCacheDistributionRange>(),new ObjectFormatter<FileStorageDistribution>(),
+                new ObjectFormatter<FileStorageDistributionRange>(), new ObjectFormatter<DatabaseRequest>(),
+                new ObjectFormatter<DatabaseResponse>(), new ObjectFormatter<ErrorResponse>(),
+                new ObjectFormatter<AdministrationRequest>(), new ObjectFormatter<AdministrationResponse>(),
+                new ObjectFormatter<SaveObjectsRequest>(), new ObjectFormatter<SaveObjectsResponse>(),
+                new ObjectFormatter<SaveQuery>(), new ObjectFormatter<DeleteObjectsRequest>(),
+                new ObjectFormatter<DeleteObjectsResponse>(), new ObjectFormatter<DeleteQuery>(),
+                new ObjectFormatter<GetObjectsRequest>(), new ObjectFormatter<GetObjectsResponse>(),
+                new ObjectFormatter<GetQuery>(), new ObjectFormatter<LookupObjectsRequest>(),
+                new ObjectFormatter<LookupObjectsResponse>(), new ObjectFormatter<LookupQuery>(),
+                new ObjectFormatter<SearchObjectsRequest>(), new ObjectFormatter<SearchObjectsResponse>(),
+                new ObjectFormatter<SearchQuery>(), new ObjectFormatter<QueryResult>(),
+                new ObjectFormatter<Parameter>(), new ObjectFormatter<TextFilter>(),
+                new ObjectFormatter<TextCondition>(), new ObjectFormatter<GetServerInfoRequest>(),
+                new ObjectFormatter<GetServerInfoResponse>(), new ObjectFormatter<GetEnvironmentConfigurationRequest>(),
+                new ObjectFormatter<GetEnvironmentConfigurationResponse>(), new ObjectFormatter<GetDatabaseListRequest>(),
+                new ObjectFormatter<GetDatabaseListResponse>(), new ObjectFormatter<AlterDatabaseListRequest>(),
+                new ObjectFormatter<AlterDatabaseListResponse>(), new ObjectFormatter<GetDatabaseConfigurationRequest>(),
+                new ObjectFormatter<GetDatabaseConfigurationResponse>(), new ObjectFormatter<AlterDatabaseConfigurationRequest>(),
+                new ObjectFormatter<AlterDatabaseConfigurationResponse>(), new ObjectFormatter<GetDatabaseAccessModeRequest>(),
+                new ObjectFormatter<GetDatabaseAccessModeResponse>(), new ObjectFormatter<SetDatabaseAccessModeRequest>(),
+                new ObjectFormatter<SetDatabaseAccessModeResponse>(), new ObjectFormatter<UnloadDatabaseRequest>(),
+                new ObjectFormatter<UnloadDatabaseResponse>(), new ObjectFormatter<LoadDatabaseRequest>(),
+                new ObjectFormatter<LoadDatabaseResponse>(), new ObjectFormatter<RefreshDatabaseCryptoKeyRequest>(),
+                new ObjectFormatter<RefreshDatabaseCryptoKeyResponse>(), new ObjectFormatter<RefreshEnvironmentCryptoKeyRequest>(),
+                new ObjectFormatter<RefreshEnvironmentCryptoKeyResponse>(), new ObjectFormatter<CleanupRemovedDatabasesRequest>(),
+                new ObjectFormatter<CleanupRemovedDatabasesResponse>(), new ObjectFormatter<FileContent>(),
+                new ValueFormatter<bool>("b"), new ValueFormatter<sbyte>("sb"),
+                new ValueFormatter<byte>("by"), new ValueFormatter<short>("sh"),
+                new ValueFormatter<ushort>("us"), new ValueFormatter<int>("i"),
+                new ValueFormatter<uint>("u"), new ValueFormatter<long>("l"),
+                new ValueFormatter<ulong>("ul"), new ValueFormatter<float>("f"),
+                new ValueFormatter<double>("d"), new ValueFormatter<decimal>("n"),
+                new ValueFormatter<char>("c"), new StringFormatter(),
+                new NullableValueFormatter<bool>("b?"), new NullableValueFormatter<sbyte>("sb?"),
+                new NullableValueFormatter<byte>("by?"), new NullableValueFormatter<short>("sh?"),
+                new NullableValueFormatter<ushort>("us?"), new NullableValueFormatter<int>("i?"),
+                new NullableValueFormatter<uint>("u?"), new NullableValueFormatter<long>("l?"),
+                new NullableValueFormatter<ulong>("ul?"), new NullableValueFormatter<float>("f?"),
+                new NullableValueFormatter<double>("d?"), new NullableValueFormatter<decimal>("n?"),
+                new NullableValueFormatter<char>("c?"), new DateTimeFormatter("dc"),
+                new DateTimeOffsetFormatter("dt"), new BinaryDataFormatter(),
+                new BinarySegmentFormatter(),
+                new AnyTypeFormatter(typeof(object)),
+                new AnyTypeFormatter(typeof(DbDynamic)),
+                new DictionaryFormatter(),
+                new ValueFormatter<DbKey>(),
+                new ValueFormatter<DatabaseAccessMode>(),
+                new ValueFormatter<TypeAndFields>(),
+                new ValueFormatter<FileRange>(),
+                new ValueFormatter<FieldDefinition>(),
+                new ValueFormatter<IndexFieldDefinition>(),
+                new ValueFormatter<SecondaryIndexDefinition>(),
+                new ValueFormatter<ReferentialIndexDefinition>(),
+                new ValueFormatter<TextIndexDefinition>(),
+                new ListFormatter(typeof(IList)),
+                new ListFormatter(typeof(List<>)),
+                new ListFormatter(typeof(IList<>)),
+                new ListFormatter(typeof(Array))
+            };
         }
 
         public ClientTypeBinder()
-            : this(null, typeof(DbObject), "DbObject", KnownDatabaseTypes, KnownSystemTypes,
-                  KnownValueFormatters)
+            : this(null, typeof(DbObject), "DbObject", KnownDatabaseTypes, CreateKnownFormatters())
         {
         }
 
         public ClientTypeBinder(string databaseConfigurationNdefText)
             : this(new ClientTypeSystem(databaseConfigurationNdefText), typeof(DbObject), "DbObject",
-                  KnownDatabaseTypes, KnownSystemTypes, KnownValueFormatters)
+                  KnownDatabaseTypes, CreateKnownFormatters())
         {
         }
 
         public ClientTypeBinder(string databaseConfigurationNdefText, IEnumerable<Type> databaseTypes)
             : this(new ClientTypeSystem(databaseConfigurationNdefText), typeof(DbObject), "DbObject",
-                  KnownDatabaseTypes.Concat(databaseTypes), KnownSystemTypes, KnownValueFormatters)
+                  KnownDatabaseTypes.Concat(databaseTypes), CreateKnownFormatters())
         {
         }
 
         public ClientTypeBinder(IEnumerable<TypeDefinition> databaseTypeDefinitions, IEnumerable<Type> databaseTypes)
             : this(new ClientTypeSystem(databaseTypeDefinitions), typeof(DbObject), "DbObject",
-                  KnownDatabaseTypes.Concat(databaseTypes), KnownSystemTypes, KnownValueFormatters)
+                  KnownDatabaseTypes.Concat(databaseTypes), CreateKnownFormatters())
         {
         }
 
         public ClientTypeBinder(IEnumerable<TypeDefinition> databaseTypeDefinitions, IEnumerable<Type> databaseTypes,
-            IEnumerable<Type> systemTypes)
+            IEnumerable<INdefFormatter> formatters)
             : this(new ClientTypeSystem(databaseTypeDefinitions), typeof(DbObject), "DbObject",
-                KnownDatabaseTypes.Concat(databaseTypes), KnownSystemTypes.Concat(systemTypes), KnownValueFormatters)
+                KnownDatabaseTypes.Concat(databaseTypes), CreateKnownFormatters().Concat(formatters))
         {
         }
 
@@ -131,7 +146,7 @@ namespace Nezaboodka
             return result;
         }
 
-        public virtual NdefTypeInfo LookupTypeInfoByType(Type type)
+        public virtual NdefTypeInfo LookupTypeInfoByTypeOld(Type type)
         {
             NdefTypeInfo result;
             if (!fTypeInfoByType.TryGetValue(type, out result))
@@ -159,28 +174,64 @@ namespace Nezaboodka
             NdefTypeInfo result;
             if (!fTypeInfoByName.TryGetValue(typeName, out result))
             {
-                Assembly assembly = typeof(object).Assembly;
-                Type systemType = assembly.GetType("System." + typeName);
-                if (!fTypeInfoByType.TryGetValue(systemType, out result))
-                    throw new NezaboodkaException(string.Format("type name {0} is not registered in {1}",
-                        typeName, this.GetType().FullName));
+                if (!typeName.EndsWith(NdefConst.ListTypeBraces))
+                {
+                    Assembly assembly = typeof(object).Assembly;
+                    Type systemType = assembly.GetType("System." + typeName);
+                    if (!fTypeInfoByType.TryGetValue(systemType, out result))
+                        throw new NezaboodkaException(string.Format("type name {0} is not registered in {1}",
+                            typeName, this.GetType().FullName));
+                }
+                else
+                    result = LookupTypeInfoByType(PreferredListType);
+            }
+            return result;
+        }
+
+        public virtual NdefTypeInfo LookupTypeInfoByType(Type type)
+        {
+            NdefTypeInfo result;
+            if (!fTypeInfoByType.TryGetValue(type, out result))
+            {
+                Type generic = null;
+                if (type.IsConstructedGenericType)
+                    generic = type.GetGenericTypeDefinition();
+                else if (type.IsArray)
+                    generic = typeof(Array);
+                if (generic == null || !fTypeInfoByType.TryGetValue(generic, out result))
+                {
+                    if (!fTypeInfoByName.TryGetValue(type.Name, out result))
+                    {
+                        if (!fTypeInfoByName.TryGetValue(type.FullName, out result))
+                            throw new NezaboodkaException(string.Format("type {0} is not registered in {1}",
+                                type.FullName, this.GetType().FullName));
+                        else
+                            throw new NezaboodkaException(string.Format(
+                                "type {0}/{1} is not registered, but {2} is registered in {3}",
+                                type.FullName, type.Assembly.GetName().Version, type.FullName, this.GetType().FullName));
+                    }
+                    else
+                        throw new NezaboodkaException(string.Format(
+                            "type {0}/{1} is not registered, but {2} is registered in {3}",
+                            type.FullName, type.Assembly.GetName().Version, type.Name, this.GetType().FullName));
+                }
             }
             return result;
         }
 
         public virtual NdefTypeInfo LookupTypeInfoByField(NdefTypeInfo typeInfo,
-            NdefField ndefField, bool adjustToActualType)
+            NdefField ndefField, bool adjustToActualType, out Type formalType)
         {
             NdefTypeInfo result;
             if (typeInfo.IsListType)
             {
                 if (ndefField.Name == null)
                 {
-                    Type formalType = NdefUtils.GetElementType(typeInfo.SystemType, RootTypeForObjectsWithKey);
+                    formalType = NdefUtils.GetElementType(typeInfo.SystemType, RootTypeForObjectsWithKey);
                     result = LookupTypeInfoByType(formalType);
                 }
                 else
-                    throw new ArgumentException("list type has cannot have named fields");
+                    throw new ArgumentException("list type cannot have named fields");
             }
             else if (ndefField.Name != null)
             {
@@ -188,7 +239,8 @@ namespace Nezaboodka
                     ndefField.Name, BindingFlags.Public | BindingFlags.Instance);
                 if (fieldInfo != null)
                 {
-                    result = LookupTypeInfoByType(fieldInfo.FieldType);
+                    formalType = fieldInfo.FieldType;
+                    result = LookupTypeInfoByType(formalType);
                     if (adjustToActualType)
                     {
                         if (result.SystemType == typeof(object) ||
@@ -207,7 +259,7 @@ namespace Nezaboodka
                         // Если по типу данных поля родительского объекта невозможно выявить тип данных,
                         // то исходим из предположения, что родительский объект - это DbDynamic, в котором
                         // все поля-списки - это List<DbDynamic>.
-                        Type formalType = PreferredListType.MakeGenericType(typeInfo.SystemType);
+                        formalType = PreferredListType.MakeGenericType(typeInfo.SystemType);
                         result = LookupTypeInfoByType(formalType);
                     }
                     else
@@ -215,35 +267,8 @@ namespace Nezaboodka
                 }
             }
             else
-                throw new ArgumentNullException("cannot lookup field type by empty name");
+                throw new ArgumentNullException("cannot look up field type by empty name");
             return result;
-        }
-
-        public long GetObjectLogicalId(string key)
-        {
-            return DbKey.Parse(key).SystemId;
-        }
-
-        public string GetObjectKeyFromLogicalId(long logicalId)
-        {
-            DbKey key = new DbKey() { SystemId = logicalId, Revision = 0 };
-            return key.ToString();
-        }
-
-        public virtual object CreateObject(NdefTypeInfo typeInfo, int typeNumber, string typeName, string key)
-        {
-            object result = Activator.CreateInstance(typeInfo.SystemType);
-            if (!string.IsNullOrEmpty(key))
-                ((DbObject)result).Key = DbKey.Parse(key);
-            if (typeInfo.SystemType == typeof(DbDynamic))
-                ((DbDynamic)result).TypeName = typeName;
-            return result;
-        }
-
-        public virtual string GetObjectKey(object obj)
-        {
-            var t = obj as DbObject;
-            return t != null ? t.Key.ToString() : null;
         }
 
         public virtual bool IsStubObject(object obj)
@@ -268,36 +293,6 @@ namespace Nezaboodka
         {
             var t = (DbObject)obj;
             t.Key = t.Key.AsImplicit;
-        }
-
-        public virtual NdefField GetBackReferenceField(NdefTypeInfo ndefTypeInfo, NdefField ndefField,
-            out bool isList, out NdefTypeInfo fieldTypeInfo)
-        {
-            NdefField result = default(NdefField);
-            isList = false;
-            fieldTypeInfo = default(NdefTypeInfo);
-            if (TypeSystem != null)
-            {
-                //TODO: Get rid of search 1, 2, 3 below.
-                int typeNumber = TypeSystem.GetTypeNumberByName(ndefTypeInfo.SerializableName); // search 1
-                if (typeNumber >= 0)
-                {
-                    int fieldNumber = TypeSystem.GetFieldNumberByName(typeNumber, ndefField.Name); // search 2
-                    int backReferenceTypeNumber;
-                    TypeSystem.GetFieldBackReferenceInfo(typeNumber, fieldNumber, out backReferenceTypeNumber,
-                        out result.Number);
-                    if (result.Number >= 0)
-                    {
-                        NdefTypeInfo backReferenceTypeInfo = LookupTypeInfoByName( // search 3
-                            TypeSystem.GetTypeName(backReferenceTypeNumber));
-                        result.Name = TypeSystem.GetFieldName(backReferenceTypeNumber, result.Number);
-                        FieldKind fieldKind = TypeSystem.GetFieldKind(backReferenceTypeNumber, result.Number);
-                        isList = fieldKind == FieldKind.ObjectList || fieldKind == FieldKind.ValueList;
-                        fieldTypeInfo = LookupTypeInfoByName(TypeSystem.GetTypeName(backReferenceTypeNumber));
-                    }
-                }
-            }
-            return result;
         }
 
         // Internal
@@ -325,47 +320,30 @@ namespace Nezaboodka
             }
         }
 
-        protected ClientTypeBinder(ClientTypeSystem typeSystem, Type rootTypeForObjectsWithKey, string rootTypeName,
-            IEnumerable<Type> databaseTypes, IEnumerable<Type> systemTypes, IEnumerable<INdefValueFormatter> valueFormatters)
+        protected ClientTypeBinder(ClientTypeSystem typeSystem, Type rootTypeForObjectsWithKey,
+            string rootTypeName, IEnumerable<Type> databaseTypes,
+            IEnumerable<INdefFormatter> formatters)
         {
             TypeSystem = typeSystem;
             RootTypeForObjectsWithKey = rootTypeForObjectsWithKey;
             PreferredListType = typeof(List<>);
-            var anyTypeFormatter = new AnyTypeFormatter(this);
-            var listFormatter = CreateGenericListFormatter(typeof(IList), null);
-            RegisterType(-1, typeof(IList), true, null, listFormatter);
-            RegisterType(-1, typeof(IEnumerable), true, null, listFormatter);
-            RegisterTypeAndRelevantListTypes(-1, typeof(object), anyTypeFormatter);
-            RegisterTypeAndRelevantListTypes(-1, typeof(Dictionary<string, object>),
-                new ObjectValueFormatter<Dictionary<string, object>>("Nezaboodka.Dictionary"));
-            RegisterListType(-1, typeof(DbDynamic[]), null);
-            RegisterListType(-1, typeof(List<DbDynamic>), null);
-            RegisterListType(-1, typeof(IList<DbDynamic>), null);
-            if (valueFormatters != null)
-                foreach (INdefValueFormatter x in valueFormatters)
-                    RegisterTypeAndRelevantListTypes(-1, x.TypeOfValue, x);
+            if (formatters != null)
+                foreach (INdefFormatter x in formatters)
+                    RegisterType(-1, x.FormalType, x is ListFormatter, x.SerializableTypeName, x);
             if (typeSystem != null)
                 RegisterDatabaseTypesFromTypeSystem(rootTypeName, databaseTypes);
             else
                 RegisterDatabaseTypesWithoutTypeSystem(rootTypeName, databaseTypes);
-            if (systemTypes != null)
-                foreach (Type x in systemTypes)
-                    if (x != rootTypeForObjectsWithKey)
-                        RegisterTypeAndRelevantListTypes(-1, x, CreateGenericValueToObjectFormatter(x, x.FullName));
-            var assemblyName = new AssemblyName("Z" + Guid.NewGuid().ToString("N"));
-            var generator = new FormatterAssemblyGenerator();
-            AssemblyBuilder formattersAssembly = generator.GenerateNdefObjectFormattersAssembly(assemblyName,
-                fTypeInfoByType.Select((KeyValuePair<Type, NdefTypeInfo> x) => x.Value)
-                    .Where((NdefTypeInfo y) => !y.IsListType && IsObjectFormatterRequired(y)), this);
-            // Generate object formatters for all registered types
-            foreach (KeyValuePair<Type, NdefTypeInfo> x in fTypeInfoByType)
-                if (IsObjectFormatterRequired(x.Value))
-                    if (x.Value.ObjectFormatter == null)
-                        x.Value.ObjectFormatter = CreateObjectFormatter(x.Value, formattersAssembly);
-            foreach (KeyValuePair<string, NdefTypeInfo> x in fTypeInfoByName)
-                if (IsObjectFormatterRequired(x.Value))
-                    if (x.Value.ObjectFormatter == null)
-                        x.Value.ObjectFormatter = CreateObjectFormatter(x.Value, formattersAssembly);
+            // Initialize & configure all formatters
+            var assemblyName = new AssemblyName("Z_" + GetType().Name + "_" + Guid.NewGuid().ToString("N"));
+            var codegen = new CodeGenerator(assemblyName);
+            IEnumerable<NdefTypeInfo> allTypes = fTypeInfoByType.Values.Concat(fTypeInfoByName.Values).Distinct();
+            IEnumerable<INdefFormatter> allFormatters = allTypes.Select(x => x.Formatter).Distinct().ToList();
+            foreach (INdefFormatter x in allFormatters)
+                x.Initialize(this, codegen);
+            codegen.GetGeneratedAssembly();
+            foreach (INdefFormatter x in allFormatters)
+                x.Configure(this, codegen);
         }
 
         private void RegisterDatabaseTypesFromTypeSystem(string rootTypeName, IEnumerable<Type> databaseTypes)
@@ -381,10 +359,12 @@ namespace Nezaboodka
             {
                 string typeName = TypeSystem.GetTypeName(i);
                 Type type;
+                NdefTypeInfo typeInfo;
                 if (databaseTypesDictionary.TryGetValue(typeName, out type))
-                    RegisterTypeAndRelevantListTypes(i, type, CreateGenericValueToObjectFormatter(type, typeName));
+                    typeInfo = RegisterType(i, type, false, typeName,
+                        CreateDbObjectFormatter(type, typeName));
                 else
-                    RegisterDynamicTypeAndRelevantListTypes(i, typeName);
+                    typeInfo = RegisterDynamicType(i, typeName);
             }
         }
 
@@ -395,38 +375,21 @@ namespace Nezaboodka
                 int i = 0;
                 foreach (Type x in databaseTypes)
                 {
+                    NdefTypeInfo typeInfo;
                     if (x != RootTypeForObjectsWithKey)
-                        RegisterTypeAndRelevantListTypes(i, x, CreateGenericValueToObjectFormatter(x, x.Name));
+                        typeInfo = RegisterType(i, x, false, x.Name, CreateDbObjectFormatter(x, x.Name));
                     else
-                        RegisterTypeAndRelevantListTypes(i, x, CreateGenericValueToObjectFormatter(x, rootTypeName));
+                        typeInfo = RegisterType(i, x, false, rootTypeName, CreateDbObjectFormatter(x, rootTypeName));
                     i++;
                 }
             }
             else
-                RegisterTypeAndRelevantListTypes(0, RootTypeForObjectsWithKey, CreateGenericValueToObjectFormatter(
-                    RootTypeForObjectsWithKey, rootTypeName));
+                RegisterType(0, RootTypeForObjectsWithKey, false, rootTypeName,
+                    CreateDbObjectFormatter(RootTypeForObjectsWithKey, rootTypeName));
         }
 
-        private void RegisterTypeAndRelevantListTypes(int typeNumber, Type type, INdefValueFormatter formatter)
-        {
-            RegisterType(typeNumber, type, false, formatter.SerializableTypeName, formatter);
-            string typeName = formatter.SerializableTypeName ?? type.FullName;
-            if (type != typeof(byte))
-            {
-                RegisterListType(typeNumber, type.MakeArrayType(), typeName + "[]");
-                RegisterListType(typeNumber, typeof(List<>).MakeGenericType(type), "List<" + typeName + ">");
-                RegisterListType(typeNumber, typeof(IList<>).MakeGenericType(type), null);
-            }
-        }
-
-        private void RegisterListType(int typeNumber, Type listType, string serializableName)
-        {
-            RegisterType(typeNumber, listType, true, serializableName, CreateGenericListFormatter(listType,
-                serializableName));
-        }
-
-        private void RegisterType(int typeNumber, Type type, bool isListType, string serializableName,
-            INdefValueFormatter formatter)
+        private NdefTypeInfo RegisterType(int typeNumber, Type type, bool isListType, string serializableName,
+            INdefFormatter formatter)
         {
             string additionalSerializableName = null;
             if (serializableName != null)
@@ -455,213 +418,22 @@ namespace Nezaboodka
                 if (additionalSerializableName != null)
                     fTypeInfoByName.Add(additionalSerializableName, typeInfo);
             }
+            return typeInfo;
         }
 
-        private void RegisterDynamicTypeAndRelevantListTypes(int typeNumber, string serializableName)
+        private NdefTypeInfo RegisterDynamicType(int typeNumber, string serializableName)
         {
-            RegisterDynamicType(typeNumber, typeof(DbDynamic), false, serializableName,
-                new ObjectValueFormatter<DbDynamic>(serializableName));
-            RegisterDynamicListType(typeNumber, typeof(DbDynamic[]), serializableName + "[]");
-            RegisterDynamicListType(typeNumber, typeof(List<DbDynamic>), "List<" + serializableName + ">");
-        }
-
-        private void RegisterDynamicListType(int typeNumber, Type listType, string serializableName)
-        {
-            RegisterDynamicType(typeNumber, listType, true, serializableName, CreateGenericListFormatter(listType,
-                serializableName));
-        }
-
-        private void RegisterDynamicType(int typeNumber, Type type, bool isListType, string serializableName,
-            INdefValueFormatter formatter)
-        {
-            NdefTypeInfo typeInfo;
-            if (type.IsArray)
-                typeInfo = new NdefTypeInfo(typeNumber, typeof(NdefArrayBuffer<DbDynamic>), isListType,
-                    serializableName, formatter);
-            else
-                typeInfo = new NdefTypeInfo(typeNumber, type, isListType, serializableName, formatter);
-            fTypeInfoByName.Add(serializableName, typeInfo);
-        }
-
-        private INdefValueFormatter CreateGenericValueToObjectFormatter(Type type, string serializableName)
-        {
-            Type formatterType = typeof(ObjectValueFormatter<>).MakeGenericType(type);
-            return (INdefValueFormatter)Activator.CreateInstance(formatterType, serializableName);
-        }
-
-        private INdefValueFormatter CreateGenericListFormatter(Type type, string serializableName)
-        {
-            Type formatterType = typeof(ListValueFormatter<>).MakeGenericType(type);
-            return (INdefValueFormatter)Activator.CreateInstance(formatterType, serializableName,
-                PreferredListType, RootTypeForObjectsWithKey);
-        }
-
-        private bool IsObjectFormatterRequired(NdefTypeInfo ndefTypeInfo)
-        {
-            Type formatterType = ndefTypeInfo.ValueFormatter.GetType();
-            return ndefTypeInfo.IsListType ||
-                (formatterType.IsGenericType && formatterType.GetGenericTypeDefinition() == typeof(ObjectValueFormatter<>));
-        }
-
-        private AbstractObjectFormatter CreateObjectFormatter(NdefTypeInfo typeInfo, Assembly formattersAssembly)
-        {
-            AbstractObjectFormatter result;
-            if (!typeInfo.IsListType)
-            {
-                MethodInfo methodInfo = GetType().GetMethod("ActivateObjectFormatter", BindingFlags.NonPublic |
-                    BindingFlags.Instance, null, new Type[] { typeof(NdefTypeInfo), typeof(Assembly) }, null);
-                result = (AbstractObjectFormatter)methodInfo.MakeGenericMethod(typeInfo.SystemType).Invoke(
-                    this, new object[] { typeInfo, formattersAssembly });
-            }
-            else
-                result = CreateListFormatter(typeInfo);
+            var formatter = new DbDynamicFormatter(serializableName);
+            NdefTypeInfo result = new NdefTypeInfo(typeNumber, typeof(DbDynamic), false, serializableName, formatter);
+            fTypeInfoByName.Add(serializableName, result);
             return result;
         }
 
-        // Вызывается по имени через Reflection из метода CreateObjectFormatter.
-        protected AbstractObjectFormatter ActivateObjectFormatter<T>(NdefTypeInfo typeInfo, Assembly formattersAssembly)
+        protected virtual INdefFormatter CreateDbObjectFormatter(Type type, string serializableName)
         {
-            AbstractObjectFormatter result;
-            if (typeInfo.SystemType != typeof(DbDynamic))
-            {
-                if (typeInfo.SystemType != typeof(Dictionary<string, object>))
-                {
-                    IEnumerable<NdefFieldAccessor<T>> fields;
-                    object compiledFormatter = TryCreateInstanceOfCompiledObjectFormatter(
-                        typeInfo.SystemType, formattersAssembly);
-                    if (compiledFormatter != null)
-                        fields = CreateCompiledFieldAccessors<T>(typeInfo, compiledFormatter);
-                    else
-                        fields = CreateReflectionBasedFieldAccessors<T>(typeInfo);
-                    result = new ObjectFormatter<T>(fields);
-                }
-                else
-                {
-                    var formatter = new AnyTypeFormatter(this);
-                    result = new DictionaryFormatter(formatter);
-                }
-            }
-            else
-            {
-                IEnumerable<NdefFieldAccessor<DbDynamic>> fieldAccessors = CreateDynamicObjectFieldAccessors(typeInfo);
-                result = new ObjectFormatter<DbDynamic>(fieldAccessors);
-            }
+            Type formatterType = typeof(DbObjectFormatter<>).MakeGenericType(type);
+            INdefFormatter result = (INdefFormatter)Activator.CreateInstance(formatterType, serializableName);
             return result;
-        }
-
-        private object TryCreateInstanceOfCompiledObjectFormatter(Type objectType, Assembly formattersAssembly)
-        {
-            object result;
-            Type formatterType = formattersAssembly.GetType(formattersAssembly.GetName().Name + "." + objectType.FullName);
-            if (formatterType != null)
-                result = Activator.CreateInstance(formatterType, this);
-            else
-                result = null;
-            return result;
-        }
-
-        private IEnumerable<NdefFieldAccessor<T>> CreateCompiledFieldAccessors<T>(NdefTypeInfo typeInfo, object compiledFormatter)
-        {
-            IEnumerable<string> names = compiledFormatter.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                .Where((MethodInfo x) => x.ReturnParameter.ParameterType == typeof(NdefValue))
-                .Select((MethodInfo x) => x.Name);
-            foreach (string name in names)
-            {
-                // Getter and setter have the same name and different parameters.
-                // Getter: public NdefValue Age(User obj) { return as_int.ToNdefValue(obj.Age); }
-                // Setter: public void Age(User obj, NdefValue value) { obj.Age = as_int.FromNdefValue(value); }
-                MethodInfo getMethodInfo = compiledFormatter.GetType().GetMethod(name, new Type[] { typeInfo.SystemType });
-                MethodInfo setMethodInfo = compiledFormatter.GetType().GetMethod(name, new Type[] { typeInfo.SystemType,
-                    typeof(NdefValue) });
-                if (getMethodInfo != null && setMethodInfo != null)
-                {
-                    NdefFieldGetter<T> getter = Delegate.CreateDelegate(typeof(NdefFieldGetter<T>), compiledFormatter,
-                        getMethodInfo, false) as NdefFieldGetter<T>;
-                    NdefFieldSetter<T> setter = Delegate.CreateDelegate(typeof(NdefFieldSetter<T>), compiledFormatter,
-                        setMethodInfo, false) as NdefFieldSetter<T>;
-                    if (getter != null && setter != null)
-                    {
-                        var fieldAccessors = new NdefFieldAccessor<T>(name, getter, setter);
-                        yield return fieldAccessors;
-                    }
-                }
-            }
-        }
-
-        private IEnumerable<NdefFieldAccessor<T>> CreateReflectionBasedFieldAccessors<T>(NdefTypeInfo typeInfo)
-        {
-            FieldInfo[] fields = typeInfo.SystemType.GetFields(BindingFlags.Instance | BindingFlags.Public)
-                .Where((FieldInfo x) => x.DeclaringType != typeof(DbObject)).ToArray(); // игнорировать DbObject.Key
-            INdefValueFormatter[] formatters = fields.Select((FieldInfo x) => LookupTypeInfoByType(x.FieldType).ValueFormatter).ToArray();
-            for (int i = 0; i < fields.Length; i++)
-            {
-                FieldInfo f = fields[i];
-                INdefValueFormatter c = formatters[i];
-                NdefFieldGetter<T> getter = delegate(T obj)
-                {
-                    object value = f.GetValue(obj);
-                    return c.AnyToNdefValue(c.TypeOfValue, value);
-                };
-                NdefFieldSetter<T> setter = delegate(T obj, NdefValue value)
-                {
-                    object t = c.AnyFromNdefValue(f.FieldType, value);
-                    f.SetValue(obj, t);
-                };
-                yield return new NdefFieldAccessor<T>(f.Name, getter, setter);
-            }
-        }
-
-        private IEnumerable<NdefFieldAccessor<DbDynamic>> CreateDynamicObjectFieldAccessors(NdefTypeInfo typeInfo)
-        {
-            int typeNumber = TypeSystem.GetTypeNumberByName(typeInfo.SerializableName);
-            if (typeNumber >= 0)
-            {
-                int fieldCount = TypeSystem.GetFieldCount(typeNumber);
-                var formatters = new INdefValueFormatter[fieldCount];
-                for (int i = 0; i < fieldCount; i++)
-                {
-                    string fieldTypeName = TypeSystem.GetFieldTypeName(typeNumber, i);
-                    FieldKind fieldKind = TypeSystem.GetFieldKind(typeNumber, i);
-                    if (fieldKind == FieldKind.ObjectList || fieldKind == FieldKind.ValueList)
-                        if (PreferredListType.IsArray)
-                            fieldTypeName = fieldTypeName + "[]";
-                        else
-                            fieldTypeName = "List<" + fieldTypeName + ">";
-                    formatters[i] = LookupTypeInfoByName(fieldTypeName).ValueFormatter;
-                }
-                for (int i = 0; i < fieldCount; i++)
-                {
-                    string fieldName = TypeSystem.GetFieldName(typeNumber, i);
-                    INdefValueFormatter formatter = formatters[i];
-                    NdefFieldGetter<DbDynamic> getter = delegate(DbDynamic obj)
-                    {
-                        object value = null;
-                        if (obj.Fields != null)
-                            obj.Fields.TryGetValue(fieldName, out value);
-                        return formatter.AnyToNdefValue(formatter.TypeOfValue, value);
-                    };
-                    NdefFieldSetter<DbDynamic> setter = delegate(DbDynamic obj, NdefValue value)
-                    {
-                        object t = formatter.AnyFromNdefValue(formatter.TypeOfValue, value);
-                        if (obj.Fields == null)
-                            obj.Fields = new Dictionary<string, object>();
-                        if (obj.Fields.ContainsKey(fieldName))
-                            obj.Fields[fieldName] = t;
-                        else
-                            obj.Fields.Add(fieldName, t);
-                    };
-                    yield return new NdefFieldAccessor<DbDynamic>(fieldName, getter, setter);
-                }
-            }
-        }
-
-        private AbstractObjectFormatter CreateListFormatter(NdefTypeInfo typeInfo)
-        {
-            Type elementType = NdefUtils.GetElementType(typeInfo.SystemType, typeof(object));
-            if (elementType == typeof(DbDynamic))
-                elementType = typeof(object);
-            INdefValueFormatter formatter = LookupTypeInfoByType(elementType).ValueFormatter;
-            return new ListFormatter(formatter);
         }
     }
 }

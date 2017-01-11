@@ -19,7 +19,7 @@ namespace Nezaboodka.Ndef
                 sb.Append(value.Length);
                 sb.Append(DelimiterBetweenLengthAndData[0]);
                 sb.Append(Convert.ToBase64String(data));
-                result = new NdefValue() { AsScalar = sb.ToString() };
+                result = new NdefValue() { AsScalar = sb.ToString(), HasNoLineFeeds = true };
             }
             else
                 result = NdefValue.NullValue;

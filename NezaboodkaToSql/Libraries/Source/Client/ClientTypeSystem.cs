@@ -18,8 +18,8 @@ namespace Nezaboodka
             FieldDefinitions = new List<FieldDefinition>() {
                 new FieldDefinition() { FieldName = "FileName", FieldTypeName = "String" },
                 new FieldDefinition() { FieldName = "FileLength", FieldTypeName = "Int64" },
-                new FieldDefinition() { FieldName = "RewritingRevision", FieldTypeName = "Int64" },
-                new FieldDefinition() { FieldName = "AppendingRevision", FieldTypeName = "Int64" },
+                new FieldDefinition() { FieldName = "OverwriteCount", FieldTypeName = "Int64" },
+                new FieldDefinition() { FieldName = "AppendCount", FieldTypeName = "Int64" },
                 new FieldDefinition() { FieldName = "CreationTimeUtc", FieldTypeName = "DateTime" },
                 new FieldDefinition() { FieldName = "LastWriteTimeUtc", FieldTypeName = "DateTime" },
                 new FieldDefinition() { FieldName = "HashValue", FieldTypeName = "String" },
