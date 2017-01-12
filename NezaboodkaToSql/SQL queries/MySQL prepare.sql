@@ -75,8 +75,8 @@ BEGIN
 	DEALLOCATE PREPARE proc_prep;
     
 # > Field
-    SET @prep_str=CONCAT('
-		CREATE TABLE `', db_name, '`.`field` (
+    SET @prep_str=CONCAT("
+		CREATE TABLE `", db_name, "`.`field` (
 			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 			`owner_type_name` VARCHAR(128) NOT NULL COLLATE `utf8_bin`,
 			`owner_type_id` INT DEFAULT NULL,
@@ -87,15 +87,15 @@ BEGIN
 			`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 			`compare_options` ENUM
 				(
-					\'None\',
-					\'IgnoreCase\',
-					\'IgnoreNonSpace\',
-					\'IgnoreSymbols\',
-					\'IgnoreKanaType\',
-					\'IgnoreWidth\',
-					\'OrdinalIgnoreCase\',
-					\'StringSort\',
-					\'Ordinal\'
+					'None',
+					'IgnoreCase',
+					'IgnoreNonSpace',
+					'IgnoreSymbols',
+					'IgnoreKanaType',
+					'IgnoreWidth',
+					'OrdinalIgnoreCase',
+					'StringSort',
+					'Ordinal'
 				) NOT NULL DEFAULT \'None\',
 			`back_ref_name` VARCHAR(128) DEFAULT NULL COLLATE `utf8_bin`,
 			`back_ref_id` INT DEFAULT NULL,
@@ -112,7 +112,7 @@ BEGIN
 				REFERENCES `field`(`id`)
 				ON DELETE SET NULL
 		);
-    ');
+    ");
     PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
 	DEALLOCATE PREPARE proc_prep;
@@ -436,6 +436,8 @@ END //
 CREATE PROCEDURE alter_table_for_type(db_name VARCHAR(64), type_no INT)
 BEGIN
 	DECLARE fields_defs VARCHAR(255) DEFAULT "";
+	DECLARE fields_constraints TEXT DEFAULT "";
+    DECLARE field_type VARCHAR(255) DEFAULT "";
 	
     SET @t_no = type_no;
     EXECUTE p_get_type_id_tablename USING @t_no;
@@ -468,7 +470,7 @@ BEGIN
 # TODO: move to preparation routine
     # Get field info by type id and field number in table
 	SET @prep_str = CONCAT('
-		SELECT `col_name`
+		SELECT `col_name`, `type_name`, `ref_type_id`, `is_list`, `compare_options`, `back_ref_id`
         FROM `', db_name ,'`.`field`
         WHERE `id` = (
 			SELECT `field_id`
@@ -477,32 +479,64 @@ BEGIN
 			LIMIT ?, 1
 		)
         LIMIT 1
-        INTO @cur_field_col_name;
+        INTO @cf_col_name, @cf_type_name, @cf_ref_type_id, @cf_is_list, @cf_compare_options, @cf_back_ref_id;
 	');
-    PREPARE p_get_field FROM @prep_str;
+    PREPARE p_get_field_info FROM @prep_str;
     
     
 /* ***** Main cycle on fields ****** */
     
     SET @fi = 0;
-    f_loop: LOOP 
-		
+    f_loop: LOOP
         IF @fi = @type_fields_count THEN
 			LEAVE f_loop;
         END IF;
 		
-		EXECUTE p_get_field USING @cur_type_id, @fi;
-
-# TODO: Concat fields definitions (-> fields_defs) to prepare and execute later
-		SET fields_defs = CONCAT(fields_defs, ',',
-			@cur_field_col_name, ' INT
-		');
+		EXECUTE p_get_field_info USING @cur_type_id, @fi;
+        
+        IF @cf_ref_type_id IS NULL THEN
+			IF NOT @cf_is_list THEN
+				SET field_type = @cf_type_name;
+                IF field_type LIKE 'VARCHAR(%' OR field_type = 'TEXT' THEN
+# --> Compare Options
+					IF @cf_compare_options = 'IgnoreCase' THEN
+						SET field_type = CONCAT(field_type, ' COLLATE `utf8_general_ci`');
+					END IF;
+				END IF;
+            ELSE	# <-- @cf_is_list == TRUE
+				SET field_type = 'BLOB';
+            END IF;
+        ELSE	# <-- @cf_ref_type_id != NULL
+			IF NOT @cf_is_list THEN
+				SET field_type = 'BIGINT(0)';
+                
+                SET fields_constraints = CONCAT(fields_constraints, ',
+                    FOREIGN KEY (', @cf_col_name,')
+						REFERENCES `db_key`(`sys_id`)
+						ON DELETE SET NULL
+                        ON UPDATE SET NULL');
+                        
+# TODO: add back reference constraint if needed
+            ELSE	# <-- @cf_is_list == TRUE
+				SET field_type = 'INT';
+                
+                SET fields_constraints = CONCAT(fields_constraints, ',
+                    FOREIGN KEY (', @cf_col_name,')
+						REFERENCES `list`(`id`)
+						ON DELETE SET NULL');
+            END IF;
+        END IF;
+        
+		# Concat fields definitions (-> fields_defs) to prepare and execute later
+		SET fields_defs = CONCAT(fields_defs,
+        ', `', @cf_col_name, '` ', field_type);
 
 # TODO: Concat constraints setters to prepare later
         
         SET @fi = @fi + 1;
 	END LOOP f_loop;
     
+	#SELECT fields_defs AS 'fields';
     
     # Create table for type with all fields
     #  (table name can't be a parameter => prepare each time)
@@ -515,6 +549,7 @@ BEGIN
 			FOREIGN KEY (id)
 				REFERENCES `db_key`(`sys_id`)
 				ON DELETE CASCADE
+			', fields_constraints, '
         );
 	');
 	PREPARE p_create_table FROM @prep_str;
@@ -522,7 +557,7 @@ BEGIN
 	EXECUTE p_create_table;
     
 	DEALLOCATE PREPARE p_create_table;
-    DEALLOCATE PREPARE p_get_field;
+    DEALLOCATE PREPARE p_get_field_info;
 END //
 
 CREATE PROCEDURE alter_db_schema(db_name VARCHAR(64))
