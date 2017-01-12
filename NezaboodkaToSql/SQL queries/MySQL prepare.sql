@@ -5,8 +5,6 @@
         
 **********************************************/
 
-DROP DATABASE IF EXISTS `nz_admin_db`;
-
 CREATE DATABASE `nz_admin_db`;
 USE `nz_admin_db`;
 
@@ -24,8 +22,7 @@ USE `nz_admin_db`;
 */
 CREATE TABLE `db_list`(
 	`name` VARCHAR(64) PRIMARY KEY NOT NULL UNIQUE,
-	`access` TINYINT DEFAULT 0
-    /* set 'ReadWrite' access by default for any new database */
+	`access` TINYINT DEFAULT 0	# ReadWrite
 );
 
 /*********************************************
@@ -57,7 +54,9 @@ DELIMITER //
 CREATE PROCEDURE prepare_db(db_name VARCHAR(64))
 BEGIN
 	
-	# Class
+# ============= Schema Info ==================
+
+# > Class
 	SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`type` (
 			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
@@ -75,7 +74,7 @@ BEGIN
 	EXECUTE proc_prep;
 	DEALLOCATE PREPARE proc_prep;
     
-    # Field
+# > Field
     SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`field` (
 			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
@@ -118,7 +117,7 @@ BEGIN
 	EXECUTE proc_prep;
 	DEALLOCATE PREPARE proc_prep;
     
-    # Type-Field optimization
+# > Type-Field optimization
     SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`type_field_map` (
 			`type_id` INT NOT NULL,
@@ -137,8 +136,9 @@ BEGIN
 	EXECUTE proc_prep;
 	DEALLOCATE PREPARE proc_prep;
     
-    
-    # DbKey
+# ============= Structure ==================
+
+# > DbKey
     SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`db_key` (
 			`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
@@ -238,7 +238,7 @@ BEGIN
 	CALL remove_databases();
     CALL add_databases();
     
-    # get database list
+    # Get database list
     SELECT `name` FROM `db_list`;
 END //
 
@@ -406,14 +406,13 @@ BEGIN
     EXECUTE p_get_type_fields_count USING @cur_type_id;
     #SELECT @type_fields_count as 'count';
     
-    /*	Field table columns
-		`id` INT,
-		`name` VARCHAR(128),
-		`col_name` VARCHAR(64),
-		`type_name` VARCHAR(64),
-		`ref_type_id` INT,
-		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
-		`compare_options` ENUM
+    /*	Field table columns to alter table:
+    
+		`col_name` VARCHAR(64),		<= name
+		`type_name` VARCHAR(64),	<= to set column type
+		`ref_type_id` INT,			<= to use type_name or set db_key link
+		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,	<= to set usual type or create BLOB or link to list
+		`compare_options` ENUM		<= for string: use utf8_bin of utf8_ci
 			(
 				'None',
 				'IgnoreCase',
@@ -485,29 +484,24 @@ BEGIN
 	EXECUTE p_create_table;
     
 	DEALLOCATE PREPARE p_create_table;
-    
     DEALLOCATE PREPARE p_get_field;
-    
 END //
 
 CREATE PROCEDURE alter_db_schema(db_name VARCHAR(64))
 BEGIN
-
 	CALL prepare_alter_proc_for_db(db_name);
-    
-    EXECUTE p_get_types_count;	# -> @types_count
-    
-/* ***** Cycle on types to set base_type_id ****** */
+	
+/* ***** Cycle on types to set base_type_id, fields' owner_type_id and ref_type_id ****** */
+
+	EXECUTE p_get_types_count;	# -> @types_count
 
     SET @ti = 0;
     typeLoop: LOOP
-    
 		IF @ti = @types_count THEN
 			LEAVE typeLoop;
 		END IF;
         
         EXECUTE p_get_type_id_name USING @ti;	# -> @cur_type_id, @cur_type_name
-		#SELECT @ti as 'No', @cur_type_id as 'id', @cur_type_name as 'name';
         
         EXECUTE p_update_base_type USING @cur_type_id, @cur_type_name;
         EXECUTE p_update_fields_owner USING @cur_type_id, @cur_type_name;
@@ -515,47 +509,36 @@ BEGIN
         
         SET @ti = @ti + 1;
 	END LOOP typeLoop;
-    
-    
+	
 /* ***** 2nd cycle on types to set type-field mapping and fields' ref_id ****** */
 
     SET @ti = 0;
     typeLoop_2: LOOP
-    
 		IF @ti = @types_count THEN
 			LEAVE typeLoop_2;
 		END IF;
         
         EXECUTE p_get_type_id_name USING @ti;	# -> @cur_type_id, @cur_type_name
-        
-	/* ***** Inner cycle on fields to set ref_id ****** */
-        
+
         SET @bi = @cur_type_id;
         fields_loop: LOOP
-			
 			IF @bi IS NULL THEN
 				LEAVE fields_loop;
 			END IF;
-            
-            #SELECT @bi as 'base id';
                         
 			EXECUTE p_map_base_type_fields USING @cur_type_id, @bi;
 			EXECUTE p_next_base_type USING @bi;
-            
 		END LOOP fields_loop;
         
         SET @ti = @ti + 1;
 	END LOOP typeLoop_2;
     
-    
 /* ***** Cycle on fields to set back_ref_id ****** */
 
 	EXECUTE p_get_fields_count;	# -> @fields_count
-    #SELECT @fields_count;
     
 	SET @fi = 0;
     fieldsLoop: LOOP
-		
 		IF @fi = @fields_count THEN
 			LEAVE fieldsLoop;
 		END IF;
@@ -575,7 +558,6 @@ BEGIN
     
     SET @ti = 0;
     tables_loop: LOOP
-    
 		IF @ti = @types_count THEN
 			LEAVE tables_loop;
 		END IF;
@@ -611,7 +593,7 @@ BEGIN
 		WHERE `id` = (
 			SELECT `real_type_id`
 			FROM `', db_name, '`.`db_key`
-			WHERE `sys_id` = db_key
+			WHERE `sys_id` = ', db_key, '
 			LIMIT 1
 		)
 		LIMIT 1;
