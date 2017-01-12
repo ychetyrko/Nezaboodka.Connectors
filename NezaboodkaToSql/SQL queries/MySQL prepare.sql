@@ -154,6 +154,44 @@ BEGIN
 	EXECUTE proc_prep;
 	DEALLOCATE PREPARE proc_prep;
     
+# > Lists
+    SET @prep_str=CONCAT('
+		CREATE TABLE `', db_name, '`.`list` (
+			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
+			`owner_id` BIGINT(0) NOT NULL,
+			`type_id` INT NOT NULL,
+            
+			FOREIGN KEY (`owner_id`)
+				REFERENCES `db_key`(`sys_id`)
+				ON DELETE CASCADE,
+			FOREIGN KEY (`type_id`)
+				REFERENCES `type`(`id`)
+				ON DELETE CASCADE
+		);
+	');
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
+    
+# > ListItems
+    SET @prep_str=CONCAT('
+		CREATE TABLE `', db_name, '`.`list_item` (
+			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
+            `list_id` INT NOT NULL,
+			`ref` BIGINT(0) NOT NULL,
+            
+            FOREIGN KEY (`list_id`)
+				REFERENCES `list`(`id`)
+				ON DELETE CASCADE,
+			FOREIGN KEY (`ref`)
+				REFERENCES `db_key`(`sys_id`)
+				ON DELETE CASCADE
+		);
+	');
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
+    
 END //
 
 
