@@ -103,12 +103,17 @@ namespace Nezaboodka.ToSqlConnector
 
         private static string FormatValuesList(IEnumerable<string> values)
         {
-            return string.Join(",", values.Select(s => $"({s})"));
+            return FormatListExt(values, "(", ")");
         }
 
         private static string FormatStringList(IEnumerable<string> strList)
         {
-            return string.Join(",", strList.Select(s => $"('{s}')"));
+            return FormatListExt(strList, "('", "')");
+        }
+
+        private static string FormatListExt(IEnumerable<string> strList, string pre, string post, string separator = ",")
+        {
+            return string.Join(separator, strList.Select(s => pre + s + post));
         }
 
         private static string GenerateLowerName(string typeName)
