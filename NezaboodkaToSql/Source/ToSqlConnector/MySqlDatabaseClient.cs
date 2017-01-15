@@ -288,85 +288,74 @@ namespace Nezaboodka.ToSqlConnector
         {
             throw new NotImplementedException();
             //var request = new SaveObjectsRequest(queries);
-            //foreach (SaveQuery query in queries)
-            //    for (int i = 0; i < query.InObjects.Count; i++)
-            //    {
-            //        FileObject fileObject = query.InObjects[i] as FileObject;
-            //        if (fileObject != null)
-            //        {
-            //            if (request.FileObjects == null)
-            //                request.FileObjects = new List<FileObject>();
-            //            request.FileObjects.Add(fileObject);
-            //        }
-            //    }
             //var response = (SaveObjectsResponse)ExecuteRequest(request);
             //return response.Results;
         }
 
-        public DeleteResult DeleteObject(DbKey objectKey)
+        public long DeleteObject(DbKey objectKey)
         {
             return DeleteObjects(new DeleteQuery(new DbKey[] {objectKey}, false));
         }
 
-        public DeleteResult DeleteObject(DbKey objectKey, bool errorOnObjectNotFound)
+        public long DeleteObject(DbKey objectKey, bool errorOnObjectNotFound)
         {
             return DeleteObjects(new DeleteQuery(new DbKey[] {objectKey}, errorOnObjectNotFound));
         }
 
-        public DeleteResult DeleteObject(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
+        public long DeleteObject(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
             bool errorOnObjectNotFound)
         {
             return DeleteObjects(new DeleteQuery(new DbKey[] {objectKey},
                 new List<TypeAndFields>() {typeAndFieldsWithObjectsToDelete}, errorOnObjectNotFound));
         }
 
-        public DeleteResult DeleteObjects(List<DbKey> objectKeys)
+        public long DeleteObjects(List<DbKey> objectKeys)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, false));
         }
 
-        public DeleteResult DeleteObjects(DbKey[] objectKeys)
+        public long DeleteObjects(DbKey[] objectKeys)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, false));
         }
 
-        public DeleteResult DeleteObjects(List<DbKey> objectKeys,
+        public long DeleteObjects(List<DbKey> objectKeys,
             IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, false));
         }
 
-        public DeleteResult DeleteObjects(DbKey[] objectKeys,
+        public long DeleteObjects(DbKey[] objectKeys,
             IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, false));
         }
 
-        public DeleteResult DeleteObjects(List<DbKey> objectKeys,
+        public long DeleteObjects(List<DbKey> objectKeys,
             IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, bool errorOnObjectNotFound)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
                 errorOnObjectNotFound));
         }
 
-        public DeleteResult DeleteObjects(DbKey[] objectKeys,
+        public long DeleteObjects(DbKey[] objectKeys,
             IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, bool errorOnObjectNotFound)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
                 errorOnObjectNotFound));
         }
 
-        public DeleteResult DeleteObjects(DeleteQuery query)
+        public long DeleteObjects(DeleteQuery query)
         {
-            return DeleteObjectsInQueries(new DeleteQuery[] {query})[0];
+            return DeleteObjectsInQueries(new DeleteQuery[] { query });
         }
 
-        public IList<DeleteResult> DeleteObjectsInQueries(IList<DeleteQuery> queries)
+        public long DeleteObjectsInQueries(IList<DeleteQuery> queries)
         {
             throw new NotImplementedException();
             //var request = new DeleteObjectsRequest(queries);
             //var response = (DeleteObjectsResponse)ExecuteRequest(request);
-            //return response.Results;
+            //return response.DeletedObjectCount;
         }
 
         public object GetObject(DbKey objectKey)
@@ -518,22 +507,22 @@ namespace Nezaboodka.ToSqlConnector
         }
 
         public IList SearchFiles(string fileMaskToMatch, string fileMaskToNotMatch, int searchLimit,
-            string forVar, FileObject after, string where, string having,
+            string forEachVar, FileObject after, string where, string having,
             IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn)
         {
             throw new NotImplementedException();
 
             //var fileRange = new FileRange();
             //SearchQuery query = CreateSearchFilesQuery(fileMaskToMatch, fileMaskToNotMatch, searchLimit,
-            //    forVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
-            //var queries = new SearchQuery[] {query};
+            //    forEachVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
+            //var queries = new SearchQuery[] { query };
             //var request = new SearchObjectsRequest(queries);
-            //var response = (SearchObjectsResponse) ExecuteRequest(request);
+            //var response = (SearchObjectsResponse)ExecuteRequest(request);
             //return response.Results[0].Objects;
         }
 
         public SearchQuery CreateSearchFilesQuery(string fileMaskToMatch, string fileMaskToNotMatch,
-            int searchLimit, string forVar, FileObject after, string where, string having,
+            int searchLimit, string forEachVar, FileObject after, string where, string having,
             IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn, FileRange fileRange)
         {
             throw new NotImplementedException();
@@ -547,14 +536,14 @@ namespace Nezaboodka.ToSqlConnector
             string serverAddress = CurrentServerAddress;
             if (ServerAddressSelectionMode == ServerAddressSelectionMode.RandomPerCall)
                 CurrentServerAddressNumber = (CurrentServerAddressNumber + 1)%ServerAddresses.Count;
-            Stopwatch stopwatch = null;
+            var stopwatch = new Stopwatch();
             int totalElapsedTimeInMilliseconds = 0;
             int retryCount = 0;
             int basePartOfDelayInMilliseconds = 0;
             bool success = false;
             while (!success)
             {
-                stopwatch = Stopwatch.StartNew();
+                stopwatch.Restart();
                 result = ExecuteRequestNoRetry(serverAddress, request);
                 int elapsedMilliseconds = (int) stopwatch.ElapsedMilliseconds;
                 if (result is ErrorResponse)
