@@ -457,7 +457,7 @@ END //
 
 CREATE PROCEDURE alter_table_for_type(db_name VARCHAR(64), type_no INT)
 BEGIN
-	DECLARE fields_defs VARCHAR(255) DEFAULT "";
+	DECLARE fields_defs TEXT DEFAULT "";
 	DECLARE fields_constraints TEXT DEFAULT "";
     DECLARE field_type VARCHAR(255) DEFAULT "";
 	
