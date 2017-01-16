@@ -177,7 +177,6 @@ namespace Nezaboodka.ToSqlConnector
 
         public void CleanupRemovedDatabases()
         {
-            // TODO: remove databases only from db_list, move them to db_cleanup_list, then cleanup by request
             throw new NotImplementedException();
         }
 
@@ -666,9 +665,11 @@ namespace Nezaboodka.ToSqlConnector
         {
             cmd.CommandType = CommandType.Text;
             cmd.CommandText = DbQueryBuilder.GetDatabaseListQuery;
+
             MySqlDataReader reader = cmd.ExecuteReader();
-            
             var result = ReadDatabaseNamesList(reader);
+            reader.Close();
+
             return new GetDatabaseListResponse(result);
         }
         
@@ -678,9 +679,11 @@ namespace Nezaboodka.ToSqlConnector
 
             cmd.CommandType = CommandType.Text;
             cmd.CommandText = DbQueryBuilder.AlterDatabaseListQuery(realRequest.DatabaseNamesToRemove, realRequest.DatabaseNamesToAdd);
-            MySqlDataReader reader = cmd.ExecuteReader();
 
+            MySqlDataReader reader = cmd.ExecuteReader();
             var result = ReadDatabaseNamesList(reader);
+            reader.Close();
+
             return new AlterDatabaseListResponse(result);
         }
 
@@ -688,19 +691,13 @@ namespace Nezaboodka.ToSqlConnector
         {
             cmd.CommandType = CommandType.Text;
             cmd.CommandText = DbQueryBuilder.GetDatabaseAccessModeQuery(DatabaseName);
-            MySqlDataReader reader = cmd.ExecuteReader();
 
-            int accessModeNumber = (int)DatabaseAccessMode.NoAccess;
-            bool hasRows = reader.HasRows;
-            if (hasRows)
-            {
-                reader.Read();
-                accessModeNumber = reader.GetInt32(Consts.AccessFieldName);
-            }
+            MySqlDataReader reader = cmd.ExecuteReader();
+            int? accessModeNumber = ReadDatabaseAccessMode(reader);
             reader.Close();
 
             DatabaseResponse result = null;
-            if (hasRows)
+            if (accessModeNumber != null)
             {
                 var accessMode = (DatabaseAccessMode)accessModeNumber;
                 result = new GetDatabaseAccessModeResponse(accessMode);
@@ -755,7 +752,17 @@ namespace Nezaboodka.ToSqlConnector
                 string row = reader.GetString(0);
                 result.Add(row);
             }
-            reader.Close();
+            return result;
+        }
+
+        private static int? ReadDatabaseAccessMode(MySqlDataReader reader)
+        {
+            int? result = null;
+            if (reader.HasRows)
+            {
+                reader.Read();
+                result = reader.GetInt32(Consts.AccessFieldName);
+            }
             return result;
         }
     }

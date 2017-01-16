@@ -44,16 +44,20 @@ namespace Nezaboodka.ToSqlConnector
 
             foreach (var typeDefinition in typeDefinitionsList)
             {
-                string typeName = typeDefinition.TypeName;
-                string tableName = GenerateLowerName(typeName);
-                string typeRec = $"'{typeName}', '{tableName}', '{typeDefinition.BaseTypeName}'";
+                string currentTypeName = typeDefinition.TypeName;
+                string tableName = GenerateLowerName(currentTypeName);
+                // (`name`, `table_name`, `base_type_name`)
+                string typeRec = $"'{currentTypeName}', '{tableName}', '{typeDefinition.BaseTypeName}'";
 
                 typesList.Add(typeRec);
 
                 foreach (var fieldDefinition in typeDefinition.FieldDefinitions)
                 {
                     string columnName = GenerateLowerName(fieldDefinition.FieldName);
-                    string fieldRec = $"'{fieldDefinition.FieldName}', '{columnName}', '{typeName}', '{fieldDefinition.FieldTypeName}', '{fieldDefinition.CompareOptions}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.BackReferenceFieldName}'";
+                    string fieldTypeName = fieldDefinition.FieldTypeName;   // TODO: .NET to SQL type mappping
+
+                    // (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
+                    string fieldRec = $"'{fieldDefinition.FieldName}', '{columnName}', '{currentTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions.ToString("g")}', '{fieldDefinition.BackReferenceFieldName}'";
 
                     fieldsList.Add(fieldRec);
                 }
@@ -66,7 +70,7 @@ namespace Nezaboodka.ToSqlConnector
                    "(`name`, `table_name`, `base_type_name`) " +
                    $"VALUES {typesListStr}; " +
                    $"INSERT INTO `{dbName}`.`fields` " +
-                   "(`name`, `col_name`, `owner_type_name`, `type_name`, `compare_options`, `is_list`, `back_ref_name`) " +
+                   "(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`) " +
                    $"VALUES {fieldsListStr}; " +
                    $"CALL alter_db_schema('{dbName}');";
         }

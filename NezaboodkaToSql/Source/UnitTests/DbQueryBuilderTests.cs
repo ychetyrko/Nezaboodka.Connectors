@@ -20,8 +20,8 @@ namespace Nezaboodka.MySqlClient.UnitTests
                                     "(`name`, `table_name`, `base_type_name`) " +
                                     "VALUES ('User', '_user', ''); " +
                                     "INSERT INTO `db_nz_test`.`fields` " +
-                                    "(`name`, `col_name`, `owner_type_name`, `type_name`, `compare_options`, `is_list`, `back_ref_name`) " +
-                                    "VALUES ('Name', '_name', 'User', 'string', 'StringSort', FALSE, ''),('Age', '_age', 'User', 'int', 'Ordinal', FALSE, ''); " +
+                                    "(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`) " +
+                                    "VALUES ('Name', '_name', 'User', 'string', FALSE, 'StringSort', ''),('Age', '_age', 'User', 'int', FALSE, 'Ordinal', ''); " +
                                     "CALL alter_db_schema('db_nz_test');";
 
             DatabaseSchema schema = new DatabaseSchema();
