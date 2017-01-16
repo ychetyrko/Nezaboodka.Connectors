@@ -6,6 +6,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Threading;
 using MySql.Data.MySqlClient;
+using System.Globalization;
 
 namespace Nezaboodka.ToSqlConnector
 {
@@ -132,7 +133,9 @@ namespace Nezaboodka.ToSqlConnector
 
         public DatabaseConfiguration GetDatabaseConfiguration()
         {
-            throw new NotImplementedException();
+            var request = new GetDatabaseConfigurationRequest();
+            var response = (GetDatabaseConfigurationResponse)ExecuteRequest(request);
+            return response.DatabaseConfiguration;
         }
 
         public DatabaseConfiguration AlterDatabaseConfiguration(DatabaseConfiguration databaseConfiguration)
@@ -594,7 +597,7 @@ namespace Nezaboodka.ToSqlConnector
             DatabaseResponse result = null;
             var dbName = Consts.AdministrationDatabaseName;
             if (!(request is AdministrationRequest) || request is RefreshDatabaseCryptoKeyRequest ||
-                request is GetDatabaseConfigurationRequest || request is AlterDatabaseConfigurationRequest ||
+                request is GetDatabaseConfigurationRequest || // request is AlterDatabaseConfigurationRequest || // <-- !! request for AdministrationDatabase
                 //request is GetDatabaseAccessModeRequest || request is SetDatabaseAccessModeRequest || // <-- !! requests for AdministrationDatabase
                 request is UnloadDatabaseRequest || request is LoadDatabaseRequest)
             {
@@ -658,6 +661,7 @@ namespace Nezaboodka.ToSqlConnector
             _requestExec.Add(typeof(GetDatabaseListRequest), GetDatabaseListExec);
             _requestExec.Add(typeof(AlterDatabaseListRequest), AlterDatabaseListExec);
             _requestExec.Add(typeof(GetDatabaseAccessModeRequest), GetDatabaseAccessModeExec);
+            _requestExec.Add(typeof(GetDatabaseConfigurationRequest), GetDatabaseConfigurationExec);
             _requestExec.Add(typeof(AlterDatabaseConfigurationRequest), AlterDatabaseConfigurationExec);
         }
 
@@ -714,6 +718,19 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
+        private DatabaseResponse GetDatabaseConfigurationExec(DatabaseRequest request, MySqlCommand cmd)
+        {
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
+
+            MySqlDataReader reader = cmd.ExecuteReader();
+            DatabaseConfiguration dbConfig = ReadDatabaseConfiguration(reader);
+            reader.Close();
+
+            GetDatabaseConfigurationResponse result = new GetDatabaseConfigurationResponse(dbConfig);
+            return result;
+        }
+
         private DatabaseResponse AlterDatabaseConfigurationExec(DatabaseRequest request, MySqlCommand cmd)
         {
             AlterDatabaseConfigurationRequest realRequest = request as AlterDatabaseConfigurationRequest;
@@ -728,17 +745,17 @@ namespace Nezaboodka.ToSqlConnector
             var newSchema = realRequest.DatabaseConfiguration.DatabaseSchema;
 
             cmd.CommandText = DbQueryBuilder.AlterDatabaseSchemaQuery(DatabaseName, newSchema.TypeDefinitions);
-            cmd.ExecuteNonQuery();
+            cmd.CommandText += DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
+            var reader = cmd.ExecuteReader();
 
-            //var result = new AlterDatabaseConfigurationResponse()
-            //{
-            //    DatabaseConfiguration = newConfig;
-            //};
-            var result = new ErrorResponse()
+            var newConfig = ReadDatabaseConfiguration(reader);
+            var result = new AlterDatabaseConfigurationResponse()
             {
-                ErrorStatus = ErrorStatus.Success,
-                ErrorMessage = "Query is built"
+                DatabaseConfiguration = newConfig
             };
+            reader.Close();
+
+
             return result;
         }
 
@@ -763,6 +780,52 @@ namespace Nezaboodka.ToSqlConnector
                 reader.Read();
                 result = reader.GetInt32(Consts.AccessFieldName);
             }
+            return result;
+        }
+
+        private DatabaseConfiguration ReadDatabaseConfiguration(MySqlDataReader reader)
+        {
+            var dbSchema = new DatabaseSchema();
+            var typeNameMap = new Dictionary<string, TypeDefinition>();
+
+            if (reader.HasRows)
+            {
+                // Types list
+                while (reader.Read())
+                {
+                    var typeDef = new TypeDefinition();
+
+                    typeDef.TypeName = reader.GetString(DbSchemaColumnNames.TypeName);
+                    typeDef.BaseTypeName = reader.GetString(DbSchemaColumnNames.BaseTypeName);
+
+                    dbSchema.TypeDefinitions.Add(typeDef);
+                    typeNameMap.Add(typeDef.TypeName, typeDef);
+                }
+
+                // Fields list
+                if (reader.HasRows)
+                {
+                    reader.NextResult();
+                    while (reader.Read())
+                    {
+                        var fieldDef = new FieldDefinition()
+                        {
+                            FieldName = reader.GetString(DbSchemaColumnNames.FieldName),
+                            FieldTypeName = reader.GetString(DbSchemaColumnNames.FieldTypeName),
+                            IsList = bool.Parse(reader.GetString(DbSchemaColumnNames.FieldIsList)),
+                            CompareOptions = (CompareOptions)Enum.Parse(typeof(CompareOptions), reader.GetString(DbSchemaColumnNames.FieldCompareOptions)),
+                            BackReferenceFieldName = reader.GetString(DbSchemaColumnNames.FieldBackRefName)
+                        };
+
+                        typeNameMap[reader.GetString(DbSchemaColumnNames.FieldOwnerTypeName)].FieldDefinitions.Add(fieldDef);
+                    }
+                }
+
+            }
+
+            DatabaseConfiguration result = new DatabaseConfiguration();
+            result.DatabaseSchema = dbSchema;
+
             return result;
         }
     }

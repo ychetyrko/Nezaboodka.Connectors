@@ -35,6 +35,24 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
+        public static string GetDatabaseConfigurationQuery(string dbName)
+        {
+            var result = $"SELECT `name` AS '{DbSchemaColumnNames.TypeName}', " +
+                            $"`base_type_name` AS '{DbSchemaColumnNames.BaseTypeName}' " +
+                         $"FROM `{dbName}`.`type`;" +
+
+                         $"SELECT `name` AS '{DbSchemaColumnNames.FieldName}', " +
+                            $"`owner_type_name` AS '{DbSchemaColumnNames.FieldOwnerTypeName}', " +
+                            $"`type_name` AS '{DbSchemaColumnNames.FieldTypeName}', " +
+                            $"`is_list` AS '{DbSchemaColumnNames.FieldIsList}', " +
+                            $"`back_ref_name` AS '{DbSchemaColumnNames.FieldBackRefName}', " +
+                            $"`compare_options` AS '{DbSchemaColumnNames.FieldCompareOptions}' " +
+                         $"FROM `{dbName}`.`field`;";
+            // TODO: add Secondary and Referencial indexes
+
+            return result;
+        }
+
         // !! NO MERGE proveded
         // TODO: merge existing schema with new
         public static string AlterDatabaseSchemaQuery(string dbName, IEnumerable<TypeDefinition> typeDefinitionsList)
@@ -135,5 +153,18 @@ namespace Nezaboodka.ToSqlConnector
             
             return result.ToString();
         }
+    }
+
+    public class DbSchemaColumnNames
+    {
+        public const string TypeName = "Name";
+        public const string BaseTypeName = "BaseTypeName";
+
+        public const string FieldName = "Name";
+        public const string FieldOwnerTypeName = "OwnerTypeName";
+        public const string FieldTypeName = "TypeName";
+        public const string FieldIsList = "IsList";
+        public const string FieldBackRefName = "BackRefName";
+        public const string FieldCompareOptions = "CompareOptions";
     }
 }
