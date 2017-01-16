@@ -2,7 +2,7 @@
 
 namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
 {
-    public static class TestDatabaseConfigUtils
+    public static class DatabaseConfigTestUtils
     {
         // Public 
 
@@ -24,6 +24,22 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
             return result;
         }
 
+        public static DatabaseSchema GetMultipleClassDbSchema_1()
+        {
+            var userTypeDef = GetTestUserType();
+            var groupTypeDef = GetTestGroupType();
+
+            userTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Group", "Group", CompareOptions.None, "Participants"));
+            groupTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Participants", "User", CompareOptions.None, "Group", true));
+
+            var result = new DatabaseSchema();
+
+            result.TypeDefinitions.Add(userTypeDef);
+            result.TypeDefinitions.Add(groupTypeDef);
+
+            return result;
+        }
+
         // Internal
 
         private static TypeDefinition GetTestUserType()
@@ -37,6 +53,21 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
             result.FieldDefinitions.Add(CreateFieldDefinition("Login", "VARCHAR(60)", CompareOptions.IgnoreCase));
             result.FieldDefinitions.Add(CreateFieldDefinition("Email", "VARCHAR(255)", CompareOptions.IgnoreCase));
             result.FieldDefinitions.Add(CreateFieldDefinition("Age", "INT UNSIGNED"));
+
+            return result;
+        }
+
+        private static TypeDefinition GetTestGroupType()
+        {
+            var result = new TypeDefinition()
+            {
+                TypeName = "Group",
+                BaseTypeName = string.Empty
+            };
+
+            result.FieldDefinitions.Add(CreateFieldDefinition("Title", "VARCHAR(255)", CompareOptions.IgnoreCase));
+            result.FieldDefinitions.Add(CreateFieldDefinition("Rating", "INT UNSIGNED"));
+            result.FieldDefinitions.Add(CreateFieldDefinition("AccessMask", "INT UNSIGNED"));
 
             return result;
         }

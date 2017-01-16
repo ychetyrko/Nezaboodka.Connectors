@@ -98,11 +98,29 @@ namespace Nezaboodka.MySqlClient.UnitTests
         [TestMethod]
         public void AlterDatabaseConfigurationTest_SchemaTest_OneType()
         {
-            DatabaseConfiguration expectedResult = new DatabaseConfiguration
+            DatabaseConfiguration configuration = new DatabaseConfiguration
             {
-                DatabaseSchema = TestDatabaseConfigUtils.GetSingleClassDbSchema()
+                DatabaseSchema = DatabaseConfigTestUtils.GetSingleClassDbSchema()
             };
 
+            CheckAlterDatabaseConfiguration(configuration);
+        }
+
+        [TestMethod]
+        public void AlterDatabaseConfigurationTest_SchemaTest_MultipleTypes_Refs()
+        {
+            DatabaseConfiguration configuration = new DatabaseConfiguration
+            {
+                DatabaseSchema = DatabaseConfigTestUtils.GetMultipleClassDbSchema_1()
+            };
+
+            CheckAlterDatabaseConfiguration(configuration);
+        }
+
+        // Internal
+
+        private static void CheckAlterDatabaseConfiguration(DatabaseConfiguration expectedResult)
+        {
             var adminClient = new MySqlDatabaseClient("localhost", null, null);
 
             string dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
@@ -114,7 +132,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
                 var client = new MySqlDatabaseClient("localhost", dbName, null);
 
                 DatabaseConfiguration actualResult = client.AlterDatabaseConfiguration(expectedResult);
-                bool result = TestDatabaseConfigUtils.AreEqualDbConfigurations(expectedResult, actualResult);
+                bool result = DatabaseConfigTestUtils.AreEqualDbConfigurations(expectedResult, actualResult);
                 Assert.IsTrue(result);
             }
             finally
@@ -122,6 +140,5 @@ namespace Nezaboodka.MySqlClient.UnitTests
                 adminClient.AlterDatabaseList(null, dbList);
             }
         }
-        
     }
 }
