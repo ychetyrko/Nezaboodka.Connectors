@@ -2,6 +2,7 @@
 
 	Drop Nezaboodka administrative database
 		with all Nezaboodka databases
+			and users
         
 **********************************************/
 
@@ -12,3 +13,6 @@ INSERT INTO `db_rem_list` (
 CALL alter_database_list();
 
 DROP DATABASE `nz_admin_db`;
+
+DELETE FROM mysql.user WHERE User = 'nz_admin';
+FLUSH PRIVILEGES;

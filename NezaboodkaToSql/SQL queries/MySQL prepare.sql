@@ -142,7 +142,7 @@ BEGIN
     SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`db_key` (
 			`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`raw_rev` BIGINT(0) NOT NULL DEFAULT 1,
+			`rev_flags` BIGINT(0) NOT NULL DEFAULT 1,
 			`real_type_id` INT NOT NULL,
             
 			FOREIGN KEY (`real_type_id`)
@@ -214,6 +214,7 @@ BEGIN
 			LEAVE proc_loop;
 		END IF;
 		
+# TODO: remove databases only from db_list, move them to db_cleanup_list, then cleanup by request
         SET @prep_str=CONCAT('
 			DROP DATABASE IF EXISTS ', db_name, ';
         ');
@@ -414,6 +415,23 @@ BEGIN
 	');
     PREPARE p_get_type_fields_count FROM @prep_str;
     
+    # Get field info by type id and field number in table
+    # -> @cf_col_name, @cf_type_name,
+    #    @cf_ref_type_id, @cf_is_list,
+    #    @cf_compare_options
+	SET @prep_str = CONCAT('
+		SELECT `col_name`, `type_name`, `ref_type_id`, `is_list`, `compare_options`
+        FROM `', db_name ,'`.`field`
+        WHERE `id` = (
+			SELECT `field_id`
+			FROM `', db_name ,'`.`type_field_map`
+			WHERE `type_id` = ?
+			LIMIT ?, 1
+		)
+        LIMIT 1
+        INTO @cf_col_name, @cf_type_name, @cf_ref_type_id, @cf_is_list, @cf_compare_options;
+	');
+    PREPARE p_get_field_info FROM @prep_str;
 END //
 
 CREATE PROCEDURE deallocate_alter_proc()
@@ -424,13 +442,17 @@ BEGIN
     DEALLOCATE PREPARE p_update_base_type;
     DEALLOCATE PREPARE p_update_fields_owner;
     DEALLOCATE PREPARE p_update_fields_ref;
+    
     DEALLOCATE PREPARE p_map_base_type_fields;
     DEALLOCATE PREPARE p_next_base_type;
+    
     DEALLOCATE PREPARE p_get_field_id_ref_type_id_back_ref_name;
     DEALLOCATE PREPARE p_get_back_ref_id;
     DEALLOCATE PREPARE p_update_field_back_ref_id;
+    
     DEALLOCATE PREPARE p_get_fields_count;
     DEALLOCATE PREPARE p_get_type_fields_count;
+    DEALLOCATE PREPARE p_get_field_info;
 END //
 
 CREATE PROCEDURE alter_table_for_type(db_name VARCHAR(64), type_no INT)
@@ -446,44 +468,6 @@ BEGIN
     EXECUTE p_get_type_fields_count USING @cur_type_id;
     #SELECT @type_fields_count as 'count';
     
-    /*	Field table columns to alter table:
-    
-		`col_name` VARCHAR(64),		<= name
-		`type_name` VARCHAR(64),	<= to set column type
-		`ref_type_id` INT,			<= to use type_name or set db_key link
-		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,	<= to set usual type or create BLOB or link to list
-		`compare_options` ENUM		<= for string: use utf8_bin of utf8_ci
-			(
-				'None',
-				'IgnoreCase',
-				'IgnoreNonSpace',
-				'IgnoreSymbols',
-				'IgnoreKanaType',
-				'IgnoreWidth',
-				'OrdinalIgnoreCase',
-				'StringSort',
-				'Ordinal'
-			) NOT NULL DEFAULT 'None',
-		`back_ref_id` INT DEFAULT NULL,
-    */
-    
-# TODO: move to preparation routine
-    # Get field info by type id and field number in table
-	SET @prep_str = CONCAT('
-		SELECT `col_name`, `type_name`, `ref_type_id`, `is_list`, `compare_options`, `back_ref_id`
-        FROM `', db_name ,'`.`field`
-        WHERE `id` = (
-			SELECT `field_id`
-			FROM `', db_name ,'`.`type_field_map`
-			WHERE `type_id` = ?
-			LIMIT ?, 1
-		)
-        LIMIT 1
-        INTO @cf_col_name, @cf_type_name, @cf_ref_type_id, @cf_is_list, @cf_compare_options, @cf_back_ref_id;
-	');
-    PREPARE p_get_field_info FROM @prep_str;
-    
-    
 /* ***** Main cycle on fields ****** */
     
     SET @fi = 0;
@@ -494,18 +478,42 @@ BEGIN
 		
 		EXECUTE p_get_field_info USING @cur_type_id, @fi;
         
+        /*	Field table columns to alter table:
+    
+		`col_name` VARCHAR(64),		<= name
+		`type_name` VARCHAR(64),	<= to set column type
+		`ref_type_id` INT,			<= to use type_name or set db_key FK
+		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,	<= to set usual type or create BLOB / list FK
+		`compare_options` ENUM		<= for string:
+			(
+				'None',					=> utf8_bin
+				'IgnoreCase',			=> utf8_ci
+				'IgnoreNonSpace',
+				'IgnoreSymbols',
+				'IgnoreKanaType',
+				'IgnoreWidth',
+				'OrdinalIgnoreCase',
+				'StringSort',
+				'Ordinal'
+			) NOT NULL DEFAULT 'None',
+		`back_ref_id` INT DEFAULT NULL,	<= processed on client's side
+		*/
+        
         IF @cf_ref_type_id IS NULL THEN
 			IF NOT @cf_is_list THEN
 				SET field_type = @cf_type_name;
+                
                 IF field_type LIKE 'VARCHAR(%' OR field_type = 'TEXT' THEN
 # --> Compare Options
 					IF @cf_compare_options = 'IgnoreCase' THEN
 						SET field_type = CONCAT(field_type, ' COLLATE `utf8_general_ci`');
 					END IF;
 				END IF;
+                
             ELSE	# <-- @cf_is_list == TRUE
 				SET field_type = 'BLOB';
             END IF;
+            
         ELSE	# <-- @cf_ref_type_id != NULL
 			IF NOT @cf_is_list THEN
 				SET field_type = 'BIGINT(0)';
@@ -515,8 +523,7 @@ BEGIN
 						REFERENCES `db_key`(`sys_id`)
 						ON DELETE SET NULL
                         ON UPDATE SET NULL');
-                        
-# TODO: add back reference constraint if needed
+				
             ELSE	# <-- @cf_is_list == TRUE
 				SET field_type = 'INT';
                 
@@ -525,13 +532,11 @@ BEGIN
 						REFERENCES `list`(`id`)
 						ON DELETE SET NULL');
             END IF;
+			
         END IF;
         
 		# Concat fields definitions (-> fields_defs) to prepare and execute later
-		SET fields_defs = CONCAT(fields_defs,
-        ', `', @cf_col_name, '` ', field_type);
-
-# TODO: Concat constraints setters to prepare later
+		SET fields_defs = CONCAT(fields_defs, ', `', @cf_col_name, '` ', field_type);
         
         SET @fi = @fi + 1;
 	END LOOP f_loop;
@@ -557,7 +562,6 @@ BEGIN
 	EXECUTE p_create_table;
     
 	DEALLOCATE PREPARE p_create_table;
-    DEALLOCATE PREPARE p_get_field_info;
 END //
 
 CREATE PROCEDURE alter_db_schema(db_name VARCHAR(64))
