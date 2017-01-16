@@ -57,6 +57,7 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="DbQueryBuilderTests.cs" />
     <Compile Include="MySqlDatabaseClientUnitTests.cs" />
+    <Compile Include="TestUtils\TestDatabaseConfigUtils.cs" />
     <Compile Include="TestUtils\RandomDatabaseNamesGenerator.cs" />
   </ItemGroup>
   <ItemGroup>

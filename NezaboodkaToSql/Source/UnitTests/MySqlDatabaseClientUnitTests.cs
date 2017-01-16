@@ -94,5 +94,34 @@ namespace Nezaboodka.MySqlClient.UnitTests
             var client = new MySqlDatabaseClient("localhost", dbName, null);
             client.GetDatabaseAccessMode();
         }
+
+        [TestMethod]
+        public void AlterDatabaseConfigurationTest_SchemaTest_OneType()
+        {
+            DatabaseConfiguration expectedResult = new DatabaseConfiguration
+            {
+                DatabaseSchema = TestDatabaseConfigUtils.GetSingleClassDbSchema()
+            };
+
+            var adminClient = new MySqlDatabaseClient("localhost", null, null);
+
+            string dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
+            var dbList = new List<string> { dbName };
+            adminClient.AlterDatabaseList(dbList, null);
+
+            try
+            {
+                var client = new MySqlDatabaseClient("localhost", dbName, null);
+
+                DatabaseConfiguration actualResult = client.AlterDatabaseConfiguration(expectedResult);
+                bool result = TestDatabaseConfigUtils.AreEqualDbConfigurations(expectedResult, actualResult);
+                Assert.IsTrue(result);
+            }
+            finally
+            {
+                adminClient.AlterDatabaseList(null, dbList);
+            }
+        }
+        
     }
 }
