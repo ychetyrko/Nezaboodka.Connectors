@@ -69,7 +69,7 @@ namespace Nezaboodka.ToSqlConnector
             return $"INSERT INTO `{dbName}`.`type` " +
                    "(`name`, `table_name`, `base_type_name`) " +
                    $"VALUES {typesListStr}; " +
-                   $"INSERT INTO `{dbName}`.`fields` " +
+                   $"INSERT INTO `{dbName}`.`field` " +
                    "(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`) " +
                    $"VALUES {fieldsListStr}; " +
                    $"CALL alter_db_schema('{dbName}');";

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Text;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Nezaboodka.ToSqlConnector;
@@ -19,7 +17,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
             string expectedResult = "INSERT INTO `db_nz_test`.`type` " +
                                     "(`name`, `table_name`, `base_type_name`) " +
                                     "VALUES ('User', '_user', ''); " +
-                                    "INSERT INTO `db_nz_test`.`fields` " +
+                                    "INSERT INTO `db_nz_test`.`field` " +
                                     "(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`) " +
                                     "VALUES ('Name', '_name', 'User', 'string', FALSE, 'StringSort', ''),('Age', '_age', 'User', 'int', FALSE, 'Ordinal', ''); " +
                                     "CALL alter_db_schema('db_nz_test');";
