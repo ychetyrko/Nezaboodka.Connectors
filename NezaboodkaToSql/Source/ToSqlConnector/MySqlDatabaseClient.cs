@@ -595,7 +595,7 @@ namespace Nezaboodka.ToSqlConnector
         private DatabaseResponse ExecuteRequestNoRetry(string serverAddress, DatabaseRequest request)
         {
             DatabaseResponse result = null;
-            var dbName = Consts.AdministrationDatabaseName;
+            var dbName = AdminDatabaseConst.AdminDbName;
             if (!(request is AdministrationRequest) || request is RefreshDatabaseCryptoKeyRequest ||
                 request is GetDatabaseConfigurationRequest || // request is AlterDatabaseConfigurationRequest || // <-- !! request for AdministrationDatabase
                 //request is GetDatabaseAccessModeRequest || request is SetDatabaseAccessModeRequest || // <-- !! requests for AdministrationDatabase
@@ -607,15 +607,15 @@ namespace Nezaboodka.ToSqlConnector
                     return new ErrorResponse()
                     {
                         ErrorStatus = ErrorStatus.AvailabilityError,
-                        ErrorMessage = ErrorMessagesFormatter.DatabaseNotFoundName("")
+                        ErrorMessage = ErrorMessagesFormatter.DatabaseNotFoundName(string.Empty)
                     };
             }
 
             MySqlConnectionStringBuilder conStringBuilder = new MySqlConnectionStringBuilder
             {
                 Server = serverAddress,
-                UserID = Consts.MySqlUserId,
-                Password = Consts.MySqlPass,
+                UserID = SqlAuthData.UserId,
+                Password = SqlAuthData.Pass,
                 Database = dbName,
                 PersistSecurityInfo = false
             };
@@ -746,16 +746,16 @@ namespace Nezaboodka.ToSqlConnector
 
             cmd.CommandText = DbQueryBuilder.AlterDatabaseSchemaQuery(DatabaseName, newSchema.TypeDefinitions);
             cmd.CommandText += DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
-            var reader = cmd.ExecuteReader();
 
-            var newConfig = ReadDatabaseConfiguration(reader);
+            MySqlDataReader reader = cmd.ExecuteReader();
+            DatabaseConfiguration newConfig = ReadDatabaseConfiguration(reader);
+            reader.Close();
+
             var result = new AlterDatabaseConfigurationResponse()
             {
                 DatabaseConfiguration = newConfig
             };
-            reader.Close();
-
-
+            
             return result;
         }
 
@@ -778,7 +778,7 @@ namespace Nezaboodka.ToSqlConnector
             if (reader.HasRows)
             {
                 reader.Read();
-                result = reader.GetInt32(Consts.AccessFieldName);
+                result = reader.GetInt32(AdminDatabaseConst.AccessField);
             }
             return result;
         }
@@ -793,10 +793,11 @@ namespace Nezaboodka.ToSqlConnector
                 // Types list
                 while (reader.Read())
                 {
-                    var typeDef = new TypeDefinition();
-
-                    typeDef.TypeName = reader.GetString(DbSchemaColumnNames.TypeName);
-                    typeDef.BaseTypeName = reader.GetString(DbSchemaColumnNames.BaseTypeName);
+                    var typeDef = new TypeDefinition
+                    {
+                        TypeName = reader.GetString(SchemaFieldConst.TypeName),
+                        BaseTypeName = reader.GetString(SchemaFieldConst.BaseTypeName)
+                    };
 
                     dbSchema.TypeDefinitions.Add(typeDef);
                     typeNameMap.Add(typeDef.TypeName, typeDef);
@@ -810,33 +811,27 @@ namespace Nezaboodka.ToSqlConnector
                     {
                         var fieldDef = new FieldDefinition()
                         {
-                            FieldName = reader.GetString(DbSchemaColumnNames.FieldName),
-                            FieldTypeName = reader.GetString(DbSchemaColumnNames.FieldTypeName),
-                            IsList = bool.Parse(reader.GetString(DbSchemaColumnNames.FieldIsList)),
-                            CompareOptions = (CompareOptions)Enum.Parse(typeof(CompareOptions), reader.GetString(DbSchemaColumnNames.FieldCompareOptions)),
-                            BackReferenceFieldName = reader.GetString(DbSchemaColumnNames.FieldBackRefName)
+                            FieldName = reader.GetString(SchemaFieldConst.FieldName),
+                            FieldTypeName = reader.GetString(SchemaFieldConst.FieldTypeName),
+                            IsList = bool.Parse(reader.GetString(SchemaFieldConst.FieldIsList)),
+                            CompareOptions = (CompareOptions)Enum.Parse(typeof(CompareOptions), reader.GetString(SchemaFieldConst.FieldCompareOptions)),
+                            BackReferenceFieldName = reader.GetString(SchemaFieldConst.FieldBackRefName)
                         };
 
-                        typeNameMap[reader.GetString(DbSchemaColumnNames.FieldOwnerTypeName)].FieldDefinitions.Add(fieldDef);
+                        typeNameMap[reader.GetString(SchemaFieldConst.FieldOwnerTypeName)].FieldDefinitions.Add(fieldDef);
+                        // TODO: Catch KeyNotFoundException
                     }
                 }
-
+                // TODO: Read Secondary and Referencial indexes
             }
 
-            DatabaseConfiguration result = new DatabaseConfiguration();
-            result.DatabaseSchema = dbSchema;
+            DatabaseConfiguration result = new DatabaseConfiguration()
+            {
+                DatabaseSchema = dbSchema
+            };
 
             return result;
         }
-    }
-
-    internal static class Consts   // TODO: move credentials to Protected Configuration
-    {
-        public static string MySqlUserId => "nz_admin";
-        public static string MySqlPass => "nezaboodka";
-
-        public static string AdministrationDatabaseName => "nz_admin_db";
-        public static string AccessFieldName => "access";
     }
 
     internal static class ErrorMessagesFormatter

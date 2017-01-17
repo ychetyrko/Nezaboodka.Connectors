@@ -9,14 +9,14 @@ namespace Nezaboodka.ToSqlConnector
         // Public
 
         public static string GetDatabaseListQuery =>
-            "SELECT `name`" +
-            "FROM `db_list`;";
+            $"SELECT `{AdminDatabaseConst.NameField}`" +
+            $"FROM `{AdminDatabaseConst.DatabasesList}`;";
 
         public static string GetDatabaseAccessModeQuery(string dbName)
         {
-            return "SELECT `access` " +
-                   "FROM `db_list` " +
-                   $"WHERE `name` = '{dbName}'" +
+            return $"SELECT `{AdminDatabaseConst.AccessField}` " +
+                   $"FROM `{AdminDatabaseConst.DatabasesList}` " +
+                   $"WHERE `{AdminDatabaseConst.NameField}` = '{dbName}' " +
                    "LIMIT 1;";  // optimization
         }
 
@@ -37,17 +37,18 @@ namespace Nezaboodka.ToSqlConnector
 
         public static string GetDatabaseConfigurationQuery(string dbName)
         {
-            var result = $"SELECT `name` AS '{DbSchemaColumnNames.TypeName}', " +
-                            $"`base_type_name` AS '{DbSchemaColumnNames.BaseTypeName}' " +
-                         $"FROM `{dbName}`.`type`;" +
+            var result = $"SELECT `{SchemaFieldConst.TypeName}`, " +
+                                $"`{SchemaFieldConst.BaseTypeName}` " +
+                         $"FROM `{dbName}`.`{SchemaTableConst.TypeTableName}`;" +
 
-                         $"SELECT `name` AS '{DbSchemaColumnNames.FieldName}', " +
-                            $"`owner_type_name` AS '{DbSchemaColumnNames.FieldOwnerTypeName}', " +
-                            $"`type_name` AS '{DbSchemaColumnNames.FieldTypeName}', " +
-                            $"`is_list` AS '{DbSchemaColumnNames.FieldIsList}', " +
-                            $"`back_ref_name` AS '{DbSchemaColumnNames.FieldBackRefName}', " +
-                            $"`compare_options` AS '{DbSchemaColumnNames.FieldCompareOptions}' " +
-                         $"FROM `{dbName}`.`field`;";
+                         $"SELECT `{SchemaFieldConst.FieldName}`, " +
+                                $"`{SchemaFieldConst.FieldOwnerTypeName}`, " +
+                                $"`{SchemaFieldConst.FieldTypeName}`, " +
+                                $"`{SchemaFieldConst.FieldIsList}`, " +
+                                $"`{SchemaFieldConst.FieldBackRefName}`, " +
+                                $"`{SchemaFieldConst.FieldCompareOptions}` " +
+                         $"FROM `{dbName}`.`{SchemaTableConst.FieldTableName}`;";
+
             // TODO: add Secondary and Referencial indexes
 
             return result;
@@ -64,7 +65,6 @@ namespace Nezaboodka.ToSqlConnector
             {
                 string currentTypeName = typeDefinition.TypeName;
                 string tableName = GenerateLowerName(currentTypeName);
-                // (`name`, `table_name`, `base_type_name`)
                 string typeRec = $"'{currentTypeName}', '{tableName}', '{typeDefinition.BaseTypeName}'";
 
                 typesList.Add(typeRec);
@@ -74,8 +74,7 @@ namespace Nezaboodka.ToSqlConnector
                     string columnName = GenerateLowerName(fieldDefinition.FieldName);
                     string fieldTypeName = fieldDefinition.FieldTypeName;   // TODO: .NET to SQL type mappping
 
-                    // (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
-                    string fieldRec = $"'{fieldDefinition.FieldName}', '{columnName}', '{currentTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions.ToString("g")}', '{fieldDefinition.BackReferenceFieldName}'";
+                    string fieldRec = $"'{fieldDefinition.FieldName}', '{columnName}', '{currentTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
 
                     fieldsList.Add(fieldRec);
                 }
@@ -84,12 +83,14 @@ namespace Nezaboodka.ToSqlConnector
             string typesListStr = FormatValuesList(typesList);
             string fieldsListStr = FormatValuesList(fieldsList);
 
-            return $"INSERT INTO `{dbName}`.`type` " +
-                   "(`name`, `table_name`, `base_type_name`) " +
+            return $"INSERT INTO `{dbName}`.`{SchemaTableConst.TypeTableName}` " +
+                   $"(`{SchemaFieldConst.TypeName}`, `{SchemaFieldConst.TableName}`, `{SchemaFieldConst.BaseTypeName}`) " +
                    $"VALUES {typesListStr}; " +
-                   $"INSERT INTO `{dbName}`.`field` " +
-                   "(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`) " +
+
+                   $"INSERT INTO `{dbName}`.`{SchemaTableConst.FieldTableName}` " +
+                   $"(`{SchemaFieldConst.FieldName}`, `{SchemaFieldConst.FieldColumnName}`, `{SchemaFieldConst.FieldOwnerTypeName}`, `{SchemaFieldConst.FieldTypeName}`, `{SchemaFieldConst.FieldIsList}`, `{SchemaFieldConst.FieldCompareOptions}`, `{SchemaFieldConst.FieldBackRefName}`) " +
                    $"VALUES {fieldsListStr}; " +
+
                    $"CALL alter_db_schema('{dbName}');";
         }
 
@@ -104,8 +105,8 @@ namespace Nezaboodka.ToSqlConnector
                 return string.Empty;
             }
 
-            return "INSERT INTO `db_rem_list` " +
-                   "(`name`) " +
+            return $"INSERT INTO `{AdminDatabaseConst.RemoveDbList}` " +
+                   $"(`{AdminDatabaseConst.NameField}`) " +
                    $"VALUES {namesListStr};";
         }
 
@@ -118,8 +119,8 @@ namespace Nezaboodka.ToSqlConnector
                 return string.Empty;
             }
 
-            return "INSERT INTO `db_add_list` " +
-                   "(`name`) " +
+            return $"INSERT INTO `{AdminDatabaseConst.AddDbList}` " +
+                   $"(`{AdminDatabaseConst.NameField}`) " +
                    $"VALUES {namesListStr};";
         }
 
@@ -155,16 +156,4 @@ namespace Nezaboodka.ToSqlConnector
         }
     }
 
-    public class DbSchemaColumnNames
-    {
-        public const string TypeName = "Name";
-        public const string BaseTypeName = "BaseTypeName";
-
-        public const string FieldName = "Name";
-        public const string FieldOwnerTypeName = "OwnerTypeName";
-        public const string FieldTypeName = "TypeName";
-        public const string FieldIsList = "IsList";
-        public const string FieldBackRefName = "BackRefName";
-        public const string FieldCompareOptions = "CompareOptions";
-    }
 }
