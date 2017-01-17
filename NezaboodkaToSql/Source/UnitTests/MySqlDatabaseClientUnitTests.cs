@@ -8,11 +8,12 @@ namespace Nezaboodka.MySqlClient.UnitTests
     [TestClass]
     public class MySqlDatabaseClientUnitTests
     {
+        private static string TestServerAddress => $"http://localhost:{SqlAuthData.DefaultPort}";
 
         [TestMethod]
         public void AlterDatabaseListTest()
         {
-            var client = new MySqlDatabaseClient("localhost", null, null);
+            var client = new MySqlDatabaseClient(TestServerAddress, null, null);
 
             var alterList = RandomDatabaseNamesGenerator.GetRandomDatabaseNamesList(3, 15, "nz_");
             var databaseNames = client.GetDatabaseList();
@@ -41,7 +42,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
         [TestMethod]
         public void AlterDatabaseListTest_EmptyLists()
         {
-            var client = new MySqlDatabaseClient("localhost", null, null);
+            var client = new MySqlDatabaseClient(TestServerAddress, null, null);
 
             var alterList = new List<string>(); // empty list
             var databaseNames = client.GetDatabaseList();
@@ -55,7 +56,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
         [TestMethod]
         public void AlterDatabaseListTest_NullLists()
         {
-            var client = new MySqlDatabaseClient("localhost", null, null);
+            var client = new MySqlDatabaseClient(TestServerAddress, null, null);
             var databaseNames = client.GetDatabaseList();
 
             HashSet<string> expectedResult = new HashSet<string>(databaseNames);
@@ -69,14 +70,14 @@ namespace Nezaboodka.MySqlClient.UnitTests
         {
             DatabaseAccessMode expectedResult = DatabaseAccessMode.ReadWrite;
 
-            var adminClient = new MySqlDatabaseClient("localhost", null, null);
+            var adminClient = new MySqlDatabaseClient(TestServerAddress, null, null);
             var dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
             var dbList = new List<string>() { dbName };
             adminClient.AlterDatabaseList(dbList, null);
 
             try
             {
-                var client = new MySqlDatabaseClient("localhost", dbName, null);
+                var client = new MySqlDatabaseClient(TestServerAddress, dbName, null);
                 DatabaseAccessMode actualResult = client.GetDatabaseAccessMode();
                 Assert.AreEqual(expectedResult, actualResult);
             }
@@ -91,7 +92,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
         public void GetDatabaseAccessModeTest_DatabaseNotExists()
         {
             var dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
-            var client = new MySqlDatabaseClient("localhost", dbName, null);
+            var client = new MySqlDatabaseClient(TestServerAddress, dbName, null);
             client.GetDatabaseAccessMode();
         }
 
@@ -121,7 +122,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
 
         private static void CheckAlterDatabaseConfiguration(DatabaseConfiguration expectedResult)
         {
-            var adminClient = new MySqlDatabaseClient("localhost", null, null);
+            var adminClient = new MySqlDatabaseClient(TestServerAddress, null, null);
 
             string dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
             var dbList = new List<string> { dbName };
@@ -129,7 +130,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
 
             try
             {
-                var client = new MySqlDatabaseClient("localhost", dbName, null);
+                var client = new MySqlDatabaseClient(TestServerAddress, dbName, null);
 
                 DatabaseConfiguration actualResult = client.AlterDatabaseConfiguration(expectedResult);
                 bool result = DatabaseConfigTestUtils.AreEqualDbConfigurations(expectedResult, actualResult);

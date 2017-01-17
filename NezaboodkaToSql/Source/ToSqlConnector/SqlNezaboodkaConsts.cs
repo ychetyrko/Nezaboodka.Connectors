@@ -4,6 +4,8 @@ namespace Nezaboodka.ToSqlConnector
     {
         public static string UserId => "nz_admin";
         public static string Pass => "nezaboodka";
+
+        public static uint DefaultPort => 3306;
     }
 
     public static class AdminDatabaseConst

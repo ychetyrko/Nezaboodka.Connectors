@@ -611,9 +611,12 @@ namespace Nezaboodka.ToSqlConnector
                     };
             }
 
+            Uri serverUri = new Uri(serverAddress);
+
             MySqlConnectionStringBuilder conStringBuilder = new MySqlConnectionStringBuilder
             {
-                Server = serverAddress,
+                Server = serverUri.Host,
+                Port = (uint)serverUri.Port,
                 UserID = SqlAuthData.UserId,
                 Password = SqlAuthData.Pass,
                 Database = dbName,
