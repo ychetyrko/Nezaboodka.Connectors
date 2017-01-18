@@ -276,9 +276,6 @@ CREATE PROCEDURE alter_database_list()
 BEGIN
 	CALL remove_databases();
     CALL add_databases();
-    
-    # Get database list
-    SELECT `name` FROM `db_list`;
 END //
 
 /*

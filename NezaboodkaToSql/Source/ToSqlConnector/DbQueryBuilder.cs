@@ -32,6 +32,8 @@ namespace Nezaboodka.ToSqlConnector
 
             result += "CALL alter_database_list();";
 
+            result += GetDatabaseListQuery;
+
             return result;
         }
 
