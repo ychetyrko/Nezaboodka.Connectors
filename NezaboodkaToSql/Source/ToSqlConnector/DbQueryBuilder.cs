@@ -54,10 +54,22 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
-        // !! NO MERGE proveded
-        // TODO: merge existing schema with new
-        public static string AlterDatabaseSchemaQuery(string dbName, IEnumerable<TypeDefinition> typeDefinitionsList)
+        public static string AlterDatabaseConfigurationQuery(string dbName, DatabaseConfiguration config)
         {
+            string result = string.Empty;
+
+            result += AlterDatabaseSchemaQuery(dbName, config.DatabaseSchema);
+            // TODO: process SecondaryIndexDefinitions & ReferentialIntexDefinitions
+
+            return result;
+        }
+
+        // Private
+
+        private static string AlterDatabaseSchemaQuery(string dbName, DatabaseSchema schema)
+        {
+            IEnumerable<TypeDefinition> typeDefinitionsList = schema.TypeDefinitions;
+
             List<string> typesList = new List<string>();
             List<string> fieldsList = new List<string>();
 
@@ -93,8 +105,6 @@ namespace Nezaboodka.ToSqlConnector
 
                    $"CALL alter_db_schema('{dbName}');";
         }
-
-        // Private
 
         private static string RemoveDatabaseListPrepareQuery(IEnumerable<string> namesList)
         {

@@ -741,17 +741,15 @@ namespace Nezaboodka.ToSqlConnector
             cmd.CommandType = CommandType.Text;
             cmd.CommandText = string.Empty;
 
+            var newConfig = realRequest.DatabaseConfiguration;
+
             // !!! only writes schema --> NO MERGE
-            // TODO: enable MERGE schema
-            // TODO: add SecondaryIndexDefinitions & ReferentialIntexDefinitions
-
-            var newSchema = realRequest.DatabaseConfiguration.DatabaseSchema;
-
-            cmd.CommandText = DbQueryBuilder.AlterDatabaseSchemaQuery(DatabaseName, newSchema.TypeDefinitions);
+            // TODO: merge existing schema with new
+            cmd.CommandText = DbQueryBuilder.AlterDatabaseConfigurationQuery(DatabaseName, newConfig);
             cmd.CommandText += DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
 
             MySqlDataReader reader = cmd.ExecuteReader();
-            DatabaseConfiguration newConfig = ReadDatabaseConfiguration(reader);
+            newConfig = ReadDatabaseConfiguration(reader);
             reader.Close();
 
             var result = new AlterDatabaseConfigurationResponse()
@@ -788,6 +786,20 @@ namespace Nezaboodka.ToSqlConnector
 
         private DatabaseConfiguration ReadDatabaseConfiguration(MySqlDataReader reader)
         {
+            DatabaseSchema dbSchema = ReadDatabaseSchema(reader);
+
+            // TODO: Read Secondary and Referencial indexes
+
+            DatabaseConfiguration result = new DatabaseConfiguration()
+            {
+                DatabaseSchema = dbSchema
+            };
+
+            return result;
+        }
+
+        private static DatabaseSchema ReadDatabaseSchema(MySqlDataReader reader)
+        {
             var dbSchema = new DatabaseSchema();
             var typeNameMap = new Dictionary<string, TypeDefinition>();
 
@@ -807,9 +819,8 @@ namespace Nezaboodka.ToSqlConnector
                 }
 
                 // Fields list
-                if (reader.HasRows)
+                if (reader.NextResult())
                 {
-                    reader.NextResult();
                     while (reader.Read())
                     {
                         var fieldDef = new FieldDefinition()
@@ -821,19 +832,14 @@ namespace Nezaboodka.ToSqlConnector
                             BackReferenceFieldName = reader.GetString(SchemaFieldConst.FieldBackRefName)
                         };
 
-                        typeNameMap[reader.GetString(SchemaFieldConst.FieldOwnerTypeName)].FieldDefinitions.Add(fieldDef);
+                        string ownerType = reader.GetString(SchemaFieldConst.FieldOwnerTypeName);
+                        typeNameMap[ownerType].FieldDefinitions.Add(fieldDef);
                         // TODO: Catch KeyNotFoundException
                     }
                 }
-                // TODO: Read Secondary and Referencial indexes
             }
 
-            DatabaseConfiguration result = new DatabaseConfiguration()
-            {
-                DatabaseSchema = dbSchema
-            };
-
-            return result;
+            return dbSchema;
         }
     }
 
