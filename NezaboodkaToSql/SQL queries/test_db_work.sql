@@ -7,6 +7,8 @@
 
 use `nz_admin_db`;
 
+CALL before_alter_database_list();
+
 insert into `db_rem_list`
 values ('nz_test_db');
 

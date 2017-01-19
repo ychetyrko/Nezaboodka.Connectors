@@ -26,21 +26,6 @@ CREATE TABLE `db_list`(
 );
 
 /*********************************************
-	List of databases to add
-*/
-CREATE TABLE `db_add_list`(
-	`name` VARCHAR(64) NOT NULL UNIQUE
-);
-
-/*********************************************
-	List of databases to remove
-*/
-CREATE TABLE `db_rem_list`(
-	`name` VARCHAR(64) NOT NULL UNIQUE
-);
-
-
-/*********************************************
 
 		Stored procedures and functions
         
@@ -198,6 +183,30 @@ END //
 /*********************************************
 	Effectively alter database list
 */
+
+CREATE PROCEDURE before_alter_database_list ()
+BEGIN
+	# List of databases to create
+	SET @prep_str=
+		'CREATE TEMPORARY TABLE IF NOT EXISTS `db_add_list`(
+			`name` VARCHAR(64) NOT NULL UNIQUE
+		);';
+        
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
+
+	# List of databases to drop
+	SET @prep_str=
+		'CREATE TEMPORARY TABLE IF NOT EXISTS `db_rem_list`(
+			`name` VARCHAR(64) NOT NULL UNIQUE
+		);';
+        
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
+END //
+
 CREATE PROCEDURE remove_databases ()
 BEGIN
 	DECLARE done INT DEFAULT FALSE;
@@ -228,7 +237,7 @@ BEGIN
     
     CLOSE cur;
 	
-    TRUNCATE TABLE db_rem_list;
+    TRUNCATE TABLE `db_rem_list`;
 END //
 
 CREATE PROCEDURE add_databases ()
@@ -269,21 +278,33 @@ BEGIN
     
     CLOSE cur;
 	
-    TRUNCATE TABLE db_add_list;
+    TRUNCATE TABLE `db_add_list`;
 END //
 
 CREATE PROCEDURE alter_database_list()
 BEGIN
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION
+	BEGIN
+		TRUNCATE TABLE `db_add_list`;
+        TRUNCATE TABLE `db_rem_list`;
+		ROLLBACK;
+	END;
+    
+    START TRANSACTION;
+    
 	CALL remove_databases();
     CALL add_databases();
+    
+    COMMIT;
 END //
 
 /*
 	Protocol for altering database list:
     
-	1. fill `db_rem_list` and `db_add_list` tables with database names;
-	2. call `alter_database_list`
-		(or add_databases / remove_databases separately)
+    1. call `before_alter_database_list` to create temporary tables if not created;
+	2. fill `db_rem_list` and `db_add_list` tables with database names;
+	3. call `alter_database_list`
+		(or add_databases / remove_databases separately).
 	
 **********************************************/
 

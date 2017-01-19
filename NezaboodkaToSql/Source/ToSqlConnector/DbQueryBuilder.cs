@@ -6,6 +6,8 @@ namespace Nezaboodka.ToSqlConnector
 {
     public static class DbQueryBuilder
     {
+        private static string BeforeAlterDatabaseListQuery => "CALL before_alter_database_list();";
+
         // Public
 
         public static string GetDatabaseListQuery =>
@@ -22,7 +24,7 @@ namespace Nezaboodka.ToSqlConnector
 
         public static string AlterDatabaseListQuery(IEnumerable<string> namesToRemove, IEnumerable<string> namesToAdd)
         {
-            string result = string.Empty;
+            string result = BeforeAlterDatabaseListQuery;
 
             if (namesToRemove != null)
                 result += RemoveDatabaseListPrepareQuery(namesToRemove);
