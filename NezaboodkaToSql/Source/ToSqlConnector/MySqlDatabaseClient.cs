@@ -18,6 +18,8 @@ namespace Nezaboodka.ToSqlConnector
         private readonly Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>> _requestExec =
             new Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>>();
 
+        private DatabaseConfiguration _currentConfiguration = null;
+
         // Public
 
         public FileContentHandler FileContentHandler { get; set; }
@@ -740,9 +742,7 @@ namespace Nezaboodka.ToSqlConnector
             cmd.CommandType = CommandType.Text;
             cmd.CommandText = DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
 
-            MySqlDataReader reader = cmd.ExecuteReader();
-            DatabaseConfiguration dbConfig = ReadDatabaseConfiguration(reader);
-            reader.Close();
+            DatabaseConfiguration dbConfig = CachingReadDatabaseConfigurationCmd(cmd);
 
             GetDatabaseConfigurationResponse result = new GetDatabaseConfigurationResponse(dbConfig);
             return result;
@@ -751,20 +751,22 @@ namespace Nezaboodka.ToSqlConnector
         private DatabaseResponse AlterDatabaseConfigurationExec(DatabaseRequest request, MySqlCommand cmd)
         {
             AlterDatabaseConfigurationRequest realRequest = request as AlterDatabaseConfigurationRequest;
+            var newConfig = realRequest.DatabaseConfiguration;
 
             cmd.CommandType = CommandType.Text;
-            cmd.CommandText = string.Empty;
 
-            var newConfig = realRequest.DatabaseConfiguration;
+            if (_currentConfiguration == null)
+            {
+                cmd.CommandText = DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
+                CachingReadDatabaseConfigurationCmd(cmd);
+            }
 
             // !!! only writes schema --> NO MERGE
             // TODO: merge existing schema with new
-            cmd.CommandText = DbQueryBuilder.AlterDatabaseConfigurationQuery(DatabaseName, newConfig);
-            cmd.CommandText += DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
+            cmd.CommandText = DbQueryBuilder.AlterDatabaseConfigurationQuery(DatabaseName, newConfig)
+                + DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
 
-            MySqlDataReader reader = cmd.ExecuteReader();
-            newConfig = ReadDatabaseConfiguration(reader);
-            reader.Close();
+            newConfig = CachingReadDatabaseConfigurationCmd(cmd);
 
             var result = new AlterDatabaseConfigurationResponse()
             {
@@ -795,6 +797,17 @@ namespace Nezaboodka.ToSqlConnector
                 reader.Read();
                 result = reader.GetInt32(AdminDatabaseConst.AccessField);
             }
+            return result;
+        }
+
+        private DatabaseConfiguration CachingReadDatabaseConfigurationCmd(MySqlCommand cmd)
+        {
+            MySqlDataReader reader = cmd.ExecuteReader();
+            DatabaseConfiguration result = ReadDatabaseConfiguration(reader);
+            reader.Close();
+
+            _currentConfiguration = DatabaseConfiguration.CreateFromNdefText(result.ToNdefText());
+
             return result;
         }
 
@@ -854,6 +867,11 @@ namespace Nezaboodka.ToSqlConnector
                             CompareOptions = (CompareOptions)Enum.Parse(typeof(CompareOptions), reader.GetString(SchemaFieldConst.FieldCompareOptions)),
                             BackReferenceFieldName = backRefName
                         };
+
+                        if (string.IsNullOrEmpty(fieldDef.BackReferenceFieldName))
+                        {
+                            fieldDef.BackReferenceFieldName = null;
+                        }
 
                         string ownerType = reader.GetString(SchemaFieldConst.FieldOwnerTypeName);
                         typeNameMap[ownerType].FieldDefinitions.Add(fieldDef);
