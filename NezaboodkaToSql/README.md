@@ -9,9 +9,9 @@
 
 #### Windows
 
-1. Add MySQL Server bin folder (`C:\Program Files\MySQL\MySQL Server 5.7\bin` by default) to `PATH` environment variable
+1. Add MySQL Server `bin` folder (`C:\Program Files\MySQL\MySQL Server 5.7\bin` by default) to `PATH` environment variable
 
-2. Use `Prapare MySQL.bat` in `Tools` folder to prepare MySQL Server for Nezaboodka
+2. Use `NezaboodkaMySQL.bat` in `Tools` folder to prepare MySQL Server for Nezaboodka
 
 
 [MySQL Server]: https://dev.mysql.com/downloads/mysql/

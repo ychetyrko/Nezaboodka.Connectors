@@ -50,16 +50,24 @@ GOTO :quit
 
 :help
 SET "TAB=	"
+
+SET "SCRIPT_NAME=%~nx0"
+IF NOT "%SCRIPT_NAME: =%" == "%SCRIPT_NAME%" SET SCRIPT_NAME="%SCRIPT_NAME%"
+
 ECHO.
-ECHO Usage: %~nx0 ^<action^> ^<username^> [^<password^>]
+ECHO Usage format:
 ECHO.
-ECHO Where%TAB%^<action^>:
-ECHO %TAB%%TAB%/i%TAB%create Nezaboodka Admin MySQL database
-ECHO %TAB%%TAB%/r%TAB%drop all Nezaboodka MySQL databases (need confirmation)
-ECHO %TAB%%TAB%/rq%TAB%drop all Nezaboodka MySQL databases (without confirmation)
+ECHO %TAB%%SCRIPT_NAME% ^<action^> ^<username^> [^<password^>]
 ECHO.
-ECHO %TAB%^<username^>%TAB%MySQL user account name
-ECHO %TAB%^<password^>%TAB%MySQL user account password (optional)
+ECHO Where:
+ECHO %TAB%^<action^> - one of the following:
+ECHO %TAB%%TAB%/i  - install: create Nezaboodka Admin MySQL database
+ECHO %TAB%%TAB%/r  - remove: drop all Nezaboodka MySQL databases (need confirmation)
+ECHO %TAB%%TAB%/rq - remove quiet: drop all Nezaboodka MySQL databases (without confirmation)
+ECHO.
+ECHO %TAB%^<username^> - MySQL user account name
+ECHO %TAB%^<password^> - MySQL user account password (optional)
+ECHO.
 
 :quit
 ECHO.
