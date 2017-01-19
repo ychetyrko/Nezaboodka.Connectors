@@ -24,18 +24,23 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
             return result;
         }
 
-        public static DatabaseSchema GetMultipleClassDbSchema_1()
+        public static DatabaseSchema GetMultipleClassDbSchema()
         {
             var userTypeDef = GetTestUserType();
             var groupTypeDef = GetTestGroupType();
+            var adminTypeDef = GetTestAdminType();
 
             userTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Group", "Group", CompareOptions.None, "Participants"));
             groupTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Participants", "User", CompareOptions.None, "Group", true));
+
+            groupTypeDef.FieldDefinitions.Add(CreateFieldDefinition("ManagedGroup", "Admin", CompareOptions.None, "Admin"));
+            adminTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Admin", "Group", CompareOptions.None, "ManagedGroup"));
 
             var result = new DatabaseSchema();
 
             result.TypeDefinitions.Add(userTypeDef);
             result.TypeDefinitions.Add(groupTypeDef);
+            result.TypeDefinitions.Add(adminTypeDef);
 
             return result;
         }
@@ -53,6 +58,19 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
             result.FieldDefinitions.Add(CreateFieldDefinition("Login", "VARCHAR(60)", CompareOptions.IgnoreCase));
             result.FieldDefinitions.Add(CreateFieldDefinition("Email", "VARCHAR(255)", CompareOptions.IgnoreCase));
             result.FieldDefinitions.Add(CreateFieldDefinition("Age", "INT UNSIGNED"));
+
+            return result;
+        }
+
+        private static TypeDefinition GetTestAdminType()
+        {
+            var result = new TypeDefinition()
+            {
+                TypeName = "Admin",
+                BaseTypeName = "User"
+            };
+
+            result.FieldDefinitions.Add(CreateFieldDefinition("ManagedGroup", "Group", CompareOptions.None, "Admin"));
 
             return result;
         }

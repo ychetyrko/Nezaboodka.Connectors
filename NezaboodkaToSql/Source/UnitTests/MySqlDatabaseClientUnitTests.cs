@@ -112,7 +112,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
         {
             DatabaseConfiguration configuration = new DatabaseConfiguration
             {
-                DatabaseSchema = DatabaseConfigTestUtils.GetMultipleClassDbSchema_1()
+                DatabaseSchema = DatabaseConfigTestUtils.GetMultipleClassDbSchema()
             };
 
             CheckAlterDatabaseConfiguration(configuration);
