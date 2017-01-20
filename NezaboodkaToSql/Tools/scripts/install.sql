@@ -198,6 +198,13 @@ BEGIN
 	EXECUTE proc_prep;
 	DEALLOCATE PREPARE proc_prep;
 
+	SET @prep_str=
+		'TRUNCATE `db_add_list`;';
+
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
+
 # List of databases to drop
 	SET @prep_str=
 		'CREATE TEMPORARY TABLE IF NOT EXISTS `db_rem_list`(
@@ -207,11 +214,18 @@ BEGIN
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
 	DEALLOCATE PREPARE proc_prep;
+
+	SET @prep_str=
+		'TRUNCATE `db_add_list`;';
+	
+	PREPARE proc_prep FROM @prep_str;
+	EXECUTE proc_prep;
+	DEALLOCATE PREPARE proc_prep;
 END //
 
 CREATE PROCEDURE remove_databases ()
 BEGIN
-	INSERT INTO `db_trash_list` (`name`, `access`)
+	INSERT IGNORE INTO `db_trash_list` (`name`, `access`)
 		SELECT ls.`name`, ls.`access` FROM `db_list` AS ls
 		INNER JOIN `db_rem_list` AS rm
 		ON ls.`name` = rm.`name`;
@@ -246,9 +260,7 @@ BEGIN
 		PREPARE proc_prep FROM @prep_str;
 		EXECUTE proc_prep;
 		DEALLOCATE PREPARE proc_prep;
-		
-		DELETE FROM db_list
-		WHERE `name` = db_name;
+
 	END LOOP;
 	
 	CLOSE cur;
@@ -272,7 +284,7 @@ BEGIN
 		IF done THEN
 			LEAVE proc_loop;
 		END IF;
-		
+
 		# Using prepared statement argument as database name is restricted => 
 		SET @prep_str=CONCAT('
 			CREATE DATABASE `', db_name, '`;
@@ -280,9 +292,7 @@ BEGIN
 		PREPARE p_create_db FROM @prep_str;
 		EXECUTE p_create_db;
 		DEALLOCATE PREPARE p_create_db;
-		
-		CALL prepare_db(db_name);
-		
+
 		# Inserting values in prepared statement is not available yet =>
 		SET @prep_str=CONCAT('
 			INSERT INTO `db_list` (`name`) value (\'', db_name ,'\');
@@ -290,6 +300,18 @@ BEGIN
 		PREPARE p_add_to_db FROM @prep_str;
 		EXECUTE p_add_to_db;
 		DEALLOCATE PREPARE p_add_to_db;
+		
+		# Clear trash if database was "removed" list just before creating
+		SET @prep_str=CONCAT('
+			DELETE FROM `db_trash_list`
+			WHERE `name` = \'', db_name ,'\';
+		');
+		PREPARE p_add_to_db FROM @prep_str;
+		EXECUTE p_add_to_db;
+		DEALLOCATE PREPARE p_add_to_db;
+
+		# Prepare new database
+		CALL prepare_db(db_name);
 	END LOOP;
 	
 	CLOSE cur;
@@ -301,10 +323,39 @@ CREATE PROCEDURE alter_database_list()
 BEGIN
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
 	BEGIN
-# TODO: remove created databases to provide full rollback
+		DECLARE done INT DEFAULT FALSE;
+		DECLARE db_name VARCHAR(64);
+		DECLARE cur CURSOR FOR
+			SELECT `db_add_list`.`name` FROM `db_add_list`
+			INNER JOIN `db_list`
+			ON `db_add_list`.`name` = `db_list`.`name`;
+		DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+		
+		OPEN cur;
+		
+		proc_loop: LOOP
+			FETCH cur INTO db_name;
+			IF done THEN
+				LEAVE proc_loop;
+			END IF;
+			
+			SET @prep_str=CONCAT('
+				DROP DATABASE IF EXISTS ', db_name, ';
+			');
+			PREPARE proc_prep FROM @prep_str;
+			EXECUTE proc_prep;
+			DEALLOCATE PREPARE proc_prep;
+			
+			DELETE FROM `db_list`
+			WHERE `name` = db_name;
+		END LOOP;
+		
+		CLOSE cur;
+
+		ROLLBACK;
+
 		TRUNCATE TABLE `db_add_list`;
 		TRUNCATE TABLE `db_rem_list`;
-		ROLLBACK;
 
 		RESIGNAL;
 	END;
