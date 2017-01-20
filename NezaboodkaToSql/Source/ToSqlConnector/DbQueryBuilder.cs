@@ -39,6 +39,8 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
+        public static string CleanupRemovedDatabasesQuery => "CALL cleanup_removed_databases();";
+
         public static string GetDatabaseConfigurationQuery(string dbName)
         {
             var result = $"SELECT `{SchemaFieldConst.TypeName}`, " +

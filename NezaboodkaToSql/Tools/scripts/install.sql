@@ -25,6 +25,11 @@ CREATE TABLE `db_list`(
 	`access` TINYINT NOT NULL DEFAULT 0	# ReadWrite
 );
 
+CREATE TABLE `db_trash_list`(
+	`name` VARCHAR(64) PRIMARY KEY NOT NULL UNIQUE,
+	`access` TINYINT NOT NULL
+);
+
 /*********************************************
 
 		Stored procedures and functions
@@ -206,10 +211,25 @@ END //
 
 CREATE PROCEDURE remove_databases ()
 BEGIN
+	INSERT INTO `db_trash_list` (`name`, `access`)
+		SELECT ls.`name`, ls.`access` FROM `db_list` AS ls
+		INNER JOIN `db_rem_list` AS rm
+		ON ls.`name` = rm.`name`;
+
+	DELETE IGNORE FROM ls
+		USING `db_list` AS ls
+		INNER JOIN `db_rem_list` AS rm
+		WHERE ls.`name` = rm.`name`;
+	
+	TRUNCATE TABLE `db_rem_list`;
+END //
+
+CREATE PROCEDURE cleanup_removed_databases ()
+BEGIN
 	DECLARE done INT DEFAULT FALSE;
 	DECLARE db_name VARCHAR(64);
 	DECLARE cur CURSOR FOR
-		SELECT `name` FROM `db_rem_list`;
+		SELECT `name` FROM `db_trash_list`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
 	
 	OPEN cur;
@@ -220,7 +240,6 @@ BEGIN
 			LEAVE proc_loop;
 		END IF;
 		
-# TODO: remove databases only from db_list, move them to db_cleanup_list, then cleanup by request
 		SET @prep_str=CONCAT('
 			DROP DATABASE IF EXISTS ', db_name, ';
 		');
@@ -234,7 +253,7 @@ BEGIN
 	
 	CLOSE cur;
 	
-	TRUNCATE TABLE `db_rem_list`;
+	TRUNCATE TABLE `db_trash_list`;
 END //
 
 CREATE PROCEDURE add_databases ()
@@ -282,9 +301,12 @@ CREATE PROCEDURE alter_database_list()
 BEGIN
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
 	BEGIN
+# TODO: remove created databases to provide full rollback
 		TRUNCATE TABLE `db_add_list`;
 		TRUNCATE TABLE `db_rem_list`;
 		ROLLBACK;
+
+		RESIGNAL;
 	END;
 	
 	START TRANSACTION;

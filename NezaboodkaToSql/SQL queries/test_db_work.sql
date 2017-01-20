@@ -15,7 +15,8 @@ values ('nz_test_db');
 insert into `db_add_list`
 values ('nz_test_db');
 
-CALL alter_database_list();	# db removal before inserting => OK
+CALL alter_database_list();
+CALL cleanup_removed_databases();
 
 
 /*  Fill test database schema */

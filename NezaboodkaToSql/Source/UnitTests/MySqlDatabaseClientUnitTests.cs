@@ -35,7 +35,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
             }
             finally
             {
-                // TODO: clear environment here
+                client.CleanupRemovedDatabases();
             }
         }
 
@@ -84,6 +84,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
             finally
             {
                 adminClient.AlterDatabaseList(null, dbList);
+                adminClient.CleanupRemovedDatabases();
             }
         }
 
@@ -139,6 +140,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
             finally
             {
                 adminClient.AlterDatabaseList(null, dbList);
+                adminClient.CleanupRemovedDatabases();
             }
         }
     }

@@ -180,7 +180,8 @@ namespace Nezaboodka.ToSqlConnector
 
         public void CleanupRemovedDatabases()
         {
-            throw new NotImplementedException();
+            var request = new CleanupRemovedDatabasesRequest();
+            var response = (CleanupRemovedDatabasesResponse)ExecuteRequest(request);
         }
 
         // Database
@@ -663,7 +664,10 @@ namespace Nezaboodka.ToSqlConnector
         {
             _requestExec.Add(typeof(GetDatabaseListRequest), GetDatabaseListExec);
             _requestExec.Add(typeof(AlterDatabaseListRequest), AlterDatabaseListExec);
+            _requestExec.Add(typeof(CleanupRemovedDatabasesRequest), CleanupRemovedDatabasesExec);
+
             _requestExec.Add(typeof(GetDatabaseAccessModeRequest), GetDatabaseAccessModeExec);
+
             _requestExec.Add(typeof(GetDatabaseConfigurationRequest), GetDatabaseConfigurationExec);
             _requestExec.Add(typeof(AlterDatabaseConfigurationRequest), AlterDatabaseConfigurationExec);
         }
@@ -692,6 +696,16 @@ namespace Nezaboodka.ToSqlConnector
             reader.Close();
 
             return new AlterDatabaseListResponse(result);
+        }
+
+        private DatabaseResponse CleanupRemovedDatabasesExec(DatabaseRequest request, MySqlCommand cmd)
+        {
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = DbQueryBuilder.CleanupRemovedDatabasesQuery;
+
+            cmd.ExecuteNonQuery();
+
+            return new CleanupRemovedDatabasesResponse();
         }
 
         private DatabaseResponse GetDatabaseAccessModeExec(DatabaseRequest request, MySqlCommand cmd)

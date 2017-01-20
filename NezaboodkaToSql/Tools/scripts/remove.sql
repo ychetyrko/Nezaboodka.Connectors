@@ -13,6 +13,7 @@ INSERT INTO `db_rem_list` (
 	SELECT `name` FROM `db_list`
 );
 CALL alter_database_list();
+CALL cleanup_removed_databases();
 
 
 DROP DATABASE `nz_admin_db`;
