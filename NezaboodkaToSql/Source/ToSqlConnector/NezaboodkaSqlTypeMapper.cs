@@ -30,7 +30,7 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
-        public static string NezaboodkaTypeNameBySqlTypeName(string sqlTypeName, int capacity = 0)
+        public static string NezaboodkaTypeNameBySqlTypeName(string sqlTypeName)
         {
             bool nullable = sqlTypeName.EndsWith("?");
             string result = sqlTypeName.TrimEnd('?');
