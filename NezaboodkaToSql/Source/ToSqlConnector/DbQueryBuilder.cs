@@ -90,7 +90,9 @@ namespace Nezaboodka.ToSqlConnector
                 foreach (var fieldDefinition in typeDefinition.FieldDefinitions)
                 {
                     string columnName = GenerateLowerName(fieldDefinition.FieldName);
-                    string fieldTypeName = fieldDefinition.FieldTypeName;   // TODO: .NET to SQL type mappping
+                    string fieldTypeName = fieldDefinition.FieldTypeName;
+
+                    fieldTypeName = NezaboodkaSqlTypeMapper.SqlTypeNameByNezaboodkaTypeName(fieldTypeName);
 
                     string fieldRec = $"'{fieldDefinition.FieldName}', '{columnName}', '{currentTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
 

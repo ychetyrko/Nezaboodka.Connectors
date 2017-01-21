@@ -55,9 +55,9 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
                 BaseTypeName = string.Empty
             };
 
-            result.FieldDefinitions.Add(CreateFieldDefinition("Login", "VARCHAR(60)", CompareOptions.IgnoreCase));
-            result.FieldDefinitions.Add(CreateFieldDefinition("Email", "VARCHAR(255)", CompareOptions.IgnoreCase));
-            result.FieldDefinitions.Add(CreateFieldDefinition("Age", "INT UNSIGNED"));
+            result.FieldDefinitions.Add(CreateFieldDefinition("Login", "String", CompareOptions.IgnoreCase));
+            result.FieldDefinitions.Add(CreateFieldDefinition("Email", "String", CompareOptions.IgnoreCase));
+            result.FieldDefinitions.Add(CreateFieldDefinition("Age", "UInt32"));
 
             return result;
         }
@@ -83,9 +83,9 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
                 BaseTypeName = string.Empty
             };
 
-            result.FieldDefinitions.Add(CreateFieldDefinition("Title", "VARCHAR(255)", CompareOptions.IgnoreCase));
-            result.FieldDefinitions.Add(CreateFieldDefinition("Rating", "INT UNSIGNED"));
-            result.FieldDefinitions.Add(CreateFieldDefinition("AccessMask", "INT UNSIGNED"));
+            result.FieldDefinitions.Add(CreateFieldDefinition("Title", "String", CompareOptions.IgnoreCase));
+            result.FieldDefinitions.Add(CreateFieldDefinition("Rating", "Byte"));
+            result.FieldDefinitions.Add(CreateFieldDefinition("AccessMask", "UInt32"));
 
             return result;
         }
