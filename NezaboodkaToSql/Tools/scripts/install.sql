@@ -216,7 +216,7 @@ BEGIN
 	DEALLOCATE PREPARE proc_prep;
 
 	SET @prep_str=
-		'TRUNCATE `db_add_list`;';
+		'TRUNCATE `db_rem_list`;';
 	
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
