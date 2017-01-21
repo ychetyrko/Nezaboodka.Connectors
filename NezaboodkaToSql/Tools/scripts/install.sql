@@ -23,12 +23,12 @@ USE `nz_admin_db`;
 CREATE TABLE `db_list`(
 	`name` VARCHAR(64) PRIMARY KEY NOT NULL UNIQUE,
 	`access` TINYINT NOT NULL DEFAULT 0	# ReadWrite
-);
+) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
 
 CREATE TABLE `db_trash_list`(
 	`name` VARCHAR(64) PRIMARY KEY NOT NULL UNIQUE,
 	`access` TINYINT NOT NULL
-);
+) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
 
 /*********************************************
 
@@ -48,15 +48,15 @@ BEGIN
 	SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`type` (
 			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`name` VARCHAR(128) NOT NULL UNIQUE COLLATE `utf8_bin`,
-			`table_name` VARCHAR(64) NOT NULL UNIQUE,
-			`base_type_name` VARCHAR(128) NOT NULL COLLATE `utf8_bin`,
+			`name` VARCHAR(128) NOT NULL UNIQUE,
+			`table_name` VARCHAR(64) NOT NULL UNIQUE  COLLATE `utf8_general_ci`,
+			`base_type_name` VARCHAR(128) NOT NULL,
 			`base_type_id` INT DEFAULT NULL,
 			
 			FOREIGN KEY(`base_type_id`)
 				REFERENCES `type`(`id`)
 				ON DELETE CASCADE
-		);
+		) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 	');
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
@@ -66,11 +66,11 @@ BEGIN
 	SET @prep_str=CONCAT("
 		CREATE TABLE `", db_name, "`.`field` (
 			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`owner_type_name` VARCHAR(128) NOT NULL COLLATE `utf8_bin`,
+			`owner_type_name` VARCHAR(128) NOT NULL,
 			`owner_type_id` INT DEFAULT NULL,
-			`name` VARCHAR(128) NOT NULL COLLATE `utf8_bin`,
-			`col_name` VARCHAR(64) NOT NULL,
-			`type_name` VARCHAR(64) NOT NULL COLLATE `utf8_bin`,
+			`name` VARCHAR(128) NOT NULL,
+			`col_name` VARCHAR(64) NOT NULL COLLATE `utf8_general_ci`,
+			`type_name` VARCHAR(64) NOT NULL,
 			`ref_type_id` INT DEFAULT NULL,
 			`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 			`compare_options` ENUM
@@ -85,7 +85,7 @@ BEGIN
 					'StringSort',
 					'Ordinal'
 				) NOT NULL DEFAULT 'None',
-			`back_ref_name` VARCHAR(128) DEFAULT NULL COLLATE `utf8_bin`,
+			`back_ref_name` VARCHAR(128) DEFAULT NULL,
 			`back_ref_id` INT DEFAULT NULL,
 			
 			FOREIGN KEY(`owner_type_id`)
@@ -99,13 +99,13 @@ BEGIN
 			FOREIGN KEY(`back_ref_id`)
 				REFERENCES `field`(`id`)
 				ON DELETE SET NULL
-		);
+		) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 	");
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
 	DEALLOCATE PREPARE proc_prep;
 	
-# > Type-Field optimization
+# > Type-Field mapping
 	SET @prep_str=CONCAT('
 		CREATE TABLE `', db_name, '`.`type_field_map` (
 			`type_id` INT NOT NULL,
@@ -118,7 +118,7 @@ BEGIN
 			FOREIGN KEY (`field_id`)
 				REFERENCES `field`(`id`)
 				ON DELETE CASCADE
-		);
+		) ENGINE=`InnoDB`;
 	');
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
@@ -135,7 +135,7 @@ BEGIN
 			FOREIGN KEY (`real_type_id`)
 				REFERENCES `type`(`id`)
 				ON DELETE CASCADE
-		);
+		) ENGINE=`InnoDB`;
 	');
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
@@ -154,7 +154,7 @@ BEGIN
 			FOREIGN KEY (`type_id`)
 				REFERENCES `type`(`id`)
 				ON DELETE CASCADE
-		);
+		) ENGINE=`InnoDB`;
 	');
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
@@ -173,7 +173,7 @@ BEGIN
 			FOREIGN KEY (`ref`)
 				REFERENCES `db_key`(`sys_id`)
 				ON DELETE CASCADE
-		);
+		) ENGINE=`InnoDB`;
 	');
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
@@ -192,7 +192,7 @@ BEGIN
 	SET @prep_str=
 		'CREATE TEMPORARY TABLE IF NOT EXISTS `db_add_list`(
 			`name` VARCHAR(64) NOT NULL UNIQUE
-		);';
+		) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;';
 		
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
@@ -209,7 +209,7 @@ BEGIN
 	SET @prep_str=
 		'CREATE TEMPORARY TABLE IF NOT EXISTS `db_rem_list`(
 			`name` VARCHAR(64) NOT NULL UNIQUE
-		);';
+		) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;';
 		
 	PREPARE proc_prep FROM @prep_str;
 	EXECUTE proc_prep;
@@ -301,7 +301,7 @@ BEGIN
 		EXECUTE p_add_to_db;
 		DEALLOCATE PREPARE p_add_to_db;
 		
-		# Clear trash if database was "removed" list just before creating
+		# Remove from trash if database was "removed" just before creating
 		SET @prep_str=CONCAT('
 			DELETE FROM `db_trash_list`
 			WHERE `name` = \'', db_name ,'\';
@@ -616,7 +616,8 @@ BEGIN
 				ON DELETE CASCADE
 
 				', fields_constraints, '
-		);
+
+		) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 	');
 	PREPARE p_create_table FROM @prep_str;
 	EXECUTE p_create_table;
