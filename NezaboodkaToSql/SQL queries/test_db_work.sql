@@ -39,6 +39,7 @@ VALUES
 ('Email', '_email', 'User', 'VARCHAR(120)', FALSE, 'IgnoreCase', ''),
 ('PassHash', '_pass_hash', 'User', 'VARCHAR(128)', FALSE, 'None', ''),
 ('Group', '_group', 'User', 'Group', FALSE, 'None', 'Participants'),
+('Age', '_age', 'User', 'INT UNSIGNED?', FALSE, 'None', ''),
 
 #Admin
 ('ControlGroup', '_control_group', 'Admin', 'Group', FALSE, 'None', 'Admin'),

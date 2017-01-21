@@ -546,6 +546,7 @@ BEGIN
 	DECLARE fields_defs TEXT DEFAULT "";
 	DECLARE fields_constraints TEXT DEFAULT "";
 	DECLARE field_type VARCHAR(255) DEFAULT "";
+    DECLARE nullable_sign_pos INT UNSIGNED DEFAULT 0;
 	
 	SET @t_no = type_no;
 	EXECUTE p_get_type_id_tablename USING @t_no;
@@ -570,6 +571,16 @@ BEGIN
 # --> Compare Options
 					IF @cf_compare_options = 'IgnoreCase' THEN
 						SET field_type = CONCAT(field_type, ' COLLATE `utf8_general_ci`');
+					END IF;
+				ELSE
+# --> Check if nullable
+					SELECT LOCATE('?', field_type)
+					INTO nullable_sign_pos;
+					
+					IF nullable_sign_pos = 0 THEN
+						SET field_type = CONCAT(field_type, ' NOT NULL');
+					ELSE
+						SET field_type = SUBSTRING(field_type FROM 1 FOR nullable_sign_pos-1);
 					END IF;
 				END IF;
 				
