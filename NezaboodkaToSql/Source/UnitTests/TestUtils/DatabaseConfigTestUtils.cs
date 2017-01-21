@@ -91,7 +91,7 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
         }
 
         private static FieldDefinition CreateFieldDefinition(string name, string fieldTypeName,
-            CompareOptions compare = CompareOptions.None, string backReferenceFieldName = "", bool isList = false)
+            CompareOptions compare = CompareOptions.None, string backReferenceFieldName = null, bool isList = false)
         {
             return new FieldDefinition
             {

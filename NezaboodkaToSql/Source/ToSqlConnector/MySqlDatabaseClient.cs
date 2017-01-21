@@ -840,13 +840,19 @@ namespace Nezaboodka.ToSqlConnector
                         string fieldTypeName = reader.GetString(SchemaFieldConst.FieldTypeName);
                         fieldTypeName = NezaboodkaSqlTypeMapper.NezaboodkaTypeNameBySqlTypeName(fieldTypeName);
 
+                        string backRefName = reader.GetString(SchemaFieldConst.FieldBackRefName);
+                        if (string.IsNullOrEmpty(backRefName))
+                        {
+                            backRefName = null;
+                        }
+
                         var fieldDef = new FieldDefinition()
                         {
                             FieldName = reader.GetString(SchemaFieldConst.FieldName),
                             FieldTypeName = fieldTypeName,
                             IsList = bool.Parse(reader.GetString(SchemaFieldConst.FieldIsList)),
                             CompareOptions = (CompareOptions)Enum.Parse(typeof(CompareOptions), reader.GetString(SchemaFieldConst.FieldCompareOptions)),
-                            BackReferenceFieldName = reader.GetString(SchemaFieldConst.FieldBackRefName)
+                            BackReferenceFieldName = backRefName
                         };
 
                         string ownerType = reader.GetString(SchemaFieldConst.FieldOwnerTypeName);
