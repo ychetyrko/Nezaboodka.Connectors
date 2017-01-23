@@ -868,11 +868,6 @@ namespace Nezaboodka.ToSqlConnector
                             BackReferenceFieldName = backRefName
                         };
 
-                        if (string.IsNullOrEmpty(fieldDef.BackReferenceFieldName))
-                        {
-                            fieldDef.BackReferenceFieldName = null;
-                        }
-
                         string ownerType = reader.GetString(SchemaFieldConst.FieldOwnerTypeName);
                         typeNameMap[ownerType].FieldDefinitions.Add(fieldDef);
                         // TODO: Catch KeyNotFoundException

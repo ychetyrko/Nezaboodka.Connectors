@@ -35,21 +35,21 @@ INSERT INTO `field`
 (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
 # User
-('Login', '_login', 'User', 'VARCHAR(60)', FALSE, 'IgnoreCase', ''),
-('Email', '_email', 'User', 'VARCHAR(120)', FALSE, 'IgnoreCase', ''),
-('PassHash', '_pass_hash', 'User', 'VARCHAR(128)', FALSE, 'None', ''),
+('Login', '_login', 'User', 'VARCHAR(60)', FALSE, 'IgnoreCase', NULL),
+('Email', '_email', 'User', 'VARCHAR(120)', FALSE, 'IgnoreCase', NULL),
+('PassHash', '_pass_hash', 'User', 'VARCHAR(128)', FALSE, 'None', NULL),
 ('Group', '_group', 'User', 'Group', FALSE, 'None', 'Participants'),
-('Age', '_age', 'User', 'INT UNSIGNED?', FALSE, 'None', ''),
+('Age', '_age', 'User', 'INT UNSIGNED?', FALSE, 'None', NULL),
 
 #Admin
 ('ControlGroup', '_control_group', 'Admin', 'Group', FALSE, 'None', 'Admin'),
 
 #Group
-('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', ''),
+('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', NULL),
 ('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', 'ControlGroup'),
 ('Participants', '_participants', 'Group', 'User', TRUE, 'None', 'Group'),
-('Rating', '_rating', 'Group', 'INT UNSIGNED', FALSE, 'None', ''),
-('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', '');
+('Rating', '_rating', 'Group', 'INT UNSIGNED', FALSE, 'None', NULL),
+('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', NULL);
 
 
 CALL `nz_admin_db`.alter_db_schema('nz_test_db');
