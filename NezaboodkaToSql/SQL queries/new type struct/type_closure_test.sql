@@ -17,7 +17,10 @@ call before_alter_fields();
 INSERT INTO `field_add_list`
 (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
+# User
 ('Login', '_login', 'User', 'VARCHAR(60)', FALSE, 'IgnoreCase', NULL),
+('Group', '_group', 'User', 'Group', FALSE, 'None', 'Participants'),
+# Group
 ('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', NULL),
 ('Participants', '_participants', 'Group', 'User', TRUE, 'None', 'Group'),
 ('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', NULL);
@@ -43,7 +46,10 @@ VALUES
 #Admin
 ('ControlGroup', '_control_group', 'Admin', 'Group', FALSE, 'None', 'Admin'),
 #Moderator
-('ModeratedGroup', '_moderated_group', 'Moderator', 'Group', FALSE, 'None', 'Admin');
+('ModeratedGroup', '_moderated_group', 'Moderator', 'Group', FALSE, 'None', 'Moderators'),
+# Group
+('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', 'ControlGroup'),
+('Moderators', '_admin', 'Group', 'Moderator', TRUE, 'None', 'ModeratedGroup');
 call add_all_fields();
 
 #========================================
