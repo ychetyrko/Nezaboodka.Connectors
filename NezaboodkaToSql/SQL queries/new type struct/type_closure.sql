@@ -207,6 +207,8 @@ begin
 
 	declare t_type_name varchar(128) default null;
 	declare t_table_name varchar(64) default null;
+	declare fields_defs text;
+	declare fields_constraints text;
 
 	declare types_done boolean default false;
 	declare new_type_cur cursor for
@@ -222,15 +224,8 @@ begin
 	fetch new_type_cur	
 	into t_type_name, t_table_name;
 	while not types_done do
-# ----> Process new type <----
-	begin
-		declare fields_defs text default '';
-		declare fields_constraints text default '';
 
 		call get_type_fields_and_constraints(t_type_name, TRUE, fields_defs, fields_constraints);
-
-select fields_defs;
-select fields_constraints;
 
 		# Create table for type with all ancestors' fields
 		#  (table name can't be a parameter => prepare each time)
@@ -249,12 +244,11 @@ select fields_constraints;
 			) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 		');
 
-		select @prep_str;
+	#select @prep_str;
 
 		PREPARE p_create_table FROM @prep_str;
 		EXECUTE p_create_table;
 		DEALLOCATE PREPARE p_create_table;
-	end;
 
 		fetch new_type_cur
 		into t_type_name, t_table_name;
@@ -270,13 +264,7 @@ drop procedure if exists get_type_fields_and_constraints //
 create procedure get_type_fields_and_constraints
 (in c_type_name varchar(128), in inheriting boolean, out fields_defs TEXT, out fields_constraints TEXT)
 begin
-	declare constr_add_prefix text default 'CONSTRAINT FK_';
-	declare constr_add_prefix_full text default '';
 	declare c_type_id int default null;
-
-	IF NOT inheriting THEN
-		set constr_add_prefix = CONCAT('ADD ', constr_add_prefix);
-	end if;
 
 	set fields_defs = '';
 	set fields_constraints = '';
@@ -289,15 +277,12 @@ begin
 	#select concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
 
 begin
-	declare field_type varchar(128);
-
 	declare cf_id int default null;	# for constraints names
 	declare cf_col_name VARCHAR(64) default null;
 	declare cf_type_name varchar(128) default null;
 	declare cf_ref_type_id int default null;
 	declare cf_is_list boolean default false;
 	declare cf_compare_options varchar(64);
-	declare nullable_sign_pos int default 0;
 
 	declare fields_done boolean default false;
 	declare fields_cur cursor for
@@ -317,89 +302,105 @@ begin
 	into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
 	while not fields_done do
 
-	#select concat(cf_col_name, ' 1') as debug;
-
-		IF cf_ref_type_id IS NULL THEN
-
-	#select concat(cf_col_name, ' is value-type') as debug;
-
-			IF NOT cf_is_list THEN
-
-	#select concat(cf_col_name, ' is not list') as debug;
-
-				SET field_type = cf_type_name;
-				
-				IF field_type LIKE 'VARCHAR(%' OR field_type = 'TEXT' THEN
-
-	#select concat(cf_col_name, ' is string') as debug;
-
-					# --> Compare Options
-					IF cf_compare_options = 'IgnoreCase' THEN
-						SET field_type = CONCAT(field_type, ' COLLATE `utf8_general_ci`');
-					END IF;
-				ELSE
-
-	#select concat(cf_col_name, ' is not string') as debug;
-
-					# --> Check if nullable
-					SELECT LOCATE('?', field_type)
-					INTO nullable_sign_pos;
-					
-					IF nullable_sign_pos = 0 THEN
-						SET field_type = CONCAT(field_type, ' NOT NULL');
-					ELSE
-						SET field_type = SUBSTRING(field_type FROM 1 FOR nullable_sign_pos-1);
-					END IF;
-				END IF;
-				
-			ELSE	# <-- cf_is_list == TRUE
-
-	#select concat(cf_col_name, ' is list') as debug;
-
-				SET field_type = 'BLOB';
-			END IF;
-
-		ELSE	# <-- cf_ref_type_id != NULL
-
-	#select concat(cf_col_name, ' is reference') as debug;
-
-			SET constr_add_prefix_full = CONCAT('
-				',constr_add_prefix, c_type_id, '_', cf_id);
-	#select concat('Constraint full prefix: ', constr_add_prefix_full) as debug;
-
-			IF NOT cf_is_list THEN
-				SET field_type = 'BIGINT(0)';
-
-	#select fields_constraints as debug_constr_before_add;
-
-				SET fields_constraints = CONCAT(fields_constraints, ',
-					', constr_add_prefix_full,'
-					FOREIGN KEY (', cf_col_name,')
-						REFERENCES `db_key`(`sys_id`)
-						ON DELETE SET NULL
-						ON UPDATE SET NULL');
-			ELSE	# <-- cf_is_list == TRUE
-				SET field_type = 'INT';
-				SET fields_constraints = CONCAT(fields_constraints, ',
-					', constr_add_prefix_full,'
-					FOREIGN KEY (', cf_col_name,')
-						REFERENCES `list`(`id`)
-						ON DELETE SET NULL');
-			END IF;
-
-	#select fields_constraints as debug_constr_after_add;
-
-		END IF;
-		
-		SET fields_defs = CONCAT(fields_defs, ', `', cf_col_name, '` ', field_type);
+		call update_fields_def_constr(fields_defs, fields_constraints, inheriting,
+			c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options);
 		
 		fetch fields_cur
 		into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
 	end while;
-
+end;
 	#select fields_defs;
 	#select fields_constraints;
 	#select concat('End ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
+end //
+#--------------------------------------------------
+
+delimiter //
+drop procedure if exists update_fields_def_constr //
+create procedure update_fields_def_constr (inout f_defs text, inout f_constrs text, in inheriting boolean,
+	in c_type_id int, in cf_id int, in cf_col_name varchar(64), in cf_type_name varchar(128),
+	in cf_ref_type_id int, in cf_is_list boolean, in cf_compare_options varchar(128))
+begin
+	declare constr_add_prefix text default 'CONSTRAINT FK_';
+	declare constr_add_prefix_full text default '';
+	declare field_type varchar(128);
+	declare nullable_sign_pos int default 0;
+
+	IF NOT inheriting THEN
+		set constr_add_prefix = CONCAT('ADD ', constr_add_prefix);
+	end if;
+
+#select concat(cf_col_name, ' 1') as debug;
+
+	IF cf_ref_type_id IS NULL THEN
+
+#select concat(cf_col_name, ' is value-type') as debug;
+
+		IF NOT cf_is_list THEN
+
+#select concat(cf_col_name, ' is not list') as debug;
+
+			SET field_type = cf_type_name;
+			
+			IF field_type LIKE 'VARCHAR(%' OR field_type = 'TEXT' THEN
+
+#select concat(cf_col_name, ' is string') as debug;
+
+				# --> Compare Options
+				IF cf_compare_options = 'IgnoreCase' THEN
+					SET field_type = CONCAT(field_type, ' COLLATE `utf8_general_ci`');
+				END IF;
+			ELSE
+
+#select concat(cf_col_name, ' is not string') as debug;
+
+				# --> Check if nullable
+				SELECT LOCATE('?', field_type)
+				INTO nullable_sign_pos;
+				
+				IF nullable_sign_pos = 0 THEN
+					SET field_type = CONCAT(field_type, ' NOT NULL');
+				ELSE
+					SET field_type = SUBSTRING(field_type FROM 1 FOR nullable_sign_pos-1);
+				END IF;
+			END IF;
+			
+		ELSE	# <-- cf_is_list == TRUE
+
+#select concat(cf_col_name, ' is list') as debug;
+
+			SET field_type = 'BLOB';
+		END IF;
+
+	ELSE	# <-- cf_ref_type_id != NULL
+#select concat(cf_col_name, ' is reference') as debug;
+
+		SET constr_add_prefix_full = CONCAT('
+			',constr_add_prefix, c_type_id, '_', cf_id);
+#select concat('Constraint full prefix: ', constr_add_prefix_full) as debug;
+
+#select f_constrs as debug_constr_before_add;
+		IF NOT cf_is_list THEN
+			SET field_type = 'BIGINT(0)';
+
+			SET f_constrs = CONCAT(f_constrs, ',
+				', constr_add_prefix_full,'
+				FOREIGN KEY (', cf_col_name,')
+					REFERENCES `db_key`(`sys_id`)
+					ON DELETE SET NULL
+					ON UPDATE SET NULL');
+		ELSE	# <-- cf_is_list == TRUE
+			SET field_type = 'INT';
+			SET f_constrs = CONCAT(f_constrs, ',
+				', constr_add_prefix_full,'
+				FOREIGN KEY (', cf_col_name,')
+					REFERENCES `list`(`id`)
+					ON DELETE SET NULL');
+		END IF;
+#select f_constrs as debug_constr_after_add;
+	END IF;
+	
+	SET f_defs = CONCAT(f_defs, ', `', cf_col_name, '` ', field_type);
 end //
 #--------------------------------------------------
 
@@ -481,7 +482,7 @@ begin
 	on f2.`name` = f1.`back_ref_name`
 	set f1.`back_ref_id` = f2.`id`;
 
-# ---> alter type tables
+#TODO: autofill BackReferences
 
 	truncate table `field_add_list`;
 end //
