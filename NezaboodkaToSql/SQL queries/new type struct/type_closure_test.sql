@@ -49,7 +49,7 @@ VALUES
 ('ModeratedGroup', '_moderated_group', 'Moderator', 'Group', FALSE, 'None', 'Moderators'),
 # Group
 ('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', 'ControlGroup'),
-('Moderators', '_admin', 'Group', 'Moderator', TRUE, 'None', 'ModeratedGroup');
+('Moderators', '_moderators', 'Group', 'Moderator', TRUE, 'None', 'ModeratedGroup');
 call add_all_fields();
 
 #========================================

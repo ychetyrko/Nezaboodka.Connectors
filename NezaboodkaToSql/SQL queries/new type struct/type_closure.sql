@@ -120,39 +120,100 @@ drop procedure if exists add_all_types //
 create procedure add_all_types()
 begin
 	declare t_name varchar(128) default null;
-		
-		declare done boolean default false;
-		declare cur cursor for
-			select `name`
-			from `nz_test_closure`.`type_add_list`;
-		declare continue handler for not found
-			set done = true;
-		
-		create temporary table if not exists `new_type`(
-			`id` int not null,
-			foreign key (`id`)
-				references `type`(`id`)
-				on delete cascade
-		) engine=`MEMORY`;
-		
-		truncate table `new_type`;
-		
-		open cur;
+	
+	declare done boolean default false;
+	declare cur cursor for
+		select `name`
+		from `nz_test_closure`.`type_add_list`;
+	declare continue handler for not found
+		set done = true;
+	
+	create temporary table `nz_test_closure`.`new_type`(
+		`id` int not null,
+		foreign key (`id`)
+			references `type`(`id`)
+			on delete cascade
+	) engine=`MEMORY`;
+	
+	open cur;
 
+	fetch cur
+	into t_name;
+	while not done do
+		call add_type(t_name);
+		
 		fetch cur
 		into t_name;
-		while not done do
-			call add_type(t_name);
-			
-			fetch cur
-			into t_name;
+	end while;
+	
+	close cur;
+	
+# Process all new types
+	begin
+		declare db_name varchar(64) default 'nz_test_closure';
+
+		declare t_type_name varchar(128) default null;
+		declare t_table_name varchar(64) default null;
+		declare fields_defs text;
+		declare fields_constraints text;
+
+		declare types_done boolean default false;
+		declare new_type_cur cursor for
+			select t.`name` ,t.`table_name`
+			from `nz_test_closure`.`type` as t
+			join `nz_test_closure`.`new_type` as n
+			where t.`id` = n.`id`;
+		declare continue handler for not found
+			set types_done = true;
+		
+		open new_type_cur;
+
+		fetch new_type_cur	
+		into t_type_name, t_table_name;
+		while not types_done do
+
+			call get_type_fields_and_constraints(t_type_name, TRUE, fields_defs, fields_constraints);
+
+			if (CHAR_LENGTH(fields_defs) > 0) then 
+				set fields_defs = CONCAT(',', fields_defs);
+			end if;
+
+			if (CHAR_LENGTH(fields_constraints) > 0) then 
+				set fields_constraints = CONCAT(',', fields_constraints);
+			end if;
+
+			# Create table for type with all ancestors' fields
+			#  (table name can't be a parameter => prepare each time)
+			SET @prep_str = CONCAT('
+				CREATE TABLE `', db_name ,'`.`', t_table_name, '` (
+					id BIGINT(0) PRIMARY KEY NOT NULL
+
+					', fields_defs ,',
+
+					FOREIGN KEY (id)
+						REFERENCES `db_key`(`sys_id`)
+						ON DELETE CASCADE
+
+						', fields_constraints, '
+
+				) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
+			');
+
+		#select @prep_str;
+
+			PREPARE p_create_table FROM @prep_str;
+			EXECUTE p_create_table;
+			DEALLOCATE PREPARE p_create_table;
+
+			fetch new_type_cur
+			into t_type_name, t_table_name;
 		end while;
 		
-		close cur;
-		
-		call process_all_new_types();
+		close new_type_cur;
+	end;
 
-		drop table `type_add_list`;
+	drop table `new_type`;
+	truncate table `type_add_list`;
 end //
 
 delimiter //
@@ -199,64 +260,6 @@ begin
 	where `name` = type_name;
 end //
 
-delimiter //
-drop procedure if exists process_all_new_types //
-create procedure process_all_new_types()
-begin
-	declare db_name varchar(64) default 'nz_test_closure';
-
-	declare t_type_name varchar(128) default null;
-	declare t_table_name varchar(64) default null;
-	declare fields_defs text;
-	declare fields_constraints text;
-
-	declare types_done boolean default false;
-	declare new_type_cur cursor for
-		select t.`name` ,t.`table_name`
-		from `nz_test_closure`.`type` as t
-		join `nz_test_closure`.`new_type` as n
-		where t.`id` = n.`id`;
-	declare continue handler for not found
-		set types_done = true;
-	
-	open new_type_cur;
-
-	fetch new_type_cur	
-	into t_type_name, t_table_name;
-	while not types_done do
-
-		call get_type_fields_and_constraints(t_type_name, TRUE, fields_defs, fields_constraints);
-
-		# Create table for type with all ancestors' fields
-		#  (table name can't be a parameter => prepare each time)
-		SET @prep_str = CONCAT('
-			CREATE TABLE `', db_name ,'`.`', t_table_name, '` (
-				id BIGINT(0) PRIMARY KEY NOT NULL
-
-				', fields_defs ,',
-
-				FOREIGN KEY (id)
-					REFERENCES `db_key`(`sys_id`)
-					ON DELETE CASCADE
-
-					', fields_constraints, '
-
-			) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
-		');
-
-	#select @prep_str;
-
-		PREPARE p_create_table FROM @prep_str;
-		EXECUTE p_create_table;
-		DEALLOCATE PREPARE p_create_table;
-
-		fetch new_type_cur
-		into t_type_name, t_table_name;
-	end while;
-	
-	close new_type_cur;
-end //
-
 #--------------------------------------------------
 
 delimiter //
@@ -265,6 +268,13 @@ create procedure get_type_fields_and_constraints
 	(in c_type_name varchar(128), in inheriting boolean, out fields_defs TEXT, out fields_constraints TEXT)
 begin
 	declare c_type_id int default null;
+	
+	declare cf_id int default null;	# for constraints names
+	declare cf_col_name VARCHAR(64) default null;
+	declare cf_type_name varchar(128) default null;
+	declare cf_ref_type_id int default null;
+	declare cf_is_list boolean default false;
+	declare cf_compare_options varchar(64);
 
 	set fields_defs = '';
 	set fields_constraints = '';
@@ -274,44 +284,77 @@ begin
 	from `type` as t
 	where t.`name` = c_type_name;
 
-	#select concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
+	select concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
 
-begin
-	declare cf_id int default null;	# for constraints names
-	declare cf_col_name VARCHAR(64) default null;
-	declare cf_type_name varchar(128) default null;
-	declare cf_ref_type_id int default null;
-	declare cf_is_list boolean default false;
-	declare cf_compare_options varchar(64);
+	if inheriting then
+	begin	# get all parents' fields
+		declare fields_done boolean default false;
+		declare fields_cur cursor for
+			select f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`, f.`is_list`, f.`compare_options`
+			from `nz_test_closure`.`field` as f
+			where f.`owner_type_id` in (
+				select clos.`ancestor`
+				from `nz_test_closure`.`type_closure` as clos
+				where clos.`descendant` = c_type_id
+			);
+		declare continue handler for not found
+			set fields_done = true;
 
-	declare fields_done boolean default false;
-	declare fields_cur cursor for
-		select `id`, `col_name`, `type_name`, `ref_type_id`, `is_list`, `compare_options`
-		from `nz_test_closure`.`field` as f
-		where f.`owner_type_id` in (
-			select clos.`ancestor`
-			from `nz_test_closure`.`type_closure` as clos
-			where clos.`descendant` = c_type_id
-		);
-	declare continue handler for not found
-		set fields_done = true;
+		open fields_cur;
 
-	open fields_cur;
-
-	fetch fields_cur
-	into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
-	while not fields_done do
-
-		call update_fields_def_constr(fields_defs, fields_constraints, inheriting,
-			c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options);
-		
 		fetch fields_cur
 		into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
-	end while;
-end;
-	#select fields_defs;
-	#select fields_constraints;
-	#select concat('End ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
+		while not fields_done do
+
+			call update_fields_def_constr(fields_defs, fields_constraints, inheriting,
+				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options);
+			
+			fetch fields_cur
+			into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
+		end while;
+	end;
+	else	# NOT inheriting
+	begin	# get only NEW fields
+		declare fields_done boolean default false;
+		declare fields_cur cursor for
+			select f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`, f.`is_list`, f.`compare_options`
+			from `nz_test_closure`.`new_field` as newf
+			left join `nz_test_closure`.`field` as f
+			on f.`id` = newf.`id`
+			where f.`owner_type_id` in (
+				select clos.`ancestor`
+				from `nz_test_closure`.`type_closure` as clos
+				where clos.`descendant` = c_type_id
+			);
+		declare continue handler for not found
+			set fields_done = true;
+
+		open fields_cur;
+
+		fetch fields_cur
+		into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
+		while not fields_done do
+
+			call update_fields_def_constr(fields_defs, fields_constraints, inheriting,
+				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options);
+			
+			fetch fields_cur
+			into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
+		end while;
+	end;
+	end if;
+
+	if (left(fields_defs, 1) = ',') then
+		set fields_defs = SUBSTRING(fields_defs, 2);
+	end if;
+
+	if (left(fields_constraints, 1) = ',') then
+		set fields_constraints = SUBSTRING(fields_constraints, 2);
+	end if;
+
+	select fields_defs;
+	select fields_constraints;
+	select concat('End ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
 end //
 #--------------------------------------------------
 
@@ -330,21 +373,21 @@ begin
 		set constr_add_prefix = CONCAT('ADD ', constr_add_prefix);
 	end if;
 
-#select concat(cf_col_name, ' 1') as debug;
+	#select concat(cf_col_name, ' 1') as debug;
 
 	IF cf_ref_type_id IS NULL THEN
 
-#select concat(cf_col_name, ' is value-type') as debug;
+	#select concat(cf_col_name, ' is value-type') as debug;
 
 		IF NOT cf_is_list THEN
 
-#select concat(cf_col_name, ' is not list') as debug;
+	#select concat(cf_col_name, ' is not list') as debug;
 
 			SET field_type = cf_type_name;
 			
 			IF field_type LIKE 'VARCHAR(%' OR field_type = 'TEXT' THEN
 
-#select concat(cf_col_name, ' is string') as debug;
+	#select concat(cf_col_name, ' is string') as debug;
 
 				# --> Compare Options
 				IF cf_compare_options = 'IgnoreCase' THEN
@@ -352,7 +395,7 @@ begin
 				END IF;
 			ELSE
 
-#select concat(cf_col_name, ' is not string') as debug;
+	#select concat(cf_col_name, ' is not string') as debug;
 
 				# --> Check if nullable
 				SELECT LOCATE('?', field_type)
@@ -367,25 +410,25 @@ begin
 			
 		ELSE	# <-- cf_is_list == TRUE
 
-#select concat(cf_col_name, ' is list') as debug;
+	#select concat(cf_col_name, ' is list') as debug;
 
 			SET field_type = 'BLOB';
 		END IF;
 
 	ELSE	# <-- cf_ref_type_id != NULL
-#select concat(cf_col_name, ' is reference') as debug;
+	#select concat(cf_col_name, ' is reference') as debug;
 
 		SET constr_add_prefix_full = CONCAT('
 			',constr_add_prefix, c_type_id, '_', cf_id);
-#select concat('Constraint full prefix: ', constr_add_prefix_full) as debug;
+	#select concat('Constraint full prefix: ', constr_add_prefix_full) as debug;
 
-#select f_constrs as debug_constr_before_add;
+	#select f_constrs as debug_constr_before_add;
 		IF NOT cf_is_list THEN
 			SET field_type = 'BIGINT(0)';
 
 			SET f_constrs = CONCAT(f_constrs, ',
 				', constr_add_prefix_full,'
-				FOREIGN KEY (', cf_col_name,')
+				FOREIGN KEY (`', cf_col_name,'`)
 					REFERENCES `db_key`(`sys_id`)
 					ON DELETE SET NULL
 					ON UPDATE SET NULL');
@@ -393,11 +436,11 @@ begin
 			SET field_type = 'INT';
 			SET f_constrs = CONCAT(f_constrs, ',
 				', constr_add_prefix_full,'
-				FOREIGN KEY (', cf_col_name,')
+				FOREIGN KEY (`', cf_col_name,'`)
 					REFERENCES `list`(`id`)
 					ON DELETE SET NULL');
 		END IF;
-#select f_constrs as debug_constr_after_add;
+	#select f_constrs as debug_constr_after_add;
 	END IF;
 	
 	SET f_defs = CONCAT(f_defs, ', `', cf_col_name, '` ', field_type);
@@ -426,6 +469,7 @@ begin
 		if (desc_count = 1) then
 			delete from `type`
 			where `type`.`id` = type_id;
+# TODO: drop table
 		else
 			signal sqlstate '40000'
 				set message_text = "Can't insert type to the center of hierarchy";
@@ -482,61 +526,73 @@ begin
 	on f2.`name` = f1.`back_ref_name`
 	set f1.`back_ref_id` = f2.`id`;
 
+	create temporary table if not exists `nz_test_closure`.`new_field`(
+		`id` int not null,
+		foreign key (`id`)
+			references `nz_test_closure`.`field`(`id`)
+			on delete cascade
+	) engine=`MEMORY`;
+	
+	truncate table `nz_test_closure`.`new_field`;
+
+	insert into `nz_test_closure`.`new_field`
+	select f.`id`
+	from `field` as f
+	join `field_add_list` as newf
+	on f.`name` = newf.`name`
+		and f.`owner_type_name` = newf.`owner_type_name`;
+
 #TODO: autofill BackReferences
 
-begin
-	declare cf_id int default null;	# for constraints names
-	declare cf_col_name VARCHAR(64) default null;
-	declare cf_type_name varchar(128) default null;
-	declare cf_ref_type_id int default null;
-	declare cf_is_list boolean default false;
-	declare cf_compare_options varchar(64);
+# Update all types with new fields
+	begin
+		declare db_name varchar(64) default 'nz_test_closure';
 
-	declare new_fields_done boolean default false;
-	declare new_fields_cur cursor for
-		select f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`, f.`is_list`, f.`compare_options`
-		from `nz_test_closure`.`field` as f
-		join `nz_test_closure`.`field_add_list` as newf
-		where f.`name` = newf.`name`;
-	declare continue handler for not found
-		set new_fields_done = true;
+		declare t_type_name varchar(128) default null;
+		declare t_table_name varchar(64) default null;
+		declare fields_defs text;
+		declare fields_constraints text;
 
-	open new_fields_cur;
+		declare types_done boolean default false;
+		declare type_cur cursor for
+			select t.`name` ,t.`table_name`
+			from `nz_test_closure`.`type` as t;
+		declare continue handler for not found
+			set types_done = true;
+		
+		open type_cur;
 
-	fetch new_fields_cur
-	into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
-	while not new_fields_done do
+		fetch type_cur	
+		into t_type_name, t_table_name;
+		while not types_done do
 
-		call update_new_field_types_defs_constraints(cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-			cf_is_list, cf_compare_options);
+			call get_type_fields_and_constraints(t_type_name, FALSE, fields_defs, fields_constraints);
 
-		fetch new_fields_cur
-		into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
-	end while;
+			if (LENGTH(fields_defs) > 0) then
+				SET @prep_str = CONCAT('
+					ALTER TABLE `', db_name ,'`.`', t_table_name, '`
+						ADD COLUMN (', fields_defs ,'),
+						', fields_constraints, ';
+					');
 
-	close new_fields_cur;
-end;
+			select @prep_str as 'Altering query';
 
-	truncate table `field_add_list`;
+				PREPARE p_alter_table FROM @prep_str;
+				EXECUTE p_alter_table;
+				DEALLOCATE PREPARE p_alter_table;
+			end if;
+
+			fetch type_cur
+			into t_type_name, t_table_name;
+		end while;
+		
+		close type_cur;
+	end;
+
+	drop table `nz_test_closure`.`new_field`;
+	truncate table `nz_test_closure`.`field_add_list`;
 end //
 
-#--------------------------------------------------
-
-delimiter //
-drop procedure if exists update_new_field_types_defs_constraints//
-create procedure update_new_field_types_defs_constraints(
-	in cf_id int, in cf_col_name varchar(64), in cf_type_name varchar(128),
-	in cf_ref_type_id int, in cf_is_list boolean, in cf_compare_options varchar(128))
-begin
-	declare fields_defs text;
-	declare fields_constraints text;
-# TODO:
-#	1) fetch types with new field
-#	2) for each
-#		a) call update_fields_def_constr
-#		b) alter table add column (...)
-#		c) if not empty constraints - alter table add constraint, ...
-end //
 #--------------------------------------------------
 
 delimiter //
