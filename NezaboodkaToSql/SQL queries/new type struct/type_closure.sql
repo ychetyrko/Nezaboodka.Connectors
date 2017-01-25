@@ -262,7 +262,7 @@ end //
 delimiter //
 drop procedure if exists get_type_fields_and_constraints //
 create procedure get_type_fields_and_constraints
-(in c_type_name varchar(128), in inheriting boolean, out fields_defs TEXT, out fields_constraints TEXT)
+	(in c_type_name varchar(128), in inheriting boolean, out fields_defs TEXT, out fields_constraints TEXT)
 begin
 	declare c_type_id int default null;
 
@@ -484,9 +484,59 @@ begin
 
 #TODO: autofill BackReferences
 
+begin
+	declare cf_id int default null;	# for constraints names
+	declare cf_col_name VARCHAR(64) default null;
+	declare cf_type_name varchar(128) default null;
+	declare cf_ref_type_id int default null;
+	declare cf_is_list boolean default false;
+	declare cf_compare_options varchar(64);
+
+	declare new_fields_done boolean default false;
+	declare new_fields_cur cursor for
+		select f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`, f.`is_list`, f.`compare_options`
+		from `nz_test_closure`.`field` as f
+		join `nz_test_closure`.`field_add_list` as newf
+		where f.`name` = newf.`name`;
+	declare continue handler for not found
+		set new_fields_done = true;
+
+	open new_fields_cur;
+
+	fetch new_fields_cur
+	into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
+	while not new_fields_done do
+
+		call update_new_field_types_defs_constraints(cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+			cf_is_list, cf_compare_options);
+
+		fetch new_fields_cur
+		into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
+	end while;
+
+	close new_fields_cur;
+end;
+
 	truncate table `field_add_list`;
 end //
 
+#--------------------------------------------------
+
+delimiter //
+drop procedure if exists update_new_field_types_defs_constraints//
+create procedure update_new_field_types_defs_constraints(
+	in cf_id int, in cf_col_name varchar(64), in cf_type_name varchar(128),
+	in cf_ref_type_id int, in cf_is_list boolean, in cf_compare_options varchar(128))
+begin
+	declare fields_defs text;
+	declare fields_constraints text;
+# TODO:
+#	1) fetch types with new field
+#	2) for each
+#		a) call update_fields_def_constr
+#		b) alter table add column (...)
+#		c) if not empty constraints - alter table add constraint, ...
+end //
 #--------------------------------------------------
 
 delimiter //
