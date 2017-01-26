@@ -104,14 +104,14 @@ delimiter //
 drop procedure if exists before_alter_types //
 create procedure before_alter_types()
 begin
+	DROP TABLE IF EXISTS `nz_test_closure`.`type_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_add_list`(
+		`id` INT PRIMARY KEY NOT NULL UNIQUE AUTO_INCREMENT,
 		`name` VARCHAR(128) NOT NULL UNIQUE,
 		`table_name` VARCHAR(64) NOT NULL UNIQUE,
 		`base_type_name` VARCHAR(128)
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
-
-	truncate table `nz_test_closure`.`type_add_list`;
-		
+	
 # ---> type_rem_list
 end //
 
@@ -119,35 +119,134 @@ delimiter //
 drop procedure if exists add_all_types //
 create procedure add_all_types()
 begin
-	declare t_name varchar(128) default null;
+	declare current_ord int default 0;
+    
+    drop table if exists `nz_test_closure`.`type_add_queue`;
+    create temporary table `nz_test_closure`.`type_add_queue`(
+		`ord` int not null,
+		`id` int not null unique,	# to ignore already inserted elements
+		foreign key (`id`)
+			references `nz_test_closure`.`type_add_list`(`id`)
+			on delete cascade
+	) engine=`MEMORY`;
+    
+    # As TEMPORARY table can't be referred to multiple times in the same query:
+    # https://dev.mysql.com/doc/refman/5.7/en/temporary-table-problems.html
+    drop table if exists `nz_test_closure`.`type_temp_queue_buf`;
+    create temporary table `nz_test_closure`.`type_temp_queue_buf`(
+		`id` int not null,
+		foreign key (`id`)
+			references `nz_test_closure`.`type_add_list`(`id`)
+			on delete cascade
+	) engine=`MEMORY`;
+    # Same reason
+    drop table if exists `nz_test_closure`.`type_inserted_list_buf`;
+    create temporary table `nz_test_closure`.`type_inserted_list_buf`(
+		`id` int not null unique,
+        `name` varchar(128) not null,
+		foreign key (`id`)
+			references `nz_test_closure`.`type_add_list`(`id`)
+			on delete cascade
+	) engine=`MEMORY`;
 	
-	declare done boolean default false;
-	declare cur cursor for
-		select `name`
-		from `nz_test_closure`.`type_add_list`;
-	declare continue handler for not found
-		set done = true;
+    # First: insert types with NO parents (roots)
+    set current_ord = 0;
+    insert into `nz_test_closure`.`type_add_queue`
+	(`ord`, `id`)
+	select current_ord, tadd.`id`
+	from `nz_test_closure`.`type_add_list` as tadd
+	where tadd.`base_type_name` is NULL;
+    
+    # Second: insert types with EXISTING parents
+    set current_ord = current_ord + 1;
+    insert into `nz_test_closure`.`type_add_queue`
+	(`ord`, `id`)
+	select current_ord, tadd.`id`
+	from `nz_test_closure`.`type_add_list` as tadd
+	join `nz_test_closure`.`type` as t
+	on tadd.`base_type_name` = t.`name`;
 	
-	create temporary table `nz_test_closure`.`new_type`(
+    # Third: insert types with parents just inserted (main ordering loop)
+    order_loop: LOOP
+		delete from `nz_test_closure`.`type_temp_queue_buf`;
+        delete from `nz_test_closure`.`type_inserted_list_buf`;
+        set current_ord = current_ord + 1;
+        
+        insert into `nz_test_closure`.`type_inserted_list_buf`
+        (`id`, `name`)
+        select tadd.`id`, tadd.`name`
+        from `nz_test_closure`.`type_add_list` as tadd
+        join `nz_test_closure`.`type_add_queue` as q
+        on tadd.`id` = q.`id`;
+        
+        insert into `nz_test_closure`.`type_temp_queue_buf`
+        (`id`)
+        select tadd.`id`
+        from `nz_test_closure`.`type_add_list` as tadd
+        join `nz_test_closure`.`type_inserted_list_buf` as insbuf
+        on tadd.`base_type_name` = insbuf.`name`;
+        
+        insert ignore into `nz_test_closure`.`type_add_queue`
+        (`ord`, `id`)
+        select current_ord, b.`id`
+		from `nz_test_closure`.`type_temp_queue_buf` as b;
+        
+        if (ROW_COUNT() = 0) then
+			leave order_loop;
+        end if;
+    END LOOP;
+    
+    delete from `nz_test_closure`.`type_inserted_list_buf`;
+    drop table `nz_test_closure`.`type_inserted_list_buf`;
+    
+    delete from `nz_test_closure`.`type_temp_queue_buf`;
+    drop table `nz_test_closure`.`type_temp_queue_buf`;
+
+# Debug
+    select q.`ord`, tadd.`name`, tadd.`base_type_name`
+    from `nz_test_closure`.`type_add_list` as tadd
+    join `nz_test_closure`.`type_add_queue` as q
+    on tadd.`id` = q.`id`
+    order by q.`ord`;
+    
+# ------------------------------------------------------------------------
+    drop table if exists `nz_test_closure`.`new_type`;
+    create temporary table `nz_test_closure`.`new_type`(
 		`id` int not null,
 		foreign key (`id`)
 			references `nz_test_closure`.`type`(`id`)
 			on delete cascade
 	) engine=`MEMORY`;
-	
-	open cur;
-
-	fetch cur
-	into t_name;
-	while not done do
-		call add_type(t_name);
+    
+	begin
+		declare t_name varchar(128) default null;
 		
+		declare done boolean default false;
+		declare cur cursor for
+			select tadd.`name`
+			from `nz_test_closure`.`type_add_list` as tadd
+            join `nz_test_closure`.`type_add_queue` as q
+            on tadd.`id` = q.`id`
+            order by q.`ord`;
+		declare continue handler for not found
+			set done = true;
+		open cur;
+
 		fetch cur
 		into t_name;
-	end while;
-	
-	close cur;
-	
+		while not done do
+			call add_type(t_name);
+			
+			fetch cur
+			into t_name;
+		end while;
+		
+		close cur;
+	end;
+    
+    delete from `nz_test_closure`.`type_add_queue`;
+    drop table `nz_test_closure`.`type_add_queue`;
+    
 # Process all new types
 	begin
 		declare db_name varchar(64) default 'nz_test_closure';
@@ -224,14 +323,14 @@ begin
 	declare base_name varchar(128) default null;
 	declare base_id int default null;
 	declare type_id int default null;
-	
-	select `table_name`, `base_type_name`
+    
+	select tadd.`table_name`, tadd.`base_type_name`
 	into tbl_name, base_name
 	from `nz_test_closure`.`type_add_list` as tadd
 	where tadd.`name` = type_name
 	limit 1;
 	
-	select `id`
+	select t.`id`
 	into base_id
 	from `nz_test_closure`.`type` as t
 	where t.`name` = base_name
@@ -482,6 +581,7 @@ delimiter //
 drop procedure if exists before_alter_fields //
 create procedure before_alter_fields()
 begin
+	DROP TABLE IF EXISTS `nz_test_closure`.`field_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_add_list`(
 		`owner_type_name` VARCHAR(128) NOT NULL check(`owner_type_name` != ''),
 		`name` VARCHAR(128) NOT NULL check(`name` != ''),
@@ -503,8 +603,6 @@ begin
 		`back_ref_name` VARCHAR(128) DEFAULT NULL check(`back_ref_name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
 
-	truncate table `nz_test_closure`.`field_add_list`;
-		
 # ---> fields_rem_list
 end //
 
@@ -526,6 +624,7 @@ begin
 	on f2.`name` = f1.`back_ref_name`
 	set f1.`back_ref_id` = f2.`id`;
 
+	drop table if exists `nz_test_closure`.`new_field`;
 	create temporary table if not exists `nz_test_closure`.`new_field`(
 		`id` int not null,
 		foreign key (`id`)
@@ -533,8 +632,6 @@ begin
 			on delete cascade
 	) engine=`MEMORY`;
 	
-	truncate table `nz_test_closure`.`new_field`;
-
 	insert into `nz_test_closure`.`new_field`
 	select f.`id`
 	from `nz_test_closure`.`field` as f
@@ -544,7 +641,7 @@ begin
 
 #TODO: autofill BackReferences
 
-# Update all types with new fields
+	# Update all types with new fields
 	begin
 		declare db_name varchar(64) default 'nz_test_closure';
 
@@ -599,7 +696,7 @@ begin
 end //
 
 #--------------------------------------------------
-
+/*
 delimiter //
 drop procedure if exists get_all_ancestors//
 create procedure get_all_ancestors(id INT)
@@ -625,3 +722,4 @@ begin
 end //
 
 delimiter ;
+*/
