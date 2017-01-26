@@ -569,6 +569,11 @@ begin
 			call get_type_fields_and_constraints(t_type_name, FALSE, fields_defs, fields_constraints);
 
 			if (LENGTH(fields_defs) > 0) then
+            
+				if (LENGTH(fields_constraints) > 0) then 
+					set fields_constraints = CONCAT(',', fields_constraints);
+				end if;
+                
 				SET @prep_str = CONCAT('
 					ALTER TABLE `', db_name ,'`.`', t_table_name, '`
 						ADD COLUMN (', fields_defs ,')
