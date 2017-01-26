@@ -1,15 +1,15 @@
-CREATE DATABASE IF NOT EXISTS nz_test_closure;
+CREATE DATABASE IF NOT EXISTS `nz_test_closure`;
 
-USE nz_test_closure;
+USE `nz_test_closure`;
 
-CREATE TABLE `type`(
+CREATE TABLE `nz_test_closure`.`type`(
 	`id` INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
 	`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
 	`table_name` VARCHAR(64) NOT NULL UNIQUE CHECK(`table_name` != ''),
 	`base_type_name` VARCHAR(128) COLLATE `utf8_general_ci` CHECK(`table_name` != '')
 ) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 
-CREATE TABLE `field` (
+CREATE TABLE `nz_test_closure`.`field` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 	`owner_type_name` VARCHAR(128) NOT NULL CHECK(`owner_type_name` != ''),
 	`owner_type_id` INT DEFAULT NULL,
@@ -34,67 +34,67 @@ CREATE TABLE `field` (
 	`back_ref_id` INT DEFAULT NULL,
 	
 	FOREIGN KEY(`owner_type_id`)
-		REFERENCES `type`(`id`)
+		REFERENCES `nz_test_closure`.`type`(`id`)
 		ON DELETE CASCADE,
 	
 	FOREIGN KEY(`ref_type_id`)
-		REFERENCES `type`(`id`)
+		REFERENCES `nz_test_closure`.`type`(`id`)
 		ON DELETE RESTRICT,
 	
 	FOREIGN KEY(`back_ref_id`)
-		REFERENCES `field`(`id`)
+		REFERENCES `nz_test_closure`.`field`(`id`)
 		ON DELETE SET NULL
 ) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 
-CREATE TABLE `type_closure`(
+CREATE TABLE `nz_test_closure`.`type_closure`(
 	`ancestor` INT NOT NULL,
 	`descendant` INT NOT NULL,
 		`is_straight` BOOLEAN NOT NULL DEFAULT false,
 		
 		FOREIGN KEY(`ancestor`)
-			REFERENCES `type`(`id`)
+			REFERENCES `nz_test_closure`.`type`(`id`)
 			ON DELETE CASCADE,
 		FOREIGN KEY(`descendant`)
-		REFERENCES `type`(`id`)
+		REFERENCES `nz_test_closure`.`type`(`id`)
 		ON DELETE CASCADE,
 	CONSTRAINT `uc_keys` UNIQUE (`ancestor`, `descendant`)
 ) ENGINE=`InnoDB`;
 
-CREATE TABLE `db_key` (
+CREATE TABLE `nz_test_closure`.`db_key` (
 	`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 	`rev_flags` BIGINT(0) NOT NULL DEFAULT 1,
 	`real_type_id` INT NOT NULL,
 	
 	FOREIGN KEY (`real_type_id`)
-		REFERENCES `type`(`id`)
+		REFERENCES `nz_test_closure`.`type`(`id`)
 		ON DELETE CASCADE
 ) ENGINE=`InnoDB`;
 
-CREATE TABLE `list` (
+CREATE TABLE `nz_test_closure`.`list` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 	`owner_id` BIGINT(0) NOT NULL,
 	`type_id` INT NOT NULL,
 	
 	FOREIGN KEY (`owner_id`)
-		REFERENCES `db_key`(`sys_id`)
+		REFERENCES `nz_test_closure`.`db_key`(`sys_id`)
 		ON DELETE CASCADE,
 	
 	FOREIGN KEY (`type_id`)
-		REFERENCES `type`(`id`)
+		REFERENCES `nz_test_closure`.`type`(`id`)
 		ON DELETE CASCADE
 ) ENGINE=`InnoDB`;
 
-CREATE TABLE `list_item` (
+CREATE TABLE `nz_test_closure`.`list_item` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 	`list_id` INT NOT NULL,
 	`ref` BIGINT(0) NOT NULL,
 	
 	FOREIGN KEY (`list_id`)
-		REFERENCES `list`(`id`)
+		REFERENCES `nz_test_closure`.`list`(`id`)
 		ON DELETE CASCADE,
 	
 	FOREIGN KEY (`ref`)
-		REFERENCES `db_key`(`sys_id`)
+		REFERENCES `nz_test_closure`.`db_key`(`sys_id`)
 		ON DELETE CASCADE
 ) ENGINE=`InnoDB`;
 
@@ -104,13 +104,13 @@ delimiter //
 drop procedure if exists before_alter_types //
 create procedure before_alter_types()
 begin
-	CREATE TEMPORARY TABLE IF NOT EXISTS `type_add_list`(
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_add_list`(
 		`name` VARCHAR(128) NOT NULL UNIQUE,
 		`table_name` VARCHAR(64) NOT NULL UNIQUE,
 		`base_type_name` VARCHAR(128)
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
 
-	truncate table `type_add_list`;
+	truncate table `nz_test_closure`.`type_add_list`;
 		
 # ---> type_rem_list
 end //
@@ -131,7 +131,7 @@ begin
 	create temporary table `nz_test_closure`.`new_type`(
 		`id` int not null,
 		foreign key (`id`)
-			references `type`(`id`)
+			references `nz_test_closure`.`type`(`id`)
 			on delete cascade
 	) engine=`MEMORY`;
 	
@@ -191,7 +191,7 @@ begin
 					', fields_defs ,',
 
 					FOREIGN KEY (id)
-						REFERENCES `db_key`(`sys_id`)
+						REFERENCES `', db_name ,'`.`db_key`(`sys_id`)
 						ON DELETE CASCADE
 
 						', fields_constraints, '
@@ -212,8 +212,8 @@ begin
 		close new_type_cur;
 	end;
 
-	drop table `new_type`;
-	truncate table `type_add_list`;
+	drop table `nz_test_closure`.`new_type`;
+	truncate table `nz_test_closure`.`type_add_list`;
 end //
 
 delimiter //
@@ -227,17 +227,17 @@ begin
 	
 	select `table_name`, `base_type_name`
 	into tbl_name, base_name
-	from `nz_test_closure`.`type_add_list` as t
-	where t.`name` = type_name
+	from `nz_test_closure`.`type_add_list` as tadd
+	where tadd.`name` = type_name
 	limit 1;
 	
 	select `id`
 	into base_id
-	from `type` as t
+	from `nz_test_closure`.`type` as t
 	where t.`name` = base_name
 	limit 1;
 
-	insert into `type`
+	insert into `nz_test_closure`.`type`
 	(`name`, `base_type_name`, `table_name`)
 	value
 	(type_name, base_name, tbl_name);
@@ -245,18 +245,18 @@ begin
 	SELECT last_insert_id()
 	into type_id;
 
-	insert into `type_closure`
+	insert into `nz_test_closure`.`type_closure`
 	(`ancestor`, `descendant`)
 	select clos.`ancestor`, type_id
-	from `type_closure` as clos
+	from `nz_test_closure`.`type_closure` as clos
 	where clos.`descendant` = base_id
 	union
 	select type_id, type_id;
 		
-	insert into `new_type` (`id`)
+	insert into `nz_test_closure`.`new_type` (`id`)
 	value (type_id);
 		
-	delete from `type_add_list`
+	delete from `nz_test_closure`.`type_add_list`
 	where `name` = type_name;
 end //
 
@@ -281,10 +281,10 @@ begin
 
 	select `id`
 	into c_type_id
-	from `type` as t
+	from `nz_test_closure`.`type` as t
 	where t.`name` = c_type_name;
 
-	select concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
+	#select concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
 
 	if inheriting then
 	begin	# get all parents' fields
@@ -352,9 +352,9 @@ begin
 		set fields_constraints = SUBSTRING(fields_constraints, 2);
 	end if;
 
-	select fields_defs;
-	select fields_constraints;
-	select concat('End ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
+	#select fields_defs;
+	#select fields_constraints;
+	#select concat('End ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
 end //
 #--------------------------------------------------
 
@@ -456,19 +456,19 @@ begin
 
 		select `id`
 		into type_id
-		from `type`
-		where `type`.`name` = type_name
+		from `nz_test_closure`.`type` as t
+		where t.`name` = type_name
 		limit 1;
 
 	# Сheck if terminating type
 	select count(clos.`ancestor`)
 		into desc_count
-		from `type_closure` as clos
+		from `nz_test_closure`.`type_closure` as clos
 		where clos.`ancestor` = type_id;
 		
 		if (desc_count = 1) then
-			delete from `type`
-			where `type`.`id` = type_id;
+			delete from `nz_test_closure`.`type`
+			where `id` = type_id;
 # TODO: drop table
 		else
 			signal sqlstate '40000'
@@ -482,7 +482,7 @@ delimiter //
 drop procedure if exists before_alter_fields //
 create procedure before_alter_fields()
 begin
-	CREATE TEMPORARY TABLE IF NOT EXISTS `field_add_list`(
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_add_list`(
 		`owner_type_name` VARCHAR(128) NOT NULL check(`owner_type_name` != ''),
 		`name` VARCHAR(128) NOT NULL check(`name` != ''),
 		`col_name` VARCHAR(64) NOT NULL COLLATE `utf8_general_ci` check(`col_name` != ''),
@@ -503,7 +503,7 @@ begin
 		`back_ref_name` VARCHAR(128) DEFAULT NULL check(`back_ref_name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
 
-	truncate table `field_add_list`;
+	truncate table `nz_test_closure`.`field_add_list`;
 		
 # ---> fields_rem_list
 end //
@@ -512,17 +512,17 @@ delimiter //
 drop procedure if exists add_all_fields //
 create procedure add_all_fields()
 begin
-	insert into `field`
+	insert into `nz_test_closure`.`field`
 	(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
 	select newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
-	from `field_add_list` as newf
-	join `type` as ownt
+	from `nz_test_closure`.`field_add_list` as newf
+	join `nz_test_closure`.`type` as ownt
 	on ownt.`name` = newf.`owner_type_name`
-	left join `type` as reft
+	left join `nz_test_closure`.`type` as reft
 	on reft.`name` = newf.`type_name`;
 
-	update `field` as f1
-	join `field` as f2
+	update `nz_test_closure`.`field` as f1
+	join `nz_test_closure`.`field` as f2
 	on f2.`name` = f1.`back_ref_name`
 	set f1.`back_ref_id` = f2.`id`;
 
@@ -537,8 +537,8 @@ begin
 
 	insert into `nz_test_closure`.`new_field`
 	select f.`id`
-	from `field` as f
-	join `field_add_list` as newf
+	from `nz_test_closure`.`field` as f
+	join `nz_test_closure`.`field_add_list` as newf
 	on f.`name` = newf.`name`
 		and f.`owner_type_name` = newf.`owner_type_name`;
 
@@ -571,11 +571,11 @@ begin
 			if (LENGTH(fields_defs) > 0) then
 				SET @prep_str = CONCAT('
 					ALTER TABLE `', db_name ,'`.`', t_table_name, '`
-						ADD COLUMN (', fields_defs ,'),
+						ADD COLUMN (', fields_defs ,')
 						', fields_constraints, ';
 					');
 
-			select @prep_str as 'Altering query';
+			#select @prep_str as 'Altering query';
 
 				PREPARE p_alter_table FROM @prep_str;
 				EXECUTE p_alter_table;
@@ -600,8 +600,8 @@ drop procedure if exists get_all_ancestors//
 create procedure get_all_ancestors(id INT)
 begin
 	select t.name
-	from type as t
-	join type_closure as clos
+	from `nz_test_closure`.`type` as t
+	join `nz_test_closure`.`type_closure` as clos
 	on t.id = clos.ancestor
 	where clos.descendant = id
 		and t.id != id;	# filter itself
@@ -612,8 +612,8 @@ drop procedure if exists get_all_descendants//
 create procedure get_all_descendants(id INT)
 begin
 	select t.name
-	from type as t
-	join type_closure as clos
+	from `nz_test_closure`.`type` as t
+	join `nz_test_closure`.`type_closure` as clos
 	on t.id = clos.descendant
 	where clos.ancestor = id
 		and t.id != id;	# filter itself
