@@ -9,9 +9,9 @@ call before_alter_types();
 INSERT INTO `type_add_list`
 (`name`, `table_name`, `base_type_name`)
 VALUES
-('MegaAdmin', '_mega_admin', 'Admin'),
-('Admin', '_admin', 'User'),
-('User', '_user', NULL),
+('VeryGoodPeople', '_very_good_people', 'GoodPeople'),
+('GoodPeople', '_good_people', 'People'),
+('People', '_people', NULL),
 ('Vehicle', '_vehicle', NULL);
 call add_all_types();
 # expected: (User, Vehicle), Admin, MegaAdmin
@@ -21,6 +21,7 @@ call before_alter_types();
 INSERT INTO `type_add_list`
 (`name`, `table_name`, `base_type_name`)
 VALUES
+('CoolChopper', '_cool_chopper', 'Chopper'),
 ('HotRod', '_hot_rod', 'Car'),
 ('Chopper', '_chopper', 'Motocycle'),
 ('Car', '_car', 'Vehicle'),
