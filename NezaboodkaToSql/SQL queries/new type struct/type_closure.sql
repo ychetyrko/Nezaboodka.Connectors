@@ -6,7 +6,7 @@ CREATE TABLE `nz_test_closure`.`type`(
 	`id` INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
 	`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
 	`table_name` VARCHAR(64) NOT NULL UNIQUE CHECK(`table_name` != ''),
-	`base_type_name` VARCHAR(128) COLLATE `utf8_general_ci` CHECK(`table_name` != '')
+	`base_type_name` VARCHAR(128) COLLATE `utf8_general_ci` CHECK(`base_type_name` != '')
 ) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 
 CREATE TABLE `nz_test_closure`.`field` (
@@ -107,9 +107,9 @@ begin
 	DROP TABLE IF EXISTS `nz_test_closure`.`type_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_add_list`(
 		`id` INT PRIMARY KEY NOT NULL UNIQUE AUTO_INCREMENT,
-		`name` VARCHAR(128) NOT NULL UNIQUE,
-		`table_name` VARCHAR(64) NOT NULL UNIQUE,
-		`base_type_name` VARCHAR(128)
+		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
+		`table_name` VARCHAR(64) NOT NULL UNIQUE CHECK(`table_name` != ''),
+		`base_type_name` VARCHAR(128) CHECK(`table_name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
 	
 # ---> type_rem_list
