@@ -9,6 +9,23 @@ CREATE TABLE `nz_test_closure`.`type`(
 	`base_type_name` VARCHAR(128) COLLATE `utf8_general_ci` CHECK(`base_type_name` != '')
 ) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 
+CREATE TABLE `nz_test_closure`.`type_closure`(
+	`ancestor` INT NOT NULL,
+	`descendant` INT NOT NULL,
+	`is_straight` BOOLEAN NOT NULL DEFAULT FALSE,
+	
+	FOREIGN KEY(`ancestor`)
+		REFERENCES `nz_test_closure`.`type`(`id`)
+		ON DELETE CASCADE,
+	
+	FOREIGN KEY(`descendant`)
+		REFERENCES `nz_test_closure`.`type`(`id`)
+		ON DELETE CASCADE,
+	
+	CONSTRAINT `uc_keys`
+		UNIQUE (`ancestor`, `descendant`)
+) ENGINE=`InnoDB`;
+
 CREATE TABLE `nz_test_closure`.`field` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 	`owner_type_name` VARCHAR(128) NOT NULL CHECK(`owner_type_name` != ''),
@@ -45,20 +62,6 @@ CREATE TABLE `nz_test_closure`.`field` (
 		REFERENCES `nz_test_closure`.`field`(`id`)
 		ON DELETE SET NULL
 ) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
-
-CREATE TABLE `nz_test_closure`.`type_closure`(
-	`ancestor` INT NOT NULL,
-	`descendant` INT NOT NULL,
-		`is_straight` BOOLEAN NOT NULL DEFAULT false,
-		
-		FOREIGN KEY(`ancestor`)
-			REFERENCES `nz_test_closure`.`type`(`id`)
-			ON DELETE CASCADE,
-		FOREIGN KEY(`descendant`)
-		REFERENCES `nz_test_closure`.`type`(`id`)
-		ON DELETE CASCADE,
-	CONSTRAINT `uc_keys` UNIQUE (`ancestor`, `descendant`)
-) ENGINE=`InnoDB`;
 
 CREATE TABLE `nz_test_closure`.`db_key` (
 	`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
@@ -100,10 +103,10 @@ CREATE TABLE `nz_test_closure`.`list_item` (
 
 #--------------------------------------------------
 
-delimiter //
-drop procedure if exists before_alter_types //
-create procedure before_alter_types()
-begin
+DELIMITER //
+DROP PROCEDURE IF EXISTS before_alter_types //
+CREATE PROCEDURE before_alter_types()
+BEGIN
 	DROP TABLE IF EXISTS `nz_test_closure`.`type_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_add_list`(
 		`id` INT PRIMARY KEY NOT NULL UNIQUE AUTO_INCREMENT,
@@ -111,175 +114,176 @@ begin
 		`table_name` VARCHAR(64) NOT NULL UNIQUE CHECK(`table_name` != ''),
 		`base_type_name` VARCHAR(128) CHECK(`table_name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
-	
+
 # ---> type_rem_list
-end //
+END //
 
-delimiter //
-drop procedure if exists add_all_types //
-create procedure add_all_types()
-begin
-	declare current_ord int default 0;
-    
-    drop table if exists `nz_test_closure`.`type_add_queue`;
-    create temporary table `nz_test_closure`.`type_add_queue`(
-		`ord` int not null,
-		`id` int not null unique,	# to ignore already inserted elements
-		foreign key (`id`)
-			references `nz_test_closure`.`type_add_list`(`id`)
-			on delete cascade
-	) engine=`MEMORY`;
-    
-    # As TEMPORARY table can't be referred to multiple times in the same query:
-    # https://dev.mysql.com/doc/refman/5.7/en/temporary-table-problems.html
-    drop table if exists `nz_test_closure`.`type_temp_queue_buf`;
-    create temporary table `nz_test_closure`.`type_temp_queue_buf`(
-		`id` int not null,
-		foreign key (`id`)
-			references `nz_test_closure`.`type_add_list`(`id`)
-			on delete cascade
-	) engine=`MEMORY`;
-    # Same reason
-    drop table if exists `nz_test_closure`.`type_inserted_list_buf`;
-    create temporary table `nz_test_closure`.`type_inserted_list_buf`(
-		`id` int not null unique,
-        `name` varchar(128) not null,
-		foreign key (`id`)
-			references `nz_test_closure`.`type_add_list`(`id`)
-			on delete cascade
-	) engine=`MEMORY`;
+DELIMITER //
+DROP PROCEDURE IF EXISTS add_types //
+CREATE PROCEDURE add_types()
+BEGIN
+	DECLARE current_ord INT DEFAULT 0;
 	
-    # First: insert types with NO parents (roots)
-    set current_ord = 0;
-    insert into `nz_test_closure`.`type_add_queue`
-	(`ord`, `id`)
-	select current_ord, tadd.`id`
-	from `nz_test_closure`.`type_add_list` as tadd
-	where tadd.`base_type_name` is NULL;
-    
-    # Second: insert types with EXISTING parents
-    set current_ord = current_ord + 1;
-    insert into `nz_test_closure`.`type_add_queue`
-	(`ord`, `id`)
-	select current_ord, tadd.`id`
-	from `nz_test_closure`.`type_add_list` as tadd
-	join `nz_test_closure`.`type` as t
-	on tadd.`base_type_name` = t.`name`;
-	
-    # Third: insert types with parents just inserted (main ordering loop)
-    order_loop: LOOP
-		delete from `nz_test_closure`.`type_temp_queue_buf`;
-        delete from `nz_test_closure`.`type_inserted_list_buf`;
-        set current_ord = current_ord + 1;
-        
-        insert into `nz_test_closure`.`type_inserted_list_buf`
-        (`id`, `name`)
-        select tadd.`id`, tadd.`name`
-        from `nz_test_closure`.`type_add_list` as tadd
-        join `nz_test_closure`.`type_add_queue` as q
-        on tadd.`id` = q.`id`;
-        
-        insert into `nz_test_closure`.`type_temp_queue_buf`
-        (`id`)
-        select tadd.`id`
-        from `nz_test_closure`.`type_add_list` as tadd
-        join `nz_test_closure`.`type_inserted_list_buf` as insbuf
-        on tadd.`base_type_name` = insbuf.`name`;
-        
-        insert ignore into `nz_test_closure`.`type_add_queue`
-        (`ord`, `id`)
-        select current_ord, b.`id`
-		from `nz_test_closure`.`type_temp_queue_buf` as b;
-        
-        if (ROW_COUNT() = 0) then
-			leave order_loop;
-        end if;
-    END LOOP;
-    
-    delete from `nz_test_closure`.`type_inserted_list_buf`;
-    drop table `nz_test_closure`.`type_inserted_list_buf`;
-    
-    delete from `nz_test_closure`.`type_temp_queue_buf`;
-    drop table `nz_test_closure`.`type_temp_queue_buf`;
+	DROP TABLE IF EXISTS `nz_test_closure`.`type_add_queue`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`type_add_queue`(
+		`ord` INT NOT NULL,
+		`id` INT NOT NULL unique,	# to IGNORE already inserted elements
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`type_add_list`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
 
+	# As temporary table can't be referred to multiple times in the same query:
+	# https://dev.mysql.com/doc/refman/5.7/en/temporary-table-problems.html
+	DROP TABLE IF EXISTS `nz_test_closure`.`type_temp_queue_buf`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`type_temp_queue_buf`(
+		`id` INT NOT NULL,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`type_add_list`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+
+	# Same reason
+	DROP TABLE IF EXISTS `nz_test_closure`.`type_inserted_list_buf`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`type_inserted_list_buf`(
+		`id` INT NOT NULL unique,
+	`name` VARCHAR(128) NOT NULL,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`type_add_list`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+
+	# First: insert types with NO parents (roots)
+	SET current_ord = 0;
+	INSERT INTO `nz_test_closure`.`type_add_queue`
+	(`ord`, `id`)
+	SELECT current_ord, tadd.`id`
+	FROM `nz_test_closure`.`type_add_list` AS tadd
+	WHERE tadd.`base_type_name` is NULL;
+
+	# Second: insert types with EXISTING parents
+	SET current_ord = current_ord + 1;
+	INSERT INTO `nz_test_closure`.`type_add_queue`
+	(`ord`, `id`)
+	SELECT current_ord, tadd.`id`
+	FROM `nz_test_closure`.`type_add_list` AS tadd
+	JOIN `nz_test_closure`.`type` AS t
+	ON tadd.`base_type_name` = t.`name`;
+
+	# Third: insert types with parents just inserted (main ordering loop)
+	order_loop: LOOP
+		DELETE FROM `nz_test_closure`.`type_temp_queue_buf`;
+		DELETE FROM `nz_test_closure`.`type_inserted_list_buf`;
+		SET current_ord = current_ord + 1;
+
+		INSERT INTO `nz_test_closure`.`type_inserted_list_buf`
+		(`id`, `name`)
+		SELECT tadd.`id`, tadd.`name`
+		FROM `nz_test_closure`.`type_add_list` AS tadd
+		JOIN `nz_test_closure`.`type_add_queue` AS q
+		ON tadd.`id` = q.`id`;
+
+		INSERT INTO `nz_test_closure`.`type_temp_queue_buf`
+		(`id`)
+		SELECT tadd.`id`
+		FROM `nz_test_closure`.`type_add_list` AS tadd
+		JOIN `nz_test_closure`.`type_inserted_list_buf` AS insbuf
+		ON tadd.`base_type_name` = insbuf.`name`;
+
+		INSERT IGNORE INTO `nz_test_closure`.`type_add_queue`
+		(`ord`, `id`)
+		SELECT current_ord, b.`id`
+		FROM `nz_test_closure`.`type_temp_queue_buf` AS b;
+
+		IF (ROW_COUNT() = 0) THEN
+			LEAVE order_loop;
+		END IF;
+	END LOOP;
+
+	DELETE FROM `nz_test_closure`.`type_inserted_list_buf`;
+	DROP TABLE `nz_test_closure`.`type_inserted_list_buf`;
+
+	DELETE FROM `nz_test_closure`.`type_temp_queue_buf`;
+	DROP TABLE `nz_test_closure`.`type_temp_queue_buf`;
+/*
 # Debug
-    select q.`ord`, tadd.`name`, tadd.`base_type_name`
-    from `nz_test_closure`.`type_add_list` as tadd
-    join `nz_test_closure`.`type_add_queue` as q
-    on tadd.`id` = q.`id`
-    order by q.`ord`;
-    
+	SELECT q.`ord`, tadd.`name`, tadd.`base_type_name`
+	FROM `nz_test_closure`.`type_add_list` AS tadd
+	JOIN `nz_test_closure`.`type_add_queue` AS q
+	ON tadd.`id` = q.`id`
+	ORDER BY q.`ord`;
+*/
 # ------------------------------------------------------------------------
-    drop table if exists `nz_test_closure`.`new_type`;
-    create temporary table `nz_test_closure`.`new_type`(
-		`id` int not null,
-		foreign key (`id`)
-			references `nz_test_closure`.`type`(`id`)
-			on delete cascade
-	) engine=`MEMORY`;
-    
-	begin
-		declare t_name varchar(128) default null;
+	DROP TABLE IF EXISTS `nz_test_closure`.`new_type`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`new_type`(
+		`id` INT NOT NULL,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`type`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+	
+	BEGIN
+		DECLARE t_name VARCHAR(128) DEFAULT NULL;
 		
-		declare done boolean default false;
-		declare cur cursor for
-			select tadd.`name`
-			from `nz_test_closure`.`type_add_list` as tadd
-            join `nz_test_closure`.`type_add_queue` as q
-            on tadd.`id` = q.`id`
-            order by q.`ord`;
-		declare continue handler for not found
-			set done = true;
-		open cur;
+		DECLARE done boolean DEFAULT FALSE;
+		DECLARE cur CURSOR FOR
+			SELECT tadd.`name`
+			FROM `nz_test_closure`.`type_add_list` AS tadd
+			JOIN `nz_test_closure`.`type_add_queue` AS q
+			ON tadd.`id` = q.`id`
+			ORDER BY q.`ord`;
+		DECLARE CONTINUE HANDLER FOR NOT FOUND
+			SET done = true;
+		OPEN cur;
 
-		fetch cur
-		into t_name;
-		while not done do
-			call add_type(t_name);
+		FETCH cur
+		INTO t_name;
+		WHILE NOT done DO
+			CALL add_type(t_name);
 			
-			fetch cur
-			into t_name;
-		end while;
+			FETCH cur
+			INTO t_name;
+		END WHILE;
 		
-		close cur;
-	end;
-    
-    delete from `nz_test_closure`.`type_add_queue`;
-    drop table `nz_test_closure`.`type_add_queue`;
-    
+		CLOSE cur;
+	END;
+		
+	DELETE FROM `nz_test_closure`.`type_add_queue`;
+	DROP TABLE `nz_test_closure`.`type_add_queue`;
+	
 # Process all new types
-	begin
-		declare db_name varchar(64) default 'nz_test_closure';
+	BEGIN
+		DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
 
-		declare t_type_name varchar(128) default null;
-		declare t_table_name varchar(64) default null;
-		declare fields_defs text;
-		declare fields_constraints text;
+		DECLARE t_type_name VARCHAR(128) DEFAULT NULL;
+		DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
+		DECLARE fields_defs TEXT;
+		DECLARE fields_constraints TEXT;
 
-		declare types_done boolean default false;
-		declare new_type_cur cursor for
-			select t.`name` ,t.`table_name`
-			from `nz_test_closure`.`type` as t
-			join `nz_test_closure`.`new_type` as n
-			where t.`id` = n.`id`;
-		declare continue handler for not found
-			set types_done = true;
+		DECLARE types_done boolean DEFAULT FALSE;
+		DECLARE new_type_cur CURSOR FOR
+			SELECT t.`name` ,t.`table_name`
+			FROM `nz_test_closure`.`type` AS t
+			JOIN `nz_test_closure`.`new_type` AS n
+			WHERE t.`id` = n.`id`;
+		DECLARE CONTINUE HANDLER FOR NOT FOUND
+			SET types_done = true;
 		
-		open new_type_cur;
+		OPEN new_type_cur;
 
-		fetch new_type_cur	
-		into t_type_name, t_table_name;
-		while not types_done do
+		FETCH new_type_cur	
+		INTO t_type_name, t_table_name;
+		WHILE NOT types_done DO
 
-			call get_type_fields_and_constraints(t_type_name, TRUE, fields_defs, fields_constraints);
+			CALL get_type_fields_and_constraints(t_type_name, TRUE, fields_defs, fields_constraints);
 
-			if (CHAR_LENGTH(fields_defs) > 0) then 
-				set fields_defs = CONCAT(',', fields_defs);
-			end if;
+			IF (CHAR_LENGTH(fields_defs) > 0) THEN 
+				SET fields_defs = CONCAT(',', fields_defs);
+			END IF;
 
-			if (CHAR_LENGTH(fields_constraints) > 0) then 
-				set fields_constraints = CONCAT(',', fields_constraints);
-			end if;
+			IF (CHAR_LENGTH(fields_constraints) > 0) THEN 
+				SET fields_constraints = CONCAT(',', fields_constraints);
+			END IF;
 
 			# Create table for type with all ancestors' fields
 			#  (table name can't be a parameter => prepare each time)
@@ -297,241 +301,228 @@ begin
 
 				) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 			');
+/*
+# Debug
+			SELECT @prep_str;
+*/
+			PREPARE p_CREATE_table FROM @prep_str;
+			EXECUTE p_CREATE_table;
+			DEALLOCATE PREPARE p_CREATE_table;
 
-		#select @prep_str;
-
-			PREPARE p_create_table FROM @prep_str;
-			EXECUTE p_create_table;
-			DEALLOCATE PREPARE p_create_table;
-
-			fetch new_type_cur
-			into t_type_name, t_table_name;
-		end while;
+			FETCH new_type_cur
+			INTO t_type_name, t_table_name;
+		END WHILE;
 		
-		close new_type_cur;
-	end;
+		CLOSE new_type_cur;
+	END;
 
-	drop table `nz_test_closure`.`new_type`;
-	truncate table `nz_test_closure`.`type_add_list`;
-end //
+	DROP TABLE `nz_test_closure`.`new_type`;
+	TRUNCATE TABLE `nz_test_closure`.`type_add_list`;
+END //
 
-delimiter //
-drop procedure if exists add_type //
-create procedure add_type(in type_name VARCHAR(128))
-begin
-	declare tbl_name varchar(64) default null;
-	declare base_name varchar(128) default null;
-	declare base_id int default null;
-	declare type_id int default null;
-    
-	select tadd.`table_name`, tadd.`base_type_name`
-	into tbl_name, base_name
-	from `nz_test_closure`.`type_add_list` as tadd
-	where tadd.`name` = type_name
-	limit 1;
+DELIMITER //
+DROP PROCEDURE IF EXISTS add_type //
+CREATE PROCEDURE add_type(IN type_name VARCHAR(128))
+BEGIN
+	DECLARE tbl_name VARCHAR(64) DEFAULT NULL;
+	DECLARE base_name VARCHAR(128) DEFAULT NULL;
+	DECLARE base_id INT DEFAULT NULL;
+	DECLARE type_id INT DEFAULT NULL;
 	
-	select t.`id`
-	into base_id
-	from `nz_test_closure`.`type` as t
-	where t.`name` = base_name
-	limit 1;
+	SELECT tadd.`table_name`, tadd.`base_type_name`
+	INTO tbl_name, base_name
+	FROM `nz_test_closure`.`type_add_list` AS tadd
+	WHERE tadd.`name` = type_name
+	LIMIT 1;
+	
+	SELECT t.`id`
+	INTO base_id
+	FROM `nz_test_closure`.`type` AS t
+	WHERE t.`name` = base_name
+	LIMIT 1;
 
-	insert into `nz_test_closure`.`type`
+	INSERT INTO `nz_test_closure`.`type`
 	(`name`, `base_type_name`, `table_name`)
-	value
+	VALUE
 	(type_name, base_name, tbl_name);
 	
-	SELECT last_insert_id()
-	into type_id;
+	SELECT LAST_INSERT_ID()
+	INTO type_id;
 
-	insert into `nz_test_closure`.`type_closure`
+	INSERT INTO `nz_test_closure`.`type_closure`
 	(`ancestor`, `descendant`)
-	select clos.`ancestor`, type_id
-	from `nz_test_closure`.`type_closure` as clos
-	where clos.`descendant` = base_id
-	union
-	select type_id, type_id;
-		
-	insert into `nz_test_closure`.`new_type` (`id`)
-	value (type_id);
-		
-	delete from `nz_test_closure`.`type_add_list`
-	where `name` = type_name;
-end //
-
-#--------------------------------------------------
-
-delimiter //
-drop procedure if exists get_type_fields_and_constraints //
-create procedure get_type_fields_and_constraints
-	(in c_type_name varchar(128), in inheriting boolean, out fields_defs TEXT, out fields_constraints TEXT)
-begin
-	declare c_type_id int default null;
+	SELECT clos.`ancestor`, type_id
+	FROM `nz_test_closure`.`type_closure` AS clos
+	WHERE clos.`descendant` = base_id
+	UNION
+	SELECT type_id, type_id;
 	
-	declare cf_id int default null;	# for constraints names
-	declare cf_col_name VARCHAR(64) default null;
-	declare cf_type_name varchar(128) default null;
-	declare cf_ref_type_id int default null;
-	declare cf_is_list boolean default false;
-	declare cf_compare_options varchar(64);
+	INSERT INTO `nz_test_closure`.`new_type` (`id`)
+	VALUE (type_id);
+	
+	DELETE FROM `nz_test_closure`.`type_add_list`
+	WHERE `name` = type_name;
+END //
 
-	set fields_defs = '';
-	set fields_constraints = '';
-
-	select `id`
-	into c_type_id
-	from `nz_test_closure`.`type` as t
-	where t.`name` = c_type_name;
-
-	#select concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
-
-	if inheriting then
-	begin	# get all parents' fields
-		declare fields_done boolean default false;
-		declare fields_cur cursor for
-			select f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`, f.`is_list`, f.`compare_options`
-			from `nz_test_closure`.`field` as f
-			where f.`owner_type_id` in (
-				select clos.`ancestor`
-				from `nz_test_closure`.`type_closure` as clos
-				where clos.`descendant` = c_type_id
-			);
-		declare continue handler for not found
-			set fields_done = true;
-
-		open fields_cur;
-
-		fetch fields_cur
-		into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
-		while not fields_done do
-
-			call update_fields_def_constr(fields_defs, fields_constraints, inheriting,
-				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options);
-			
-			fetch fields_cur
-			into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
-		end while;
-	end;
-	else	# NOT inheriting
-	begin	# get only NEW fields
-		declare fields_done boolean default false;
-		declare fields_cur cursor for
-			select f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`, f.`is_list`, f.`compare_options`
-			from `nz_test_closure`.`new_field` as newf
-			left join `nz_test_closure`.`field` as f
-			on f.`id` = newf.`id`
-			where f.`owner_type_id` in (
-				select clos.`ancestor`
-				from `nz_test_closure`.`type_closure` as clos
-				where clos.`descendant` = c_type_id
-			);
-		declare continue handler for not found
-			set fields_done = true;
-
-		open fields_cur;
-
-		fetch fields_cur
-		into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
-		while not fields_done do
-
-			call update_fields_def_constr(fields_defs, fields_constraints, inheriting,
-				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options);
-			
-			fetch fields_cur
-			into cf_id, cf_col_name, cf_type_name, cf_ref_type_id, cf_is_list, cf_compare_options;
-		end while;
-	end;
-	end if;
-
-	if (left(fields_defs, 1) = ',') then
-		set fields_defs = SUBSTRING(fields_defs, 2);
-	end if;
-
-	if (left(fields_constraints, 1) = ',') then
-		set fields_constraints = SUBSTRING(fields_constraints, 2);
-	end if;
-
-	#select fields_defs;
-	#select fields_constraints;
-	#select concat('End ', c_type_name, '(', c_type_id,')', ' altering.') as debug;
-end //
 #--------------------------------------------------
 
-delimiter //
-drop procedure if exists update_fields_def_constr //
-create procedure update_fields_def_constr (inout f_defs text, inout f_constrs text, in inheriting boolean,
-	in c_type_id int, in cf_id int, in cf_col_name varchar(64), in cf_type_name varchar(128),
-	in cf_ref_type_id int, in cf_is_list boolean, in cf_compare_options varchar(128))
-begin
-	declare constr_add_prefix text default 'CONSTRAINT FK_';
-	declare constr_add_prefix_full text default '';
-	declare field_type varchar(128);
-	declare nullable_sign_pos int default 0;
+DELIMITER //
+DROP PROCEDURE IF EXISTS get_type_fields_and_constraints //
+CREATE PROCEDURE get_type_fields_and_constraints
+	(IN c_type_name VARCHAR(128), IN inheriting boolean,
+	OUT fields_defs TEXT, OUT fields_constraints TEXT)
+BEGIN
+	DECLARE c_type_id INT DEFAULT NULL;
+	
+	DECLARE cf_id INT DEFAULT NULL;	# for constraints names
+	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
+	DECLARE cf_type_name VARCHAR(128) DEFAULT NULL;
+	DECLARE cf_ref_type_id INT DEFAULT NULL;
+	DECLARE cf_is_list boolean DEFAULT FALSE;
+	DECLARE cf_compare_options VARCHAR(64);
+
+	SET fields_defs = '';
+	SET fields_constraints = '';
+
+	SELECT `id`
+	INTO c_type_id
+	FROM `nz_test_closure`.`type` AS t
+	WHERE t.`name` = c_type_name;
+
+/*
+# Debug
+	SELECT concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') AS debug;
+*/
+	IF inheriting THEN
+	BEGIN	# get all parents' fields
+		DECLARE fields_done boolean DEFAULT FALSE;
+		DECLARE fields_cur CURSOR FOR
+			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
+				f.`is_list`, f.`compare_options`
+			FROM `nz_test_closure`.`field` AS f
+			WHERE f.`owner_type_id` IN (
+				SELECT clos.`ancestor`
+				FROM `nz_test_closure`.`type_closure` AS clos
+				WHERE clos.`descendant` = c_type_id
+			);
+		DECLARE CONTINUE HANDLER FOR NOT FOUND
+			SET fields_done = true;
+
+		OPEN fields_cur;
+
+		FETCH fields_cur
+		INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+			cf_is_list, cf_compare_options;
+		WHILE NOT fields_done DO
+
+			CALL update_fields_def_constr(fields_defs, fields_constraints, inheriting,
+				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+                cf_is_list, cf_compare_options);
+			
+			FETCH fields_cur
+			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+				cf_is_list, cf_compare_options;
+		END WHILE;
+	END;
+	ELSE	# NOT inheriting
+	BEGIN	# get only NEW fields
+		DECLARE fields_done boolean DEFAULT FALSE;
+		DECLARE fields_cur CURSOR FOR
+			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
+				f.`is_list`, f.`compare_options`
+			FROM `nz_test_closure`.`new_field` AS newf
+			left JOIN `nz_test_closure`.`field` AS f
+			ON f.`id` = newf.`id`
+			WHERE f.`owner_type_id` IN (
+				SELECT clos.`ancestor`
+				FROM `nz_test_closure`.`type_closure` AS clos
+				WHERE clos.`descendant` = c_type_id
+			);
+		DECLARE CONTINUE HANDLER FOR NOT FOUND
+			SET fields_done = true;
+
+		OPEN fields_cur;
+
+		FETCH fields_cur
+		INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+			cf_is_list, cf_compare_options;
+		WHILE NOT fields_done DO
+
+			CALL update_fields_def_constr(fields_defs, fields_constraints, inheriting,
+				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+                cf_is_list, cf_compare_options);
+			
+			FETCH fields_cur
+			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+				cf_is_list, cf_compare_options;
+		END WHILE;
+	END;
+	END IF;
+
+	IF (LEFT(fields_defs, 1) = ',') THEN
+		SET fields_defs = SUBSTRING(fields_defs, 2);
+	END IF;
+
+	IF (LEFT(fields_constraints, 1) = ',') THEN
+		SET fields_constraints = SUBSTRING(fields_constraints, 2);
+	END IF;
+
+	#SELECT fields_defs;
+	#SELECT fields_constraints;
+	#SELECT concat('END ', c_type_name, '(', c_type_id,')', ' altering.') AS debug;
+END //
+#--------------------------------------------------
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS update_fields_def_constr //
+CREATE PROCEDURE update_fields_def_constr
+	(INOUT f_defs TEXT, INOUT f_constrs TEXT, IN inheriting boolean,
+	IN c_type_id INT, IN cf_id INT, IN cf_col_name VARCHAR(64), IN cf_type_name VARCHAR(128),
+	IN cf_ref_type_id INT, IN cf_is_list boolean, IN cf_compare_options VARCHAR(128))
+BEGIN
+	DECLARE constr_add_prefix TEXT DEFAULT 'CONSTRAINT FK_';
+	DECLARE constr_add_prefix_full TEXT DEFAULT '';
+	DECLARE field_type VARCHAR(128);
+	DECLARE nullable_sign_pos INT DEFAULT 0;
 
 	IF NOT inheriting THEN
-		set constr_add_prefix = CONCAT('ADD ', constr_add_prefix);
-	end if;
-
-	#select concat(cf_col_name, ' 1') as debug;
+		SET constr_add_prefix = CONCAT('ADD ', constr_add_prefix);
+	END IF;
 
 	IF cf_ref_type_id IS NULL THEN
-
-	#select concat(cf_col_name, ' is value-type') as debug;
-
 		IF NOT cf_is_list THEN
-
-	#select concat(cf_col_name, ' is not list') as debug;
-
 			SET field_type = cf_type_name;
 			
 			IF field_type LIKE 'VARCHAR(%' OR field_type = 'TEXT' THEN
-
-	#select concat(cf_col_name, ' is string') as debug;
-
-				# --> Compare Options
 				IF cf_compare_options = 'IgnoreCase' THEN
 					SET field_type = CONCAT(field_type, ' COLLATE `utf8_general_ci`');
 				END IF;
-			ELSE
-
-	#select concat(cf_col_name, ' is not string') as debug;
-
-				# --> Check if nullable
-				SELECT LOCATE('?', field_type)
-				INTO nullable_sign_pos;
-				
-				IF nullable_sign_pos = 0 THEN
-					SET field_type = CONCAT(field_type, ' NOT NULL');
+			ELSE	# not string
+				IF (RIGHT(field_type, 1) = '?') THEN
+					SET field_type =
+						SUBSTRING(field_type FROM 1 FOR CHAR_LENGTH(field_type)-1);
 				ELSE
-					SET field_type = SUBSTRING(field_type FROM 1 FOR nullable_sign_pos-1);
+					SET field_type = CONCAT(field_type, ' NOT NULL');
 				END IF;
 			END IF;
 			
-		ELSE	# <-- cf_is_list == TRUE
-
-	#select concat(cf_col_name, ' is list') as debug;
-
+		ELSE	# list
 			SET field_type = 'BLOB';
 		END IF;
-
-	ELSE	# <-- cf_ref_type_id != NULL
-	#select concat(cf_col_name, ' is reference') as debug;
+	ELSE	# reference
 
 		SET constr_add_prefix_full = CONCAT('
 			',constr_add_prefix, c_type_id, '_', cf_id);
-	#select concat('Constraint full prefix: ', constr_add_prefix_full) as debug;
-
-	#select f_constrs as debug_constr_before_add;
+		
 		IF NOT cf_is_list THEN
 			SET field_type = 'BIGINT(0)';
-
 			SET f_constrs = CONCAT(f_constrs, ',
 				', constr_add_prefix_full,'
 				FOREIGN KEY (`', cf_col_name,'`)
 					REFERENCES `db_key`(`sys_id`)
 					ON DELETE SET NULL
 					ON UPDATE SET NULL');
-		ELSE	# <-- cf_is_list == TRUE
+		ELSE	# list
 			SET field_type = 'INT';
 			SET f_constrs = CONCAT(f_constrs, ',
 				', constr_add_prefix_full,'
@@ -539,48 +530,49 @@ begin
 					REFERENCES `list`(`id`)
 					ON DELETE SET NULL');
 		END IF;
-	#select f_constrs as debug_constr_after_add;
 	END IF;
-	
+
 	SET f_defs = CONCAT(f_defs, ', `', cf_col_name, '` ', field_type);
-end //
+END //
 #--------------------------------------------------
 
-delimiter //
-drop procedure if exists remove_type //
-create procedure remove_type(in type_name varchar(128))
-begin
-	declare desc_count int default null;
-		declare type_id int default null;
+DELIMITER //
+DROP PROCEDURE IF EXISTS remove_type //
+CREATE PROCEDURE remove_type(IN type_name VARCHAR(128))
+BEGIN
+	DECLARE desc_count INT DEFAULT NULL;
+	DECLARE type_id INT DEFAULT NULL;
 
-		select `id`
-		into type_id
-		from `nz_test_closure`.`type` as t
-		where t.`name` = type_name
-		limit 1;
+	SELECT `id`
+	INTO type_id
+	FROM `nz_test_closure`.`type` AS t
+	WHERE t.`name` = type_name
+	LIMIT 1;
 
 	# Сheck if terminating type
-	select count(clos.`ancestor`)
-		into desc_count
-		from `nz_test_closure`.`type_closure` as clos
-		where clos.`ancestor` = type_id;
-		
-		if (desc_count = 1) then
-			delete from `nz_test_closure`.`type`
-			where `id` = type_id;
-# TODO: drop table
-		else
-			signal sqlstate '40000'
-				set message_text = "Can't insert type to the center of hierarchy";
-		end if;
-end //
+	SELECT COUNT(clos.`ancestor`)
+	INTO desc_count
+	FROM `nz_test_closure`.`type_closure` AS clos
+	WHERE clos.`ancestor` = type_id;
+	
+	IF (desc_count = 1) THEN
+		DELETE FROM `nz_test_closure`.`type`
+		WHERE `id` = type_id;
+
+# ---> DROP TABLE
+
+		ELSE
+			SIGNAL SQLSTATE '40000'
+				SET message_text = "Can't INSERT type to the center of hierarchy";
+		END IF;
+END //
 
 #--------------------------------------------------
 
-delimiter //
-drop procedure if exists before_alter_fields //
-create procedure before_alter_fields()
-begin
+DELIMITER //
+DROP PROCEDURE IF EXISTS before_alter_fields //
+CREATE PROCEDURE before_alter_fields()
+BEGIN
 	DROP TABLE IF EXISTS `nz_test_closure`.`field_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_add_list`(
 		`owner_type_name` VARCHAR(128) NOT NULL check(`owner_type_name` != ''),
@@ -604,122 +596,121 @@ begin
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`utf8` COLLATE `utf8_general_ci`;
 
 # ---> fields_rem_list
-end //
+END //
 
-delimiter //
-drop procedure if exists add_all_fields //
-create procedure add_all_fields()
-begin
-	insert into `nz_test_closure`.`field`
+DELIMITER //
+DROP PROCEDURE IF EXISTS add_all_fields //
+CREATE PROCEDURE add_all_fields()
+BEGIN
+	INSERT INTO `nz_test_closure`.`field`
 	(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
-	select newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
-	from `nz_test_closure`.`field_add_list` as newf
-	join `nz_test_closure`.`type` as ownt
-	on ownt.`name` = newf.`owner_type_name`
-	left join `nz_test_closure`.`type` as reft
-	on reft.`name` = newf.`type_name`;
+	SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
+	FROM `nz_test_closure`.`field_add_list` AS newf
+	JOIN `nz_test_closure`.`type` AS ownt
+	ON ownt.`name` = newf.`owner_type_name`
+	left JOIN `nz_test_closure`.`type` AS reft
+	ON reft.`name` = newf.`type_name`;
 
-	update `nz_test_closure`.`field` as f1
-	join `nz_test_closure`.`field` as f2
-	on f2.`name` = f1.`back_ref_name`
-	set f1.`back_ref_id` = f2.`id`;
+	update `nz_test_closure`.`field` AS f1
+	JOIN `nz_test_closure`.`field` AS f2
+	ON f2.`name` = f1.`back_ref_name`
+	SET f1.`back_ref_id` = f2.`id`;
 
-	drop table if exists `nz_test_closure`.`new_field`;
-	create temporary table if not exists `nz_test_closure`.`new_field`(
-		`id` int not null,
-		foreign key (`id`)
-			references `nz_test_closure`.`field`(`id`)
-			on delete cascade
-	) engine=`MEMORY`;
+	DROP TABLE IF EXISTS `nz_test_closure`.`new_field`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`new_field`(
+		`id` INT NOT NULL,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`field`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
 	
-	insert into `nz_test_closure`.`new_field`
-	select f.`id`
-	from `nz_test_closure`.`field` as f
-	join `nz_test_closure`.`field_add_list` as newf
-	on f.`name` = newf.`name`
-		and f.`owner_type_name` = newf.`owner_type_name`;
+	INSERT INTO `nz_test_closure`.`new_field`
+	SELECT f.`id`
+	FROM `nz_test_closure`.`field` AS f
+	JOIN `nz_test_closure`.`field_add_list` AS newf
+	ON f.`name` = newf.`name`
+		AND f.`owner_type_name` = newf.`owner_type_name`;
 
-#TODO: autofill BackReferences
+# ---> autofill BackReferences
 
 	# Update all types with new fields
-	begin
-		declare db_name varchar(64) default 'nz_test_closure';
+	BEGIN
+		DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
 
-		declare t_type_name varchar(128) default null;
-		declare t_table_name varchar(64) default null;
-		declare fields_defs text;
-		declare fields_constraints text;
+		DECLARE t_type_name VARCHAR(128) DEFAULT NULL;
+		DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
+		DECLARE fields_defs TEXT;
+		DECLARE fields_constraints TEXT;
 
-		declare types_done boolean default false;
-		declare type_cur cursor for
-			select t.`name` ,t.`table_name`
-			from `nz_test_closure`.`type` as t;
-		declare continue handler for not found
-			set types_done = true;
+		DECLARE types_done boolean DEFAULT FALSE;
+		DECLARE type_cur CURSOR FOR
+			SELECT t.`name` ,t.`table_name`
+			FROM `nz_test_closure`.`type` AS t;
+		DECLARE CONTINUE HANDLER FOR NOT FOUND
+			SET types_done = true;
 		
-		open type_cur;
+		OPEN type_cur;
 
-		fetch type_cur	
-		into t_type_name, t_table_name;
-		while not types_done do
+		FETCH type_cur	
+		INTO t_type_name, t_table_name;
+		WHILE NOT types_done DO
+			CALL get_type_fields_and_constraints(t_type_name, FALSE, fields_defs, fields_constraints);
 
-			call get_type_fields_and_constraints(t_type_name, FALSE, fields_defs, fields_constraints);
+			IF (LENGTH(fields_defs) > 0) THEN
+				IF (LENGTH(fields_constraints) > 0) THEN 
+					SET fields_constraints = CONCAT(',', fields_constraints);
+				END IF;
 
-			if (LENGTH(fields_defs) > 0) then
-            
-				if (LENGTH(fields_constraints) > 0) then 
-					set fields_constraints = CONCAT(',', fields_constraints);
-				end if;
-                
 				SET @prep_str = CONCAT('
 					ALTER TABLE `', db_name ,'`.`', t_table_name, '`
 						ADD COLUMN (', fields_defs ,')
 						', fields_constraints, ';
 					');
-
-			#select @prep_str as 'Altering query';
-
+/*
+# Debug
+				SELECT @prep_str AS 'Altering query';
+*/
 				PREPARE p_alter_table FROM @prep_str;
 				EXECUTE p_alter_table;
 				DEALLOCATE PREPARE p_alter_table;
-			end if;
+			END IF;
 
-			fetch type_cur
-			into t_type_name, t_table_name;
-		end while;
-		
-		close type_cur;
-	end;
+			FETCH type_cur
+			INTO t_type_name, t_table_name;
+		END WHILE;
 
-	drop table `nz_test_closure`.`new_field`;
-	truncate table `nz_test_closure`.`field_add_list`;
-end //
+		CLOSE type_cur;
+	END;
+
+	DROP TABLE `nz_test_closure`.`new_field`;
+	TRUNCATE TABLE `nz_test_closure`.`field_add_list`;
+END //
 
 #--------------------------------------------------
 /*
-delimiter //
-drop procedure if exists get_all_ancestors//
-create procedure get_all_ancestors(id INT)
-begin
-	select t.name
-	from `nz_test_closure`.`type` as t
-	join `nz_test_closure`.`type_closure` as clos
-	on t.id = clos.ancestor
-	where clos.descendant = id
-		and t.id != id;	# filter itself
-end //
+DELIMITER //
+DROP PROCEDURE IF EXISTS get_all_ancestors//
+CREATE PROCEDURE get_all_ancestors(id INT)
+BEGIN
+	SELECT t.name
+	FROM `nz_test_closure`.`type` AS t
+	JOIN `nz_test_closure`.`type_closure` AS clos
+	ON t.id = clos.ancestor
+	WHERE clos.descendant = id
+		AND t.id != id;	# filter itself
+END //
 
-delimiter //
-drop procedure if exists get_all_descendants//
-create procedure get_all_descendants(id INT)
-begin
-	select t.name
-	from `nz_test_closure`.`type` as t
-	join `nz_test_closure`.`type_closure` as clos
-	on t.id = clos.descendant
-	where clos.ancestor = id
-		and t.id != id;	# filter itself
-end //
+DELIMITER //
+DROP PROCEDURE IF EXISTS get_all_descendants//
+CREATE PROCEDURE get_all_descendants(id INT)
+BEGIN
+	SELECT t.name
+	FROM `nz_test_closure`.`type` AS t
+	JOIN `nz_test_closure`.`type_closure` AS clos
+	ON t.id = clos.descendant
+	WHERE clos.ancestor = id
+		AND t.id != id;	# filter itself
+END //
 
-delimiter ;
+DELIMITER ;
 */
