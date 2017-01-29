@@ -1,72 +1,79 @@
-use `nz_test_closure`;
+/*======================================
+		Add types and fields tests
+======================================*/
 
-#========================================
-# User and Group types -----------------------------
+USE `nz_test_closure`;
 
-call before_alter_types();
+/*---------------------------------------/
+		User and Group types
+--------------------------------------*/
+CALL before_alter_types();
 INSERT INTO `type_add_list`
 (`name`, `table_name`, `base_type_name`)
 VALUES
 ('User', '_user', NULL),
 ('Group', '_group', NULL);
-call add_all_types();
+CALL add_types();
 
-# User and Group fields ---------------------------
-
-call before_alter_fields();
+/*---------------------------------------/
+		User and Group fields
+--------------------------------------*/
+CALL before_alter_fields();
 INSERT INTO `field_add_list`
 (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
-# User
+-- User
 ('Login', '_login', 'User', 'VARCHAR(60)', FALSE, 'IgnoreCase', NULL),
 ('Group', '_group', 'User', 'Group', FALSE, 'None', 'Participants'),
-# Group
+-- Group
 ('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', NULL),
 ('Participants', '_participants', 'Group', 'User', TRUE, 'None', 'Group'),
 ('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', NULL);
-call add_all_fields();
+CALL add_all_fields();
 
-#========================================
-# Admin and Moderator types -------------
-
-call before_alter_types();
+/*---------------------------------------/
+		Admin and Moderator types
+--------------------------------------*/
+CALL before_alter_types();
 INSERT INTO `type_add_list`
 (`name`, `table_name`, `base_type_name`)
 VALUES
 ('Admin', '_admin', 'User'),
 ('Moderator', '_moderator', 'User');
-call add_all_types();
+CALL add_types();
 
-# Admin and Moderator fields ------------
-
-call before_alter_fields();
+/*---------------------------------------/
+		Admin and Moderator fields
+--------------------------------------*/
+CALL before_alter_fields();
 INSERT INTO `field_add_list`
 (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
-#Admin
+-- Admin
 ('ControlGroup', '_control_group', 'Admin', 'Group', FALSE, 'None', 'Admin'),
-#Moderator
+-- Moderator
 ('ModeratedGroup', '_moderated_group', 'Moderator', 'Group', FALSE, 'None', 'Moderators'),
-# Group
+-- Group
 ('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', 'ControlGroup'),
 ('Moderators', '_moderators', 'Group', 'Moderator', TRUE, 'None', 'ModeratedGroup');
-call add_all_fields();
+CALL add_all_fields();
 
-#========================================
-# UberAdmin type -------------
-
-call before_alter_types();
+/*---------------------------------------/
+			UberAdmin type
+--------------------------------------*/
+CALL before_alter_types();
 INSERT INTO `type_add_list`
 (`name`, `table_name`, `base_type_name`)
 VALUE
 ('UberAdmin', '_uber_admin', 'Admin');
-call add_all_types();
+CALL add_types();
 
-# UberAdmin fields ------------
-
-call before_alter_fields();
+/*---------------------------------------/
+			UberAdmin fields
+--------------------------------------*/
+CALL before_alter_fields();
 INSERT INTO `field_add_list`
 (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
-('UberRating', '_uber_rating', 'UberAdmin', 'INT', FALSE, 'None', NULl);
-call add_all_fields();
+('UberRating', '_uber_rating', 'UberAdmin', 'INT', FALSE, 'None', NULL);
+CALL add_all_fields();

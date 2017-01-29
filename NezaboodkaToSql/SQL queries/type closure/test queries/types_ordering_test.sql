@@ -1,11 +1,14 @@
-#-----------------------------------------
-#		Types ordering tests
-#-----------------------------------------
-#	Types between brackets may have any order
-#-----------------------------------------
-use `nz_test_closure`;
-# Reverse order
-call before_alter_types();
+/*======================================
+		Types ordering tests
+======================================*/
+
+USE `nz_test_closure`;
+
+/*---------------------------------------/
+			Reverse order
+[Expected: (User, Vehicle), Admin, MegaAdmin]
+--------------------------------------*/
+CALL before_alter_types();
 INSERT INTO `type_add_list`
 (`name`, `table_name`, `base_type_name`)
 VALUES
@@ -13,11 +16,13 @@ VALUES
 ('GoodPeople', '_good_people', 'People'),
 ('People', '_people', NULL),
 ('Vehicle', '_vehicle', NULL);
-call add_all_types();
-# expected: (User, Vehicle), Admin, MegaAdmin
-#-----------------------------------------
-# Mixed order
-call before_alter_types();
+CALL add_types();
+
+/*---------------------------------------/
+			Mixed order
+[Expected: Group, (Car, Motocycle), (Chopper, HotRod, Sedan)]
+--------------------------------------*/
+CALL before_alter_types();
 INSERT INTO `type_add_list`
 (`name`, `table_name`, `base_type_name`)
 VALUES
@@ -28,5 +33,4 @@ VALUES
 ('Motocycle', '_motocycle', 'Vehicle'),
 ('Group', '_group', NULL),
 ('Sedan', '_sedan', 'Car');
-call add_all_types();
-# expected: Group, (Car, Motocycle), (Chopper, HotRod, Sedan)
+CALL add_types();
