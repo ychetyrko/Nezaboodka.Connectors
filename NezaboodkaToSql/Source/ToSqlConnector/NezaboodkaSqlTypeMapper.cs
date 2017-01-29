@@ -9,24 +9,18 @@ namespace Nezaboodka.ToSqlConnector
         public static string SqlTypeNameByNezaboodkaTypeName(string nezaboodkaTypeName, int capacity = 0)
         {
             string result;
-
             if (nezaboodkaTypeName == "String")
             {
                 if ((capacity > 0) && (capacity < 256))
                     result = $"VARCHAR({capacity})";
                 else
                     result = "TEXT";
-            }
-            else {
+            } else {
                 bool nullable = nezaboodkaTypeName.EndsWith("?");
                 result = nezaboodkaTypeName.TrimEnd('?');
-
                 if (SqlTypeByNezaboodkaTypeNameMap.ContainsKey(result))
-                {
                     result = SqlTypeByNezaboodkaTypeNameMap[result] + (nullable ? "?" : string.Empty);
-                }
             }
-
             return result;
         }
 
@@ -34,15 +28,11 @@ namespace Nezaboodka.ToSqlConnector
         {
             bool nullable = sqlTypeName.EndsWith("?");
             string result = sqlTypeName.TrimEnd('?');
-
             if (result.StartsWith("VARCHAR") || result.StartsWith("TEXT"))
                 result = "String";
             else
-            {
                 if (NezaboodkaTypeNameBySqlTypeMap.ContainsKey(result))
                     result = NezaboodkaTypeNameBySqlTypeMap[result] + (nullable ? "?" : string.Empty);
-            }
-
             return result;
         }
 
@@ -83,6 +73,5 @@ namespace Nezaboodka.ToSqlConnector
             {"CHAR(1)", "Char"},
             {"DATETIMEOFFSET", "DateTime"},
         };
-
     }
 }

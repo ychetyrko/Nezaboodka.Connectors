@@ -1,30 +1,29 @@
 namespace Nezaboodka.ToSqlConnector
 {
-    public static class NzSqlAuthentications  // TODO: read credentials from Protected Configuration
+    public static class SqlAuthData  // TODO: read credentials from Protected Configuration
     {
         public static string UserId => "nz_admin";
         public static string Pass => "nezaboodka";
+        public static uint DefaultPort => 3306;
     }
 
-    public static class NzAdminDatabase
+    public static class AdminDatabaseConst
     {
         public const string AdminDbName = "nz_admin_db";
-
         public const string DatabasesList = "db_list";
         public const string RemoveDbList = "db_rem_list";
         public const string AddDbList = "db_add_list";
-
         public const string NameField = "name";
         public const string AccessField = "access";
     }
 
-    public static class NzSchemaTableNames
+    public static class SchemaTableConst
     {
-        public const string TypeTable = "type";
-        public const string FieldTable = "field";
+        public const string TypeTableName = "type";
+        public const string FieldTableName = "field";
     }
 
-    public static class NzSchemaFieldNames
+    public static class SchemaFieldConst
     {
         public const string SysId = "sys_id";
         public const string RealTypeId = "real_type_id";
@@ -41,5 +40,4 @@ namespace Nezaboodka.ToSqlConnector
         public const string FieldCompareOptions = "compare_options";
         public const string FieldBackRefName = "back_ref_name";
     }
-
 }

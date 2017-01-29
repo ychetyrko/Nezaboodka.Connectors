@@ -44,10 +44,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Consts\SqlNezaboodkaConsts.cs" />
     <Compile Include="MySqlDatabaseClient.cs" />
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="DbQueryBuilder.cs" />
-    <Compile Include="SqlNezaboodkaConsts.cs" />
     <Compile Include="NezaboodkaSqlTypeMapper.cs" />
   </ItemGroup>
   <ItemGroup>
