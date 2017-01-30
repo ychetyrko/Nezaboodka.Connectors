@@ -27,7 +27,7 @@ VALUES
 ('Group', '_group', 'User', 'Group', FALSE, 'None', 'Participants'),
 -- Group
 ('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', NULL),
-('Participants', '_participants', 'Group', 'User', TRUE, 'None', 'Group'),
+('Participants', '_participants', 'Group', 'User', TRUE, 'None', NULL),	-- auto-updated back reference
 ('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', NULL);
 CALL add_fields();
 
@@ -54,8 +54,8 @@ VALUES
 -- Moderator
 ('ModeratedGroup', '_moderated_group', 'Moderator', 'Group', FALSE, 'None', 'Moderators'),
 -- Group
-('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', 'ControlGroup'),
-('Moderators', '_moderators', 'Group', 'Moderator', TRUE, 'None', 'ModeratedGroup');
+('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', NULL),	-- auto-updated back reference
+('Moderators', '_moderators', 'Group', 'Moderator', TRUE, 'None', NULL);	-- auto-updated back reference
 CALL add_fields();
 
 /*---------------------------------------/

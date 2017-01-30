@@ -66,6 +66,12 @@ BEGIN
 	ON f2.`name` = f1.`back_ref_name`
 	SET f1.`back_ref_id` = f2.`id`;
 
+	UPDATE `nz_test_closure`.`field` AS f1
+	JOIN `nz_test_closure`.`field` AS f2
+	ON f2.`id` = f1.`back_ref_id`
+	SET f2.`back_ref_id` = f1.`id`,
+		f2.`back_ref_name` = f1.`name`;
+
 	DROP TABLE IF EXISTS `nz_test_closure`.`new_field`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`new_field`(
 		`id` INT NOT NULL,
@@ -80,8 +86,6 @@ BEGIN
 	JOIN `nz_test_closure`.`field_add_list` AS newf
 	ON f.`name` = newf.`name`
 		AND f.`owner_type_name` = newf.`owner_type_name`;
-
--- ---> auto-update BackReferences
 
 	CALL _update_types_add_fields();
 	DROP TABLE `nz_test_closure`.`new_field`;
