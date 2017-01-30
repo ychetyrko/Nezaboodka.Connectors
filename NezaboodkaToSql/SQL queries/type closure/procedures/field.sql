@@ -34,9 +34,19 @@ BEGIN
 		`back_ref_name` VARCHAR(128) DEFAULT NULL CHECK(`back_ref_name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
 
--- ---> fields_rem_list
+	DROP TABLE IF EXISTS `nz_test_closure`.`field_rem_list`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_rem_list`(
+		`owner_type_name` VARCHAR(128) NOT NULL CHECK(`owner_type_name` != ''),
+		`name` VARCHAR(128) NOT NULL CHECK(`name` != ''),
+        
+		CONSTRAINT `uc_pair`
+			UNIQUE (`owner_type_name`, `name`)
+	);
 END //
 
+/*---------------------------------------/
+			Add fields
+--------------------------------------*/
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS add_fields //
@@ -129,4 +139,154 @@ BEGIN
 	END WHILE;
 
 	CLOSE type_cur;
+END //
+
+/*---------------------------------------/
+			Remove fields
+--------------------------------------*/
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS remove_fields //
+CREATE PROCEDURE remove_fields()
+BEGIN
+	DROP TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_fields_list`(
+		`id` INT NOT NULL UNIQUE,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`field`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+	
+    INSERT INTO `nz_test_closure`.`removing_fields_list`
+    SELECT f.`id`
+    FROM `nz_test_closure`.`field` as f
+    JOIN `nz_test_closure`.`field_rem_list` as remf
+    ON f.`owner_type_name` = remf.`owner_type_name`
+		AND f.`name` = remf.`name`;
+
+    CALL _update_types_remove_fields();
+    
+    UPDATE `nz_test_closure`.`field`
+    SET `back_ref_name` = NULL
+    WHERE `back_ref_id` IN (
+		SELECT *
+        FROM `nz_test_closure`.`removing_fields_list`
+    );
+    
+    DELETE FROM `nz_test_closure`.`field`
+    WHERE `id` IN (
+		SELECT `id`
+        FROM `nz_test_closure`.`removing_fields_list`
+    );
+	
+    DROP TABLE `nz_test_closure`.`removing_fields_list`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _update_types_remove_fields //
+CREATE PROCEDURE _update_types_remove_fields()
+BEGIN
+	DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
+
+	DECLARE c_type_id INT DEFAULT NULL;
+	DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
+	DECLARE drop_columns TEXT DEFAULT '';
+	DECLARE drop_constraints TEXT DEFAULT '';
+
+	DECLARE types_done BOOLEAN DEFAULT FALSE;
+	DECLARE type_cur CURSOR FOR
+		SELECT t.`id` ,t.`table_name`
+		FROM `nz_test_closure`.`type` AS t;
+	DECLARE CONTINUE HANDLER FOR NOT FOUND
+		SET types_done = TRUE;
+	
+	OPEN type_cur;
+
+	FETCH type_cur	
+	INTO c_type_id, t_table_name;
+	WHILE NOT types_done DO
+/*
+-- Debug
+		SELECT c_type_id AS 'Current type id';
+*/
+		CALL _get_type_removed_fields_and_constraints(c_type_id, drop_constraints, drop_columns);
+
+		IF (LENGTH(drop_columns) > 0) THEN
+			IF (LENGTH(drop_constraints) > 0) THEN 
+				SET drop_constraints = CONCAT(drop_constraints, ',');
+			END IF;
+			SET @prep_str = CONCAT('
+				ALTER TABLE `', db_name ,'`.`', t_table_name, '`
+					', drop_constraints,'
+					', drop_columns,'
+				');
+/*
+-- Debug
+			SELECT @prep_str AS 'Altering query';
+*/
+			PREPARE p_alter_table FROM @prep_str;
+			EXECUTE p_alter_table;
+			DEALLOCATE PREPARE p_alter_table;
+		END IF;
+
+		FETCH type_cur
+		INTO c_type_id, t_table_name;
+	END WHILE;
+
+	CLOSE type_cur;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _get_type_removed_fields_and_constraints //
+CREATE PROCEDURE _get_type_removed_fields_and_constraints
+(IN cf_owner_type_id INT, OUT drop_constraints TEXT, OUT drop_columns TEXT)
+BEGIN
+	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
+	DECLARE cf_ref_type_id INT DEFAULT NULL;
+	DECLARE cf_id INT DEFAULT NULL;
+
+	DECLARE done BOOLEAN DEFAULT FALSE;
+	DECLARE fields_cur CURSOR FOR
+		SELECT f.`col_name`, f.`id`, f.`ref_type_id`
+        FROM `nz_test_closure`.`removing_fields_list` AS remf
+		JOIN `nz_test_closure`.`field` AS f
+        ON remf.`id` = f.`id`
+		WHERE f.`owner_type_id` IN (
+			SELECT clos.`ancestor`	-- get all super classes
+			FROM `nz_test_closure`.`type_closure` AS clos
+			WHERE clos.`descendant` = cf_owner_type_id
+		);
+	DECLARE CONTINUE HANDLER FOR NOT FOUND
+		SET done = TRUE;
+
+	SET drop_constraints = '';
+	SET drop_columns = '';
+
+	OPEN fields_cur;
+
+	FETCH fields_cur
+	INTO cf_col_name, cf_id, cf_ref_type_id;
+	WHILE NOT done DO
+		SET drop_columns = CONCAT(drop_columns, ',
+			DROP COLUMN ', cf_col_name
+		);
+		
+		IF !(cf_ref_type_id IS NULL) THEN
+			SET drop_constraints = CONCAT(drop_constraints, ',
+			DROP FOREIGN KEY FK_', cf_owner_type_id, '_', cf_id);
+        END IF;
+		
+		FETCH fields_cur
+		INTO cf_col_name, cf_id, cf_ref_type_id;
+	END WHILE;
+	
+	IF (LEFT(drop_columns, 1) = ',') THEN
+		SET drop_columns = SUBSTRING(drop_columns, 2);
+	END IF;
+	
+    IF (LEFT(drop_constraints, 1) = ',') THEN
+		SET drop_constraints = SUBSTRING(drop_constraints, 2);
+	END IF;
 END //
