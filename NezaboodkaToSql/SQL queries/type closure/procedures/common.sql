@@ -1,14 +1,19 @@
+/*======================================
+
+		Nezaboodka Admin database
+			common procedures
+
+======================================*/
+
 USE `nz_test_closure`;
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS get_type_fields_and_constraints //
-CREATE PROCEDURE get_type_fields_and_constraints
-	(IN c_type_name VARCHAR(128), IN inheriting BOOLEAN,
+DROP PROCEDURE IF EXISTS _get_type_new_fields_and_constraints //
+CREATE PROCEDURE _get_type_new_fields_and_constraints
+	(IN c_type_id INT, IN inheriting BOOLEAN,
 	OUT fields_defs TEXT, OUT fields_constraints TEXT)
 BEGIN
-	DECLARE c_type_id INT DEFAULT NULL;
-	
 	DECLARE cf_id INT DEFAULT NULL;	-- for constraints names
 	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
 	DECLARE cf_type_name VARCHAR(128) DEFAULT NULL;
@@ -18,11 +23,6 @@ BEGIN
 
 	SET fields_defs = '';
 	SET fields_constraints = '';
-
-	SELECT `id`
-	INTO c_type_id
-	FROM `nz_test_closure`.`type` AS t
-	WHERE t.`name` = c_type_name;
 
 /*
 -- Debug
@@ -36,7 +36,7 @@ BEGIN
 				f.`is_list`, f.`compare_options`
 			FROM `nz_test_closure`.`field` AS f
 			WHERE f.`owner_type_id` IN (
-				SELECT clos.`ancestor`
+				SELECT clos.`ancestor`	-- get all super classes
 				FROM `nz_test_closure`.`type_closure` AS clos
 				WHERE clos.`descendant` = c_type_id
 			);
@@ -50,9 +50,9 @@ BEGIN
 			cf_is_list, cf_compare_options;
 		WHILE NOT fields_done DO
 
-			CALL update_fields_def_constr(fields_defs, fields_constraints, inheriting,
+			CALL _update_type_fields_def_constr(fields_defs, fields_constraints, inheriting,
 				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-                cf_is_list, cf_compare_options);
+				cf_is_list, cf_compare_options);
 			
 			FETCH fields_cur
 			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
@@ -65,11 +65,11 @@ BEGIN
 		DECLARE fields_cur CURSOR FOR
 			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
 				f.`is_list`, f.`compare_options`
-			FROM `nz_test_closure`.`new_field` AS newf
+			FROM `nz_test_closure`.`new_field` AS newf	-- only new fields
 			LEFT JOIN `nz_test_closure`.`field` AS f
 			ON f.`id` = newf.`id`
 			WHERE f.`owner_type_id` IN (
-				SELECT clos.`ancestor`
+				SELECT clos.`ancestor`	-- get all super classes
 				FROM `nz_test_closure`.`type_closure` AS clos
 				WHERE clos.`descendant` = c_type_id
 			);
@@ -83,9 +83,9 @@ BEGIN
 			cf_is_list, cf_compare_options;
 		WHILE NOT fields_done DO
 
-			CALL update_fields_def_constr(fields_defs, fields_constraints, inheriting,
+			CALL _update_type_fields_def_constr(fields_defs, fields_constraints, inheriting,
 				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-                cf_is_list, cf_compare_options);
+				cf_is_list, cf_compare_options);
 			
 			FETCH fields_cur
 			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
@@ -105,14 +105,14 @@ BEGIN
 -- Debug
 	SELECT fields_defs;
 	SELECT fields_constraints;
-	SELECT concat('END ', c_type_name, '(', c_type_id,')', ' altering.') AS debug;
+	SELECT concat('END ', c_type_id, '(', c_type_id,')', ' altering.') AS debug;
 */
 END //
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS update_fields_def_constr //
-CREATE PROCEDURE update_fields_def_constr
+DROP PROCEDURE IF EXISTS _update_type_fields_def_constr //
+CREATE PROCEDURE _update_type_fields_def_constr
 	(INOUT f_defs TEXT, INOUT f_constrs TEXT, IN inheriting BOOLEAN,
 	IN c_type_id INT, IN cf_id INT, IN cf_col_name VARCHAR(64), IN cf_type_name VARCHAR(128),
 	IN cf_ref_type_id INT, IN cf_is_list BOOLEAN, IN cf_compare_options VARCHAR(128))
@@ -147,7 +147,7 @@ BEGIN
 			SET field_type = 'BLOB';
 		END IF;
 	ELSE	-- reference
-
+		-- FK Constraint name = FK_<tpe_id>_<field_id>
 		SET constr_add_prefix_full = CONCAT('
 			',constr_add_prefix, c_type_id, '_', cf_id);
 		
@@ -173,11 +173,10 @@ BEGIN
 END //
 
 
-#--------------------------------------------------
 /*
 DELIMITER //
-DROP PROCEDURE IF EXISTS get_all_ancestors//
-CREATE PROCEDURE get_all_ancestors(id INT)
+DROP PROCEDURE IF EXISTS get_all_type_ancestors//
+CREATE PROCEDURE get_all_type_ancestors(id INT)
 BEGIN
 	SELECT t.name
 	FROM `nz_test_closure`.`type` AS t
@@ -188,8 +187,8 @@ BEGIN
 END //
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS get_all_descendants//
-CREATE PROCEDURE get_all_descendants(id INT)
+DROP PROCEDURE IF EXISTS get_all_type_descendants//
+CREATE PROCEDURE get_all_type_descendants(id INT)
 BEGIN
 	SELECT t.name
 	FROM `nz_test_closure`.`type` AS t

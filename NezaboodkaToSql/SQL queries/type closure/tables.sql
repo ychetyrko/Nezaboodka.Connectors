@@ -1,7 +1,17 @@
+/*======================================
+
+		Nezaboodka database template
+        
+======================================*/
+
 DROP DATABASE IF EXISTS `nz_test_closure`;
 CREATE DATABASE `nz_test_closure`;
 
 USE `nz_test_closure`;
+
+/*---------------------------------------/
+			Schema Info
+--------------------------------------*/
 
 CREATE TABLE `nz_test_closure`.`type`(
 	`id` INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
@@ -9,6 +19,7 @@ CREATE TABLE `nz_test_closure`.`type`(
 	`table_name` VARCHAR(64) NOT NULL UNIQUE CHECK(`table_name` != ''),
 	`base_type_name` VARCHAR(128) COLLATE `UTF8_GENERAL_CI` CHECK(`base_type_name` != '')
 ) ENGINE=`INNODB` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_BIN`;
+
 
 CREATE TABLE `nz_test_closure`.`type_closure`(
 	`ancestor` INT NOT NULL,
@@ -26,6 +37,7 @@ CREATE TABLE `nz_test_closure`.`type_closure`(
 	CONSTRAINT `uc_keys`
 		UNIQUE (`ancestor`, `descendant`)
 ) ENGINE=`INNODB`;
+
 
 CREATE TABLE `nz_test_closure`.`field` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
@@ -64,6 +76,10 @@ CREATE TABLE `nz_test_closure`.`field` (
 		ON DELETE SET NULL
 ) ENGINE=`INNODB` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_BIN`;
 
+/*---------------------------------------/
+			Default Structure
+--------------------------------------*/
+
 CREATE TABLE `nz_test_closure`.`db_key` (
 	`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 	`rev_flags` BIGINT(0) NOT NULL DEFAULT 1,
@@ -73,6 +89,7 @@ CREATE TABLE `nz_test_closure`.`db_key` (
 		REFERENCES `nz_test_closure`.`type`(`id`)
 		ON DELETE CASCADE
 ) ENGINE=`INNODB`;
+
 
 CREATE TABLE `nz_test_closure`.`list` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
@@ -87,6 +104,7 @@ CREATE TABLE `nz_test_closure`.`list` (
 		REFERENCES `nz_test_closure`.`type`(`id`)
 		ON DELETE CASCADE
 ) ENGINE=`INNODB`;
+
 
 CREATE TABLE `nz_test_closure`.`list_item` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,

@@ -31,6 +31,6 @@ VALUES
 ('Chopper', '_chopper', 'Motocycle'),
 ('Car', '_car', 'Vehicle'),
 ('Motocycle', '_motocycle', 'Vehicle'),
-('Group', '_group', NULL),
+('Buildng', '_building', NULL),
 ('Sedan', '_sedan', 'Car');
 CALL add_types();

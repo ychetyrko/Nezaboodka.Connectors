@@ -1,3 +1,10 @@
+/*======================================
+
+		Nezaboodka Admin database
+			field procedures
+
+======================================*/
+
 USE `nz_test_closure`;
 ﻿
 
@@ -32,8 +39,8 @@ END //
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS add_all_fields //
-CREATE PROCEDURE add_all_fields()
+DROP PROCEDURE IF EXISTS add_fields //
+CREATE PROCEDURE add_fields()
 BEGIN
 	INSERT INTO `nz_test_closure`.`field`
 	(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
@@ -64,57 +71,62 @@ BEGIN
 	ON f.`name` = newf.`name`
 		AND f.`owner_type_name` = newf.`owner_type_name`;
 
--- ---> autofill BackReferences
+-- ---> auto-update BackReferences
 
-	-- Update all types with new fields
-	BEGIN
-		DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
+	CALL _update_types_add_fields();
+	DROP TABLE `nz_test_closure`.`new_field`;
+    
+	TRUNCATE TABLE `nz_test_closure`.`field_add_list`;
+END //
 
-		DECLARE t_type_name VARCHAR(128) DEFAULT NULL;
-		DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
-		DECLARE fields_defs TEXT;
-		DECLARE fields_constraints TEXT;
 
-		DECLARE types_done BOOLEAN DEFAULT FALSE;
-		DECLARE type_cur CURSOR FOR
-			SELECT t.`name` ,t.`table_name`
-			FROM `nz_test_closure`.`type` AS t;
-		DECLARE CONTINUE HANDLER FOR NOT FOUND
-			SET types_done = TRUE;
-		
-		OPEN type_cur;
+DELIMITER //
+DROP PROCEDURE IF EXISTS _update_types_add_fields //
+CREATE PROCEDURE _update_types_add_fields()
+BEGIN
+	DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
 
-		FETCH type_cur	
-		INTO t_type_name, t_table_name;
-		WHILE NOT types_done DO
-			CALL get_type_fields_and_constraints(t_type_name, FALSE, fields_defs, fields_constraints);
+	DECLARE t_type_id VARCHAR(128) DEFAULT NULL;
+	DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
+	DECLARE fields_defs TEXT;
+	DECLARE fields_constraints TEXT;
 
-			IF (LENGTH(fields_defs) > 0) THEN
-				IF (LENGTH(fields_constraints) > 0) THEN 
-					SET fields_constraints = CONCAT(',', fields_constraints);
-				END IF;
+	DECLARE types_done BOOLEAN DEFAULT FALSE;
+	DECLARE type_cur CURSOR FOR
+		SELECT t.`id` ,t.`table_name`
+		FROM `nz_test_closure`.`type` AS t;
+	DECLARE CONTINUE HANDLER FOR NOT FOUND
+		SET types_done = TRUE;
+	
+	OPEN type_cur;
 
-				SET @prep_str = CONCAT('
-					ALTER TABLE `', db_name ,'`.`', t_table_name, '`
-						ADD COLUMN (', fields_defs ,')
-						', fields_constraints, ';
-					');
-/*
--- Debug
-				SELECT @prep_str AS 'Altering query';
-*/
-				PREPARE p_alter_table FROM @prep_str;
-				EXECUTE p_alter_table;
-				DEALLOCATE PREPARE p_alter_table;
+	FETCH type_cur	
+	INTO t_type_id, t_table_name;
+	WHILE NOT types_done DO
+		CALL _get_type_new_fields_and_constraints(t_type_id, FALSE, fields_defs, fields_constraints);
+
+		IF (LENGTH(fields_defs) > 0) THEN
+			IF (LENGTH(fields_constraints) > 0) THEN 
+				SET fields_constraints = CONCAT(',', fields_constraints);
 			END IF;
 
-			FETCH type_cur
-			INTO t_type_name, t_table_name;
-		END WHILE;
+			SET @prep_str = CONCAT('
+				ALTER TABLE `', db_name ,'`.`', t_table_name, '`
+					ADD COLUMN (', fields_defs ,')
+					', fields_constraints, ';
+				');
+/*
+-- Debug
+			SELECT @prep_str AS 'Altering query';
+*/
+			PREPARE p_alter_table FROM @prep_str;
+			EXECUTE p_alter_table;
+			DEALLOCATE PREPARE p_alter_table;
+		END IF;
 
-		CLOSE type_cur;
-	END;
+		FETCH type_cur
+		INTO t_type_id, t_table_name;
+	END WHILE;
 
-	DROP TABLE `nz_test_closure`.`new_field`;
-	TRUNCATE TABLE `nz_test_closure`.`field_add_list`;
+	CLOSE type_cur;
 END //
