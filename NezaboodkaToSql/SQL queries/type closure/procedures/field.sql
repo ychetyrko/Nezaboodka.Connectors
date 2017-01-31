@@ -31,14 +31,17 @@ BEGIN
 				'StringSort',
 				'Ordinal'
 			) NOT NULL DEFAULT 'None',
-		`back_ref_name` VARCHAR(128) DEFAULT NULL CHECK(`back_ref_name` != '')
+		`back_ref_name` VARCHAR(128) DEFAULT NULL CHECK(`back_ref_name` != ''),
+
+		CONSTRAINT `uc_pair`
+			UNIQUE (`owner_type_name`, `name`)
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
 
 	DROP TABLE IF EXISTS `nz_test_closure`.`field_rem_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_rem_list`(
 		`owner_type_name` VARCHAR(128) NOT NULL CHECK(`owner_type_name` != ''),
 		`name` VARCHAR(128) NOT NULL CHECK(`name` != ''),
-        
+
 		CONSTRAINT `uc_pair`
 			UNIQUE (`owner_type_name`, `name`)
 	);
@@ -89,7 +92,7 @@ BEGIN
 
 	CALL _update_types_add_fields();
 	DROP TABLE `nz_test_closure`.`new_field`;
-    
+
 	TRUNCATE TABLE `nz_test_closure`.`field_add_list`;
 END //
 
@@ -153,6 +156,8 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS remove_fields //
 CREATE PROCEDURE remove_fields()
 BEGIN
+	DECLARE rem_fields_count INT DEFAULT 0;
+
 	DROP TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_fields_list`(
 		`id` INT NOT NULL UNIQUE,
@@ -161,29 +166,38 @@ BEGIN
 			ON DELETE CASCADE
 	) ENGINE=`MEMORY`;
 	
-    INSERT INTO `nz_test_closure`.`removing_fields_list`
-    SELECT f.`id`
-    FROM `nz_test_closure`.`field` as f
-    JOIN `nz_test_closure`.`field_rem_list` as remf
-    ON f.`owner_type_name` = remf.`owner_type_name`
+	SELECT COUNT(`name`)
+	INTO rem_fields_count
+	FROM `nz_test_closure`.`field_rem_list`;
+
+	INSERT INTO `nz_test_closure`.`removing_fields_list`
+	SELECT f.`id`
+	FROM `nz_test_closure`.`field` as f
+	JOIN `nz_test_closure`.`field_rem_list` as remf
+	ON f.`owner_type_name` = remf.`owner_type_name`
 		AND f.`name` = remf.`name`;
 
-    CALL _update_types_remove_fields();
-    
-    UPDATE `nz_test_closure`.`field`
-    SET `back_ref_name` = NULL
-    WHERE `back_ref_id` IN (
+	IF (ROW_COUNT() != rem_fields_count) THEN
+		SIGNAL SQLSTATE '40000'
+			SET MESSAGE_TEXT = "Not all fields can be deleted";
+	END IF;
+
+	CALL _update_types_remove_fields();
+
+	UPDATE `nz_test_closure`.`field`
+	SET `back_ref_name` = NULL
+	WHERE `back_ref_id` IN (
 		SELECT *
-        FROM `nz_test_closure`.`removing_fields_list`
-    );
-    
-    DELETE FROM `nz_test_closure`.`field`
-    WHERE `id` IN (
+		FROM `nz_test_closure`.`removing_fields_list`
+	);
+
+	DELETE FROM `nz_test_closure`.`field`
+	WHERE `id` IN (
 		SELECT `id`
-        FROM `nz_test_closure`.`removing_fields_list`
-    );
+		FROM `nz_test_closure`.`removing_fields_list`
+	);
 	
-    DROP TABLE `nz_test_closure`.`removing_fields_list`;
+	DROP TABLE `nz_test_closure`.`removing_fields_list`;
 END //
 
 
@@ -254,9 +268,9 @@ BEGIN
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE fields_cur CURSOR FOR
 		SELECT f.`col_name`, f.`id`, f.`ref_type_id`
-        FROM `nz_test_closure`.`removing_fields_list` AS remf
+		FROM `nz_test_closure`.`removing_fields_list` AS remf
 		JOIN `nz_test_closure`.`field` AS f
-        ON remf.`id` = f.`id`
+		ON remf.`id` = f.`id`
 		WHERE f.`owner_type_id` IN (
 			SELECT clos.`ancestor`	-- get all super classes
 			FROM `nz_test_closure`.`type_closure` AS clos
@@ -280,7 +294,7 @@ BEGIN
 		IF !(cf_ref_type_id IS NULL) THEN
 			SET drop_constraints = CONCAT(drop_constraints, ',
 			DROP FOREIGN KEY FK_', cf_owner_type_id, '_', cf_id);
-        END IF;
+		END IF;
 		
 		FETCH fields_cur
 		INTO cf_col_name, cf_id, cf_ref_type_id;
@@ -290,7 +304,7 @@ BEGIN
 		SET drop_columns = SUBSTRING(drop_columns, 2);
 	END IF;
 	
-    IF (LEFT(drop_constraints, 1) = ',') THEN
+	IF (LEFT(drop_constraints, 1) = ',') THEN
 		SET drop_constraints = SUBSTRING(drop_constraints, 2);
 	END IF;
 END //

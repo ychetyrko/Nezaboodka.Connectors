@@ -1,7 +1,7 @@
 /*======================================
 
 		Nezaboodka database template
-        
+
 ======================================*/
 
 DROP DATABASE IF EXISTS `nz_test_closure`;
@@ -69,7 +69,7 @@ CREATE TABLE `nz_test_closure`.`field` (
 	
 	FOREIGN KEY(`ref_type_id`)
 		REFERENCES `nz_test_closure`.`type`(`id`)
-		ON DELETE RESTRICT,
+		ON DELETE RESTRICT,	-- to prevent deletion of referenced type
 	
 	FOREIGN KEY(`back_ref_id`)
 		REFERENCES `nz_test_closure`.`field`(`id`)
@@ -87,7 +87,7 @@ CREATE TABLE `nz_test_closure`.`db_key` (
 	
 	FOREIGN KEY (`real_type_id`)
 		REFERENCES `nz_test_closure`.`type`(`id`)
-		ON DELETE CASCADE
+		ON DELETE CASCADE	-- delete key when it's type info is removed
 ) ENGINE=`INNODB`;
 
 
@@ -98,11 +98,11 @@ CREATE TABLE `nz_test_closure`.`list` (
 	
 	FOREIGN KEY (`owner_id`)
 		REFERENCES `nz_test_closure`.`db_key`(`sys_id`)
-		ON DELETE CASCADE,
+		ON DELETE CASCADE,	-- cleanup list of deleted object
 	
 	FOREIGN KEY (`type_id`)
 		REFERENCES `nz_test_closure`.`type`(`id`)
-		ON DELETE CASCADE
+		ON DELETE CASCADE	-- delete list when it's type info is removed
 ) ENGINE=`INNODB`;
 
 
@@ -113,9 +113,9 @@ CREATE TABLE `nz_test_closure`.`list_item` (
 	
 	FOREIGN KEY (`list_id`)
 		REFERENCES `nz_test_closure`.`list`(`id`)
-		ON DELETE CASCADE,
+		ON DELETE CASCADE,	-- clear removed lists
 	
 	FOREIGN KEY (`ref`)
 		REFERENCES `nz_test_closure`.`db_key`(`sys_id`)
-		ON DELETE CASCADE
+		ON DELETE CASCADE	-- remove deleted object from all lists
 ) ENGINE=`INNODB`;

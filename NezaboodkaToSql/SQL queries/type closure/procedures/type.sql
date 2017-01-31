@@ -2,7 +2,7 @@
 
 		Nezaboodka Admin database
 			type procedures
-        
+
 ======================================*/
 
 USE `nz_test_closure`;
@@ -23,6 +23,9 @@ BEGIN
 -- ---> type_rem_list
 END //
 
+/*---------------------------------------/
+			Add types
+--------------------------------------*/
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS add_types //
@@ -38,8 +41,8 @@ BEGIN
 	) ENGINE=`MEMORY`;
 
 	CALL _order_new_types();
-    
-    DROP TABLE IF EXISTS `nz_test_closure`.`new_type`;
+	
+	DROP TABLE IF EXISTS `nz_test_closure`.`new_type`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`new_type`(
 		`id` INT NOT NULL,
 		FOREIGN KEY (`id`)
@@ -49,9 +52,9 @@ BEGIN
 	
 	CALL _add_new_types_to_closure();
 	DROP TABLE `nz_test_closure`.`type_add_queue`;
-    
+
 	CALL _process_new_types();
-    DROP TABLE `nz_test_closure`.`new_type`;
+	DROP TABLE `nz_test_closure`.`new_type`;
 	
 	TRUNCATE TABLE `nz_test_closure`.`type_add_list`;
 END //
@@ -62,7 +65,7 @@ DROP PROCEDURE IF EXISTS _order_new_types //
 CREATE PROCEDURE _order_new_types()
 BEGIN
 	DECLARE current_ord INT DEFAULT 0;
-    
+
 	-- As temporary table can't be referred to multiple times in the same query:
 	-- https://dev.mysql.com/doc/refman/5.7/en/temporary-table-problems.html
 	DROP TABLE IF EXISTS `nz_test_closure`.`type_temp_queue_buf`;
@@ -248,7 +251,7 @@ BEGIN
 
 				FOREIGN KEY (id)
 					REFERENCES `', db_name ,'`.`db_key`(`sys_id`)
-					ON DELETE CASCADE
+					ON DELETE CASCADE	-- delete object when it\'s key is removed
 
 					', fields_constraints, '
 
@@ -268,36 +271,3 @@ BEGIN
 	
 	CLOSE new_type_cur;
 END //
-﻿
-/*
-DELIMITER //
-DROP PROCEDURE IF EXISTS remove_type //
-CREATE PROCEDURE remove_type(IN type_name VARCHAR(128))
-BEGIN
-	DECLARE desc_count INT DEFAULT NULL;
-	DECLARE type_id INT DEFAULT NULL;
-
-	SELECT `id`
-	INTO type_id
-	FROM `nz_test_closure`.`type` AS t
-	WHERE t.`name` = type_name
-	LIMIT 1;
-
-	-- Сheck if terminating type
-	SELECT COUNT(clos.`ancestor`)
-	INTO desc_count
-	FROM `nz_test_closure`.`type_closure` AS clos
-	WHERE clos.`ancestor` = type_id;
-	
-	IF (desc_count = 1) THEN
-		DELETE FROM `nz_test_closure`.`type`
-		WHERE `id` = type_id;
-
--- ---> DROP TABLE
-
-		ELSE
-			SIGNAL SQLSTATE '40000'
-				SET MESSAGE_TEXT = "Can't remove type from the center of hierarchy";
-		END IF;
-END //
-*/

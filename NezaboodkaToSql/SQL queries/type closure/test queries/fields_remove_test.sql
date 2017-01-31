@@ -17,6 +17,16 @@ VALUES
 call remove_fields();
 
 /*---------------------------------------/
+	Remove nonexisting single field
+--------------------------------------*/
+call before_alter_fields();
+insert into `field_rem_list`
+(`owner_type_name`, `name`)
+VALUES
+('Admin', 'Login');
+call remove_fields();
+
+/*---------------------------------------/
 	Remove single nested field
 		with Back Reference
 --------------------------------------*/
@@ -36,4 +46,17 @@ insert into `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('Group', 'Admin');
+call remove_fields();
+
+/*---------------------------------------/
+	Remove multiple non-nested fields
+		with(out) Back Reference
+--------------------------------------*/
+call before_alter_fields();
+insert into `field_rem_list`
+(`owner_type_name`, `name`)
+VALUES
+('Admin', 'ControlGroup'),
+('Group', 'Title'),
+('UberAdmin', 'UberRating');
 call remove_fields();
