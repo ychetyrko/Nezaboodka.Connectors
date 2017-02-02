@@ -6,7 +6,7 @@ USE `nz_test_closure`;
 
 /*---------------------------------------/
 			Reverse order
-[Expected: (User, Vehicle), Admin, MegaAdmin]
+[Expected: (People, Vehicle), GoodPeople, VeryGoodPeople]
 --------------------------------------*/
 CALL before_alter_types();
 INSERT INTO `type_add_list`

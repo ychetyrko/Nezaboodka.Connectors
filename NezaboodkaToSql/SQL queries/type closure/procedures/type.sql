@@ -14,13 +14,12 @@ CREATE PROCEDURE before_alter_types()
 BEGIN
 	DROP TABLE IF EXISTS `nz_test_closure`.`type_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_add_list`(
-		`id` INT PRIMARY KEY NOT NULL UNIQUE AUTO_INCREMENT,
 		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
 		`table_name` VARCHAR(64) NOT NULL UNIQUE CHECK(`table_name` != ''),
 		`base_type_name` VARCHAR(128) CHECK(`table_name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
 
--- ---> type_rem_list
+-- ----> type_rem_list
 END //
 
 /*---------------------------------------/
@@ -36,12 +35,10 @@ BEGIN
 		`ord` INT NOT NULL,
 		`id` INT NOT NULL UNIQUE,	-- to IGNORE already inserted elements
 		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`type_add_list`(`id`)
+			REFERENCES `nz_test_closure`.`type`(`id`)
 			ON DELETE CASCADE
 	) ENGINE=`MEMORY`;
 
-	CALL _order_new_types();
-	
 	DROP TABLE IF EXISTS `nz_test_closure`.`new_type`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`new_type`(
 		`id` INT NOT NULL,
@@ -49,99 +46,40 @@ BEGIN
 			REFERENCES `nz_test_closure`.`type`(`id`)
 			ON DELETE CASCADE
 	) ENGINE=`MEMORY`;
-	
+
+	CALL _order_insert_new_types();
+	TRUNCATE TABLE `nz_test_closure`.`type_add_list`;
+
 	CALL _add_new_types_to_closure();
 	DROP TABLE `nz_test_closure`.`type_add_queue`;
 
 	CALL _process_new_types();
 	DROP TABLE `nz_test_closure`.`new_type`;
-	
-	TRUNCATE TABLE `nz_test_closure`.`type_add_list`;
 END //
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS _order_new_types //
-CREATE PROCEDURE _order_new_types()
+DROP PROCEDURE IF EXISTS _order_insert_new_types //
+CREATE PROCEDURE _order_insert_new_types()
 BEGIN
+	DECLARE last_insert_count INT DEFAULT 0;
 	DECLARE current_ord INT DEFAULT 0;
 
-	-- As temporary table can't be referred to multiple times in the same query:
-	-- https://dev.mysql.com/doc/refman/5.7/en/temporary-table-problems.html
-	DROP TABLE IF EXISTS `nz_test_closure`.`type_temp_queue_buf`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`type_temp_queue_buf`(
-		`id` INT NOT NULL UNIQUE,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`type_add_list`(`id`)
-			ON DELETE CASCADE
-	) ENGINE=`MEMORY`;
-
-	-- Same reason
-	DROP TABLE IF EXISTS `nz_test_closure`.`type_inserted_list_buf`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`type_inserted_list_buf`(
-		`id` INT NOT NULL UNIQUE,
-	`name` VARCHAR(128) NOT NULL,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`type_add_list`(`id`)
-			ON DELETE CASCADE
-	) ENGINE=`MEMORY`;
-
-	-- First: insert types with NO parents (roots)
 	SET current_ord = 0;
-	INSERT INTO `nz_test_closure`.`type_add_queue`
-	(`ord`, `id`)
-	SELECT current_ord, tadd.`id`
-	FROM `nz_test_closure`.`type_add_list` AS tadd
-	WHERE tadd.`base_type_name` IS NULL;
+	CALL _ord_insert_roots(current_ord);
 
-	-- Second: insert types with EXISTING parents
-	SET current_ord = current_ord + 1;
-	INSERT INTO `nz_test_closure`.`type_add_queue`
-	(`ord`, `id`)
-	SELECT current_ord, tadd.`id`
-	FROM `nz_test_closure`.`type_add_list` AS tadd
-	JOIN `nz_test_closure`.`type` AS t
-	ON tadd.`base_type_name` = t.`name`;
-
-	-- Third: insert types with parents just inserted (main ordering loop)
 	ORDER_LOOP: LOOP
-		DELETE FROM `nz_test_closure`.`type_temp_queue_buf`;
-		DELETE FROM `nz_test_closure`.`type_inserted_list_buf`;
 		SET current_ord = current_ord + 1;
+		CALL _ord_insert_existing_children(current_ord, last_insert_count);
 
-		INSERT INTO `nz_test_closure`.`type_inserted_list_buf`
-		(`id`, `name`)
-		SELECT tadd.`id`, tadd.`name`
-		FROM `nz_test_closure`.`type_add_list` AS tadd
-		JOIN `nz_test_closure`.`type_add_queue` AS q
-		ON tadd.`id` = q.`id`;
-
-		INSERT INTO `nz_test_closure`.`type_temp_queue_buf`
-		(`id`)
-		SELECT tadd.`id`
-		FROM `nz_test_closure`.`type_add_list` AS tadd
-		JOIN `nz_test_closure`.`type_inserted_list_buf` AS insbuf
-		ON tadd.`base_type_name` = insbuf.`name`;
-
-		INSERT IGNORE INTO `nz_test_closure`.`type_add_queue`
-		(`ord`, `id`)
-		SELECT current_ord, b.`id`
-		FROM `nz_test_closure`.`type_temp_queue_buf` AS b;
-
-		IF (ROW_COUNT() = 0) THEN
+		IF last_insert_count = 0 THEN
 			LEAVE ORDER_LOOP;
 		END IF;
 	END LOOP;
-
-	DELETE FROM `nz_test_closure`.`type_inserted_list_buf`;
-	DROP TABLE `nz_test_closure`.`type_inserted_list_buf`;
-
-	DELETE FROM `nz_test_closure`.`type_temp_queue_buf`;
-	DROP TABLE `nz_test_closure`.`type_temp_queue_buf`;
 /*
 -- Debug
 	SELECT q.`ord`, tadd.`name`, tadd.`base_type_name`
-	FROM `nz_test_closure`.`type_add_list` AS tadd
+	FROM `nz_test_closure`.`type` AS tadd
 	JOIN `nz_test_closure`.`type_add_queue` AS q
 	ON tadd.`id` = q.`id`
 	ORDER BY q.`ord`;
@@ -150,19 +88,117 @@ END //
 
 
 DELIMITER //
+DROP PROCEDURE IF EXISTS _ord_insert_roots //
+CREATE PROCEDURE _ord_insert_roots(IN current_ord INT)
+BEGIN
+	DECLARE type_id INT;
+
+	DECLARE t_name VARCHAR(128);
+	DECLARE t_base_name VARCHAR(128);
+	DECLARE t_table_name VARCHAR(64);
+
+	DECLARE done BOOLEAN DEFAULT FALSE;
+	DECLARE cur CURSOR FOR
+		SELECT `name`, `base_type_name`, `table_name`
+		FROM `nz_test_closure`.`type_add_list`
+		WHERE `base_type_name` IS NULL;
+	DECLARE CONTINUE HANDLER FOR NOT FOUND
+		SET done = TRUE;
+
+	OPEN cur;
+	FETCH cur
+	INTO t_name, t_base_name, t_table_name;
+	WHILE NOT done DO	
+		INSERT INTO `nz_test_closure`.`type`
+		(`name`, `base_type_name`, `table_name`)
+		VALUE
+		(t_name, t_base_name, t_table_name);
+
+		SELECT LAST_INSERT_ID()
+		INTO type_id;
+
+		INSERT INTO `nz_test_closure`.`type_add_queue`
+		(`ord`, `id`)
+		VALUE
+		(current_ord, type_id);
+
+		INSERT INTO `nz_test_closure`.`new_type`
+		(`id`)
+		VALUE 
+		(type_id);
+
+        FETCH cur
+		INTO t_name, t_base_name, t_table_name;
+	END WHILE;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _ord_insert_existing_children //
+CREATE PROCEDURE _ord_insert_existing_children(IN current_ord INT, OUT insert_count INT)
+BEGIN
+	DECLARE type_id INT;
+	DECLARE last_insert_count INT DEFAULT 0;
+
+	DECLARE t_name VARCHAR(128);
+	DECLARE t_base_name VARCHAR(128);
+	DECLARE t_table_name VARCHAR(64);
+
+	DECLARE done BOOLEAN DEFAULT FALSE;
+	DECLARE cur CURSOR FOR
+		SELECT tadd.`name`, tadd.`base_type_name`, tadd.`table_name`
+		FROM `nz_test_closure`.`type_add_list` AS tadd
+		JOIN `nz_test_closure`.`type` AS t
+		ON tadd.`base_type_name` = t.`name`;
+	DECLARE CONTINUE HANDLER FOR NOT FOUND
+		SET done = TRUE;
+
+	SET insert_count = 0;
+
+	OPEN cur;
+	FETCH cur
+	INTO t_name, t_base_name, t_table_name;
+	WHILE NOT done DO
+		SET @@session.last_insert_id=0;
+
+		INSERT IGNORE INTO `nz_test_closure`.`type`
+		(`name`, `base_type_name`, `table_name`)
+		VALUE
+		(t_name, t_base_name, t_table_name);
+
+		SELECT LAST_INSERT_ID()
+		INTO type_id;
+		IF (type_id != 0) THEN
+			SET insert_count = insert_count + 1;
+
+			INSERT INTO `nz_test_closure`.`type_add_queue`
+			(`ord`, `id`)
+			VALUE
+			(current_ord, type_id);
+
+			INSERT INTO `nz_test_closure`.`new_type`
+			(`id`)
+			VALUE 
+			(type_id);
+		END IF;
+
+        FETCH cur
+		INTO t_name, t_base_name, t_table_name;
+	END WHILE;
+END //
+
+
+DELIMITER //
 DROP PROCEDURE IF EXISTS _add_new_types_to_closure //
 CREATE PROCEDURE _add_new_types_to_closure()
 BEGIN
-	DECLARE t_name VARCHAR(128) DEFAULT NULL;
-	DECLARE tbl_name VARCHAR(64) DEFAULT NULL;
-	DECLARE base_name VARCHAR(128) DEFAULT NULL;
 	DECLARE base_id INT DEFAULT NULL;
 	DECLARE type_id INT DEFAULT NULL;
 	
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE cur CURSOR FOR
-		SELECT tadd.`name`, tadd.`table_name`, tadd.`base_type_name`, tbase.`id`
-		FROM `nz_test_closure`.`type_add_list` AS tadd
+		SELECT tadd.`id`, tbase.`id`
+		FROM `nz_test_closure`.`type` AS tadd
 		JOIN `nz_test_closure`.`type_add_queue` AS q
 		ON tadd.`id` = q.`id`
 		LEFT JOIN `nz_test_closure`.`type` AS tbase
@@ -173,16 +209,8 @@ BEGIN
 	OPEN cur;
 
 	FETCH cur
-	INTO t_name, tbl_name, base_name, base_id;
+	INTO type_id, base_id;
 	WHILE NOT done DO		
-		INSERT INTO `nz_test_closure`.`type`
-		(`name`, `base_type_name`, `table_name`)
-		VALUE
-		(t_name, base_name, tbl_name);
-		
-		SELECT LAST_INSERT_ID()
-		INTO type_id;
-
 		INSERT INTO `nz_test_closure`.`type_closure`
 		(`ancestor`, `descendant`)
 		SELECT clos.`ancestor`, type_id
@@ -191,14 +219,8 @@ BEGIN
 		UNION
 		SELECT type_id, type_id;
 		
-		INSERT INTO `nz_test_closure`.`new_type` (`id`)
-		VALUE (type_id);
-		
-		DELETE FROM `nz_test_closure`.`type_add_list`
-		WHERE `name` = t_name;
-		
 		FETCH cur
-		INTO t_name, tbl_name, base_name, base_id;
+		INTO type_id, base_id;
 	END WHILE;
 	
 	CLOSE cur;
