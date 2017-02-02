@@ -19,7 +19,10 @@ BEGIN
 		`base_type_name` VARCHAR(128) CHECK(`table_name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
 
--- ----> type_rem_list
+	DROP TABLE IF EXISTS `nz_test_closure`.`type_rem_list`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_rem_list`(
+		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != '')
+	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
 END //
 
 /*---------------------------------------/
@@ -292,4 +295,102 @@ BEGIN
 	END WHILE;
 	
 	CLOSE new_type_cur;
+END //
+
+/*---------------------------------------/
+			Remove types
+--------------------------------------*/
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS remove_types //
+CREATE PROCEDURE remove_types()
+BEGIN
+	DROP TABLE IF EXISTS `nz_test_closure`.`removing_types_list`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_types_list`(
+		`id` INT NOT NULL UNIQUE,
+		
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`type`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+
+	CALL _remove_types_from_closure();
+
+	CALL _process_removed_types();
+	DROP TABLE `nz_test_closure`.`removing_types_list`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _remove_types_from_closure //
+CREATE PROCEDURE _remove_types_from_closure()
+BEGIN
+	DECLARE rest_count INT DEFAULT 0;
+
+	DROP TABLE IF EXISTS `nz_test_closure`.`removing_types_buf`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_types_buf`(
+		`id` INT NOT NULL UNIQUE,
+		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
+
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`type`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+
+	lp_term: LOOP
+		INSERT INTO `nz_test_closure`.`removing_types_buf`
+		(`id`, `name`)
+		SELECT t.`id`, t.`name`
+		FROM `nz_test_closure`.`type` AS t
+		JOIN `nz_test_closure`.`type_rem_list` AS remt
+		ON t.`name` = remt.`name`
+		WHERE (
+			SELECT COUNT(clos.`ancestor`)
+			FROM `nz_test_closure`.`type_closure` AS clos
+			WHERE clos.`ancestor` = t.`id`
+		) = 1;	-- Сheck if terminating type
+		
+		IF (ROW_COUNT() = 0) THEN
+			LEAVE lp_term;
+		END IF;
+		
+		DELETE FROM `nz_test_closure`.`type_closure`
+		WHERE `descendant` IN (
+			SELECT `id`
+			FROM `nz_test_closure`.`removing_types_buf`
+		);
+
+		DELETE FROM `nz_test_closure`.`type_rem_list`
+		WHERE `name` IN (
+			SELECT `name`
+			FROM `nz_test_closure`.`removing_types_buf`
+		);
+
+		INSERT INTO `nz_test_closure`.`removing_types_list`
+		(`id`)
+		SELECT `id`
+		FROM `nz_test_closure`.`removing_types_buf`;
+
+		DELETE FROM `nz_test_closure`.`removing_types_buf`;
+	END LOOP;
+	
+	DROP TABLE `nz_test_closure`.`removing_types_buf`;
+
+	SELECT COUNT(`name`)
+	INTO rest_count
+	FROM `nz_test_closure`.`type_rem_list`;
+
+	IF (rest_count > 0) THEN
+-- TODO: write invalid typenames
+		SIGNAL SQLSTATE '40000'
+			SET MESSAGE_TEXT = "Some types can't be removed";
+	END IF;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _process_removed_types //
+CREATE PROCEDURE _process_removed_types()
+BEGIN
+-- TODO
 END //
