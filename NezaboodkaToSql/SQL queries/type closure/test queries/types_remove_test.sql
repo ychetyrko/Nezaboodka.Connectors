@@ -6,7 +6,8 @@
 USE `nz_test_closure`;
 
 /*---------------------------------------/
-	Remove multiple types
+		Remove multiple types
+		(with reference fields)
 --------------------------------------*/
 CALL before_alter_types();
 INSERT INTO `type_rem_list`

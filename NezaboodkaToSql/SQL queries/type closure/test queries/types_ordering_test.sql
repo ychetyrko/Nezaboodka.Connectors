@@ -34,3 +34,15 @@ VALUES
 ('Buildng', '_building', NULL),
 ('Sedan', '_sedan', 'Car');
 CALL add_types();
+
+/*---------------------------------------/
+	Fields for types remove test
+--------------------------------------*/
+CALL before_alter_fields();
+INSERT INTO `field_add_list`
+(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
+VALUES
+('Name', '_name', 'People', 'VARCHAR(50)', FALSE, 'IgnoreCase', NULL),
+('Goodies', '_goodies', 'GoodPeople', 'TEXT', TRUE, 'None', NULL),
+('Car', '_car', 'VeryGoodPeople', 'Car', FALSE, 'None', NULL);
+CALL add_fields();
