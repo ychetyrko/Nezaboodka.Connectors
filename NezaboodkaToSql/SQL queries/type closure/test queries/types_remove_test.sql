@@ -9,7 +9,7 @@ USE `nz_test_closure`;
 /*---------------------------------------/
 		Remove full hierarchy
 --------------------------------------*/
-CALL before_alter_types();
+CALL before_alter_db_schema();
 INSERT INTO `type_rem_list`
 (`name`)
 VALUES
@@ -18,26 +18,26 @@ VALUES
 ('UberAdmin'),
 ('Group'),
 ('User');
-CALL remove_types();
+CALL alter_db_schema();
 
 /*---------------------------------------/
 		Remove terminating types
 --------------------------------------*/
-CALL before_alter_types();
+CALL before_alter_db_schema();
 INSERT INTO `type_rem_list`
 (`name`)
 VALUES
 ('CoolChopper'),
 ('Sedan');
-CALL remove_types();
+CALL alter_db_schema();
 
 /*---------------------------------------/
 		Remove referenced type
 			[Error expected]
 --------------------------------------*/
-CALL before_alter_types();
+CALL before_alter_db_schema();
 INSERT INTO `type_rem_list`
 (`name`)
 VALUES
 ('Car');	-- referenced by VeryGoodPeople
-CALL remove_types();
+CALL alter_db_schema();

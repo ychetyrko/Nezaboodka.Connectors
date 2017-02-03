@@ -9,55 +9,55 @@ USE `nz_test_closure`;
 	Remove single nested field
 		without Back Reference
 --------------------------------------*/
-CALL before_alter_fields();
+CALL before_alter_db_schema();
 INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('User', 'Login');
-CALL remove_fields();
+CALL alter_db_schema();
 
 /*---------------------------------------/
 	Remove single nested field
 		with Back Reference
 --------------------------------------*/
-CALL before_alter_fields();
+CALL before_alter_db_schema();
 INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('User', 'Group');
-CALL remove_fields();
+CALL alter_db_schema();
 
 /*---------------------------------------/
 	Remove single non-nested field
 		with Back Reference
 --------------------------------------*/
-CALL before_alter_fields();
+CALL before_alter_db_schema();
 INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('Group', 'Admin');
-CALL remove_fields();
+CALL alter_db_schema();
 
 /*---------------------------------------/
 	Remove multiple non-nested fields
 		with(out) Back Reference
 --------------------------------------*/
-CALL before_alter_fields();
+CALL before_alter_db_schema();
 INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('Admin', 'ControlGroup'),
 ('Group', 'Title'),
 ('UberAdmin', 'UberRating');
-CALL remove_fields();
+CALL alter_db_schema();
 
 /*---------------------------------------/
 	Remove nonexisting single field
 		[Error expected]
 --------------------------------------*/
-CALL before_alter_fields();
+CALL before_alter_db_schema();
 INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('Admin', 'Login');
-CALL remove_fields();
+CALL alter_db_schema();
