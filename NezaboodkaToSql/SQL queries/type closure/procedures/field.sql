@@ -184,18 +184,7 @@ BEGIN
 
 	CALL _update_types_remove_fields();
 
-	UPDATE `nz_test_closure`.`field`
-	SET `back_ref_name` = NULL
-	WHERE `back_ref_id` IN (
-		SELECT *
-		FROM `nz_test_closure`.`removing_fields_list`
-	);
-
-	DELETE FROM `nz_test_closure`.`field`
-	WHERE `id` IN (
-		SELECT `id`
-		FROM `nz_test_closure`.`removing_fields_list`
-	);
+	CALL _remove_deleted_fields_from_table();
 	
 	DROP TABLE `nz_test_closure`.`removing_fields_list`;
 END //

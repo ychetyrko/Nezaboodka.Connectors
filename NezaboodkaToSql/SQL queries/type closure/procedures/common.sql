@@ -173,30 +173,20 @@ BEGIN
 END //
 
 
-/*
 DELIMITER //
-DROP PROCEDURE IF EXISTS get_all_type_ancestors//
-CREATE PROCEDURE get_all_type_ancestors(id INT)
+DROP PROCEDURE IF EXISTS _remove_deleted_fields_from_table //
+CREATE PROCEDURE _remove_deleted_fields_from_table()
 BEGIN
-	SELECT t.name
-	FROM `nz_test_closure`.`type` AS t
-	JOIN `nz_test_closure`.`type_closure` AS clos
-	ON t.id = clos.ancestor
-	WHERE clos.descendant = id
-		AND t.id != id;	-- filter itself
-END //
+	UPDATE `nz_test_closure`.`field`
+	SET `back_ref_name` = NULL
+	WHERE `back_ref_id` IN (
+		SELECT `id`
+		FROM `nz_test_closure`.`removing_fields_list`
+	);
 
-DELIMITER //
-DROP PROCEDURE IF EXISTS get_all_type_descendants//
-CREATE PROCEDURE get_all_type_descendants(id INT)
-BEGIN
-	SELECT t.name
-	FROM `nz_test_closure`.`type` AS t
-	JOIN `nz_test_closure`.`type_closure` AS clos
-	ON t.id = clos.descendant
-	WHERE clos.ancestor = id
-		AND t.id != id;	-- filter itself
+	DELETE FROM `nz_test_closure`.`field`
+	WHERE `id` IN (
+		SELECT `id`
+		FROM `nz_test_closure`.`removing_fields_list`
+	);
 END //
-
-DELIMITER ;
-*/
