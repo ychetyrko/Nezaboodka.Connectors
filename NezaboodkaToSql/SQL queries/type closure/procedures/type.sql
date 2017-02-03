@@ -282,14 +282,19 @@ BEGIN
 
 			) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 		');
+
+		INSERT INTO `nz_test_closure`.`alter_query`
+		(`query_text`)
+		VALUE
+		(@prep_str);
 /*
 -- Debug
 		SELECT @prep_str;
-*/
+*//*
 		PREPARE p_create_table FROM @prep_str;
 		EXECUTE p_create_table;
 		DEALLOCATE PREPARE p_create_table;
-
+*/
 		FETCH new_type_cur
 		INTO t_type_id, t_table_name;
 	END WHILE;
@@ -555,20 +560,31 @@ BEGIN
 		IF (dropping_constraints != '') THEN
 			SET @prep_str = dropping_constraints;
 
+			INSERT INTO `nz_test_closure`.`alter_query`
+			(`query_text`)
+			VALUE
+			(@prep_str);
+/*
 			PREPARE p_drop_constr FROM @prep_str;
 			EXECUTE p_drop_constr;
 			DEALLOCATE PREPARE p_drop_constr;
+*/
 		END IF;
 
 		SET @prep_str = CONCAT('DROP TABLE `', db_name ,'`.`', t_table_name, '`;');
+
+		INSERT INTO `nz_test_closure`.`alter_query`
+		(`query_text`)
+		VALUE
+		(@prep_str);
 /*
 -- Debug
 		SELECT @prep_str;
-*/
+*//*
 		PREPARE p_drop_table FROM @prep_str;
 		EXECUTE p_drop_table;
 		DEALLOCATE PREPARE p_drop_table;
-
+*/
 		FETCH rem_type_cur
 		INTO t_type_id, t_table_name, dropping_constraints;
 	END WHILE;
