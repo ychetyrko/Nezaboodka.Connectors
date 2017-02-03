@@ -311,9 +311,10 @@ BEGIN
 		`constr` TEXT NOT NULL,
 		`table_name` VARCHAR(64) NOT NULL
 	) ENGINE=`INNODB`;	-- TEXT is not supported in MEMORY engine
--- TODO: change engine and refactor code
 
 	CALL _get_removing_types_constr();
+
+	CALL _remove_types_fields_from_table();
 
 	CALL _remove_types_from_closure();
 
@@ -371,6 +372,33 @@ BEGIN
 		FETCH type_cur	
 		INTO t_type_id, t_table_name;
 	END WHILE;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _remove_types_fields_from_table //
+CREATE PROCEDURE _remove_types_fields_from_table()
+BEGIN
+	DROP TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_fields_list`(
+		`id` INT NOT NULL UNIQUE,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`field`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+
+	INSERT INTO `nz_test_closure`.`removing_fields_list`
+	(`id`)
+	SELECT `id`
+	FROM `nz_test_closure`.`field`
+	WHERE `owner_type_id` IN (
+		SELECT `id`
+		FROM `nz_test_closure`.`removing_types_list`
+	);
+
+	CALL _remove_deleted_fields_from_table();
+
+	DROP TABLE `nz_test_closure`.`removing_fields_list`;
 END //
 
 
@@ -434,6 +462,18 @@ BEGIN
 	) ENGINE=`MEMORY`;
 
 	lp_term: LOOP
+/*
+-- Debug
+		SELECT t.`id`, t.`name`
+		FROM `nz_test_closure`.`type` AS t
+		JOIN `nz_test_closure`.`removing_types_list` AS remtlist
+		ON t.`id` = remtlist.`id`
+		WHERE (
+			SELECT COUNT(clos.`ancestor`)
+			FROM `nz_test_closure`.`type_closure` AS clos
+			WHERE clos.`ancestor` = t.`id`
+		) = 1;	-- Сheck if terminating type
+*/
 		INSERT INTO `nz_test_closure`.`removing_types_buf`
 		(`id`, `name`)
 		SELECT t.`id`, t.`name`
@@ -445,7 +485,12 @@ BEGIN
 			FROM `nz_test_closure`.`type_closure` AS clos
 			WHERE clos.`ancestor` = t.`id`
 		) = 1;	-- Сheck if terminating type
-		
+/*
+-- Debug
+		SELECT *
+		FROM `nz_test_closure`.`removing_types_buf`;
+*/
+
 		IF (ROW_COUNT() = 0) THEN
 			LEAVE lp_term;
 		END IF;
@@ -470,7 +515,13 @@ BEGIN
 	SELECT COUNT(`name`)
 	INTO rest_count
 	FROM `nz_test_closure`.`type_rem_list`;
-
+/*
+-- Debug
+	SELECT * FROM `nz_test_closure`.`type_rem_list`;
+	SELECT COUNT(`name`)
+	FROM `nz_test_closure`.`type_rem_list`;
+	SELECT rest_count;
+*/
 	IF (rest_count > 0) THEN
 -- TODO: write invalid typenames
 		SIGNAL SQLSTATE '40000'
