@@ -162,7 +162,7 @@ BEGIN
 	FETCH cur
 	INTO t_name, t_base_name, t_table_name;
 	WHILE NOT done DO
-		SET @@session.last_insert_id=0;
+		SET @@SESSION.last_insert_id = 0;
 
 		INSERT IGNORE INTO `nz_test_closure`.`type`
 		(`name`, `base_type_name`, `table_name`)
@@ -185,7 +185,7 @@ BEGIN
 			(type_id);
 		END IF;
 
-        FETCH cur
+		FETCH cur
 		INTO t_name, t_base_name, t_table_name;
 	END WHILE;
 END //
@@ -361,7 +361,7 @@ BEGIN
 			SET dropping_constraints = CONCAT(
 				'ALTER TABLE `',db_name, '`.`', t_table_name, '`
 				', dropping_constraints, ';'
-            );
+			);
 		END IF;
 
 		INSERT INTO `nz_test_closure`.`removing_types_list`
@@ -461,7 +461,7 @@ BEGIN
 			ON DELETE CASCADE
 	) ENGINE=`MEMORY`;
 
-	lp_term: LOOP
+	LP_TERM: LOOP
 /*
 -- Debug
 		SELECT t.`id`, t.`name`
@@ -492,7 +492,7 @@ BEGIN
 */
 
 		IF (ROW_COUNT() = 0) THEN
-			LEAVE lp_term;
+			LEAVE LP_TERM;
 		END IF;
 		
 		DELETE FROM `nz_test_closure`.`type_closure`
@@ -555,7 +555,7 @@ BEGIN
 		IF (dropping_constraints != '') THEN
 			SET @prep_str = dropping_constraints;
 
-            PREPARE p_drop_constr FROM @prep_str;
+			PREPARE p_drop_constr FROM @prep_str;
 			EXECUTE p_drop_constr;
 			DEALLOCATE PREPARE p_drop_constr;
 		END IF;
