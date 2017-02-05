@@ -95,6 +95,7 @@ CREATE TABLE `nz_test_closure`.`list` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 	`owner_id` BIGINT(0) NOT NULL,
 	`type_id` INT NOT NULL,
+    `field_id` INT NOT NULL,
 	
 	FOREIGN KEY (`owner_id`)
 		REFERENCES `nz_test_closure`.`db_key`(`sys_id`)
@@ -102,7 +103,11 @@ CREATE TABLE `nz_test_closure`.`list` (
 	
 	FOREIGN KEY (`type_id`)
 		REFERENCES `nz_test_closure`.`type`(`id`)
-		ON DELETE CASCADE	-- delete list when it's type info is removed
+		ON DELETE CASCADE,	-- delete list when it's type info is removed
+	
+	FOREIGN KEY (`field_id`)
+		REFERENCES `nz_test_closure`.`field`(`id`)
+		ON DELETE CASCADE	-- delete list when it's field info is removed
 ) ENGINE=`INNODB`;
 
 
