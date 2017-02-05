@@ -23,76 +23,84 @@ BEGIN
 
 	SET fields_defs = '';
 	SET fields_constraints = '';
-
 /*
 -- Debug
 	SELECT concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') AS debug;
 */
-	IF inheriting THEN
-	BEGIN	-- get all parents' fields
-		DECLARE fields_done BOOLEAN DEFAULT FALSE;
-		DECLARE fields_cur CURSOR FOR
-			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
-				f.`is_list`, f.`compare_options`
-			FROM `nz_test_closure`.`field` AS f
-			WHERE f.`owner_type_id` IN (
-				SELECT clos.`ancestor`	-- get all super classes
-				FROM `nz_test_closure`.`type_closure` AS clos
-				WHERE clos.`descendant` = c_type_id
-			);
-		DECLARE CONTINUE HANDLER FOR NOT FOUND
-			SET fields_done = TRUE;
+	DROP TABLE IF EXISTS `nz_test_closure`.`temp_type_fields`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`temp_type_fields`(
+		`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
+		`col_name` VARCHAR(64) NOT NULL COLLATE `UTF8_GENERAL_CI` CHECK(`col_name` != ''),
+		`type_name` VARCHAR(64) NOT NULL CHECK(`type_name` != ''),
+		`ref_type_id` INT DEFAULT NULL,
+		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
+		`compare_options` ENUM
+			(
+				'None',
+				'IgnoreCase',
+				'IgnoreNonSpace',
+				'IgnoreSymbols',
+				'IgnoreKanaType',
+				'IgnoreWidth',
+				'OrdinalIgnoreCase',
+				'StringSort',
+				'Ordinal'
+			) NOT NULL DEFAULT 'None'
+	) ENGINE=`MEMORY`;
 
-		OPEN fields_cur;
-
-		FETCH fields_cur
-		INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-			cf_is_list, cf_compare_options;
-		WHILE NOT fields_done DO
-
-			CALL _update_type_fields_def_constr(fields_defs, fields_constraints, inheriting,
-				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-				cf_is_list, cf_compare_options);
-			
-			FETCH fields_cur
-			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-				cf_is_list, cf_compare_options;
-		END WHILE;
-	END;
-	ELSE	-- NOT inheriting
-	BEGIN	-- get only NEW fields
-		DECLARE fields_done BOOLEAN DEFAULT FALSE;
-		DECLARE fields_cur CURSOR FOR
-			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
-				f.`is_list`, f.`compare_options`
-			FROM `nz_test_closure`.`new_field` AS newf	-- only new fields
-			LEFT JOIN `nz_test_closure`.`field` AS f
-			ON f.`id` = newf.`id`
-			WHERE f.`owner_type_id` IN (
-				SELECT clos.`ancestor`	-- get all super classes
-				FROM `nz_test_closure`.`type_closure` AS clos
-				WHERE clos.`descendant` = c_type_id
-			);
-		DECLARE CONTINUE HANDLER FOR NOT FOUND
-			SET fields_done = TRUE;
-
-		OPEN fields_cur;
-
-		FETCH fields_cur
-		INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-			cf_is_list, cf_compare_options;
-		WHILE NOT fields_done DO
-
-			CALL _update_type_fields_def_constr(fields_defs, fields_constraints, inheriting,
-				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-				cf_is_list, cf_compare_options);
-			
-			FETCH fields_cur
-			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-				cf_is_list, cf_compare_options;
-		END WHILE;
-	END;
+	IF inheriting THEN	-- get all parents' fields
+		INSERT INTO `nz_test_closure`.`temp_type_fields`
+		(`id`, `col_name`, `type_name`, `ref_type_id`,
+			`is_list`, `compare_options`)
+		SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
+			f.`is_list`, f.`compare_options`
+		FROM `nz_test_closure`.`field` AS f
+		WHERE f.`owner_type_id` IN (
+			SELECT clos.`ancestor`	-- get all super classes
+			FROM `nz_test_closure`.`type_closure` AS clos
+			WHERE clos.`descendant` = c_type_id
+		);
+	ELSE	-- get only NEW fields
+		INSERT INTO `nz_test_closure`.`temp_type_fields`
+		(`id`, `col_name`, `type_name`, `ref_type_id`,
+			`is_list`, `compare_options`)
+		SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
+			f.`is_list`, f.`compare_options`
+		FROM `nz_test_closure`.`new_field` AS newf	-- only new fields
+		LEFT JOIN `nz_test_closure`.`field` AS f
+		ON f.`id` = newf.`id`
+		WHERE f.`owner_type_id` IN (
+			SELECT clos.`ancestor`	-- get all super classes
+			FROM `nz_test_closure`.`type_closure` AS clos
+			WHERE clos.`descendant` = c_type_id
+		);
 	END IF;
+
+	BEGIN	
+		DECLARE fields_done BOOLEAN DEFAULT FALSE;
+		DECLARE fields_cur CURSOR FOR
+			SELECT *
+			FROM `nz_test_closure`.`temp_type_fields`;
+		DECLARE CONTINUE HANDLER FOR NOT FOUND
+			SET fields_done = TRUE;
+
+		OPEN fields_cur;
+
+		FETCH fields_cur
+		INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+			cf_is_list, cf_compare_options;
+		WHILE NOT fields_done DO
+
+			CALL _update_type_fields_def_constr(fields_defs, fields_constraints, inheriting,
+				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+				cf_is_list, cf_compare_options);
+			
+			FETCH fields_cur
+			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+				cf_is_list, cf_compare_options;
+		END WHILE;
+	END;
+	DROP TABLE `nz_test_closure`.`temp_type_fields`;
 
 	IF (LEFT(fields_defs, 1) = ',') THEN
 		SET fields_defs = SUBSTRING(fields_defs, 2);
