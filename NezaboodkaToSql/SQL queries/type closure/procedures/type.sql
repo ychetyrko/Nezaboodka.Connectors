@@ -266,8 +266,6 @@ BEGIN
 			SET fields_constraints = CONCAT(',', fields_constraints);
 		END IF;
 
-		-- Create table for type with all ancestors' fields
-		--  (table name can't be a parameter => prepare each time)
 		SET @prep_str = CONCAT('
 			CREATE TABLE `', db_name ,'`.`', t_table_name, '` (
 				id BIGINT(0) PRIMARY KEY NOT NULL
@@ -282,19 +280,19 @@ BEGIN
 
 			) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
 		');
+/*
+-- Debug
+		SELECT @prep_str;
+*/
+		-- check if types are valid
+		PREPARE p_create_table FROM @prep_str;
+		DEALLOCATE PREPARE p_create_table;
 
 		INSERT INTO `nz_test_closure`.`alter_query`
 		(`query_text`)
 		VALUE
 		(@prep_str);
-/*
--- Debug
-		SELECT @prep_str;
-*//*
-		PREPARE p_create_table FROM @prep_str;
-		EXECUTE p_create_table;
-		DEALLOCATE PREPARE p_create_table;
-*/
+
 		FETCH new_type_cur
 		INTO t_type_id, t_table_name;
 	END WHILE;
@@ -495,7 +493,6 @@ BEGIN
 		SELECT *
 		FROM `nz_test_closure`.`removing_types_buf`;
 */
-
 		IF (ROW_COUNT() = 0) THEN
 			LEAVE LP_TERM;
 		END IF;
@@ -516,10 +513,6 @@ BEGIN
 	END LOOP;
 	
 	DROP TABLE `nz_test_closure`.`removing_types_buf`;
-
-	SELECT COUNT(`name`)
-	INTO rest_count
-	FROM `nz_test_closure`.`type_rem_list`;
 /*
 -- Debug
 	SELECT * FROM `nz_test_closure`.`type_rem_list`;
@@ -527,6 +520,10 @@ BEGIN
 	FROM `nz_test_closure`.`type_rem_list`;
 	SELECT rest_count;
 */
+	SELECT COUNT(`name`)
+	INTO rest_count
+	FROM `nz_test_closure`.`type_rem_list`;
+
 	IF (rest_count > 0) THEN
 -- TODO: write invalid typenames
 		SIGNAL SQLSTATE '40000'
@@ -559,32 +556,26 @@ BEGIN
 	WHILE NOT types_done DO
 		IF (dropping_constraints != '') THEN
 			SET @prep_str = dropping_constraints;
-
+/*
+-- Debug
+		SELECT @prep_str;
+*/
 			INSERT INTO `nz_test_closure`.`alter_query`
 			(`query_text`)
 			VALUE
 			(@prep_str);
-/*
-			PREPARE p_drop_constr FROM @prep_str;
-			EXECUTE p_drop_constr;
-			DEALLOCATE PREPARE p_drop_constr;
-*/
 		END IF;
 
 		SET @prep_str = CONCAT('DROP TABLE `', db_name ,'`.`', t_table_name, '`;');
-
+/*
+-- Debug
+		SELECT @prep_str;
+*/
 		INSERT INTO `nz_test_closure`.`alter_query`
 		(`query_text`)
 		VALUE
 		(@prep_str);
-/*
--- Debug
-		SELECT @prep_str;
-*//*
-		PREPARE p_drop_table FROM @prep_str;
-		EXECUTE p_drop_table;
-		DEALLOCATE PREPARE p_drop_table;
-*/
+
 		FETCH rem_type_cur
 		INTO t_type_id, t_table_name, dropping_constraints;
 	END WHILE;

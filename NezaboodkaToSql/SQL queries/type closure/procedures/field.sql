@@ -132,19 +132,18 @@ BEGIN
 					ADD COLUMN (', fields_defs ,')
 					', fields_constraints, ';
 				');
+/*
+-- Debug
+			SELECT @prep_str AS 'Altering query';
+*/
+			-- check if types are valid
+			PREPARE p_alter_table FROM @prep_str;
+			DEALLOCATE PREPARE p_alter_table;
 
 			INSERT INTO `nz_test_closure`.`alter_query`
 			(`query_text`)
 			VALUE
 			(@prep_str);
-/*
--- Debug
-			SELECT @prep_str AS 'Altering query';
-*//*
-			PREPARE p_alter_table FROM @prep_str;
-			EXECUTE p_alter_table;
-			DEALLOCATE PREPARE p_alter_table;
-*/
 		END IF;
 
 		FETCH type_cur
@@ -234,19 +233,14 @@ BEGIN
 					', drop_constraints,'
 					', drop_columns,'
 				');
-
+/*
+-- Debug
+			SELECT @prep_str AS 'Altering query';
+*/
 			INSERT INTO `nz_test_closure`.`alter_query`
 			(`query_text`)
 			VALUE
 			(@prep_str);
-/*
--- Debug
-			SELECT @prep_str AS 'Altering query';
-*//*
-			PREPARE p_alter_table FROM @prep_str;
-			EXECUTE p_alter_table;
-			DEALLOCATE PREPARE p_alter_table;
-*/
 		END IF;
 
 		FETCH type_cur
