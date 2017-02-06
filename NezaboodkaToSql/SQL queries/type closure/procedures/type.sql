@@ -12,14 +12,14 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS before_alter_types //
 CREATE PROCEDURE before_alter_types()
 BEGIN
-	DROP TABLE IF EXISTS `nz_test_closure`.`type_add_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_add_list`(
 		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
 		`table_name` VARCHAR(64) NOT NULL UNIQUE CHECK(`table_name` != ''),
 		`base_type_name` VARCHAR(128) CHECK(`table_name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
 
-	DROP TABLE IF EXISTS `nz_test_closure`.`type_rem_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_rem_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_rem_list`(
 		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != '')
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
@@ -30,34 +30,71 @@ END //
 --------------------------------------*/
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS add_types //
-CREATE PROCEDURE add_types()
+DROP PROCEDURE IF EXISTS _temp_before_add_types //
+CREATE PROCEDURE _temp_before_add_types()
 BEGIN
-	DROP TABLE IF EXISTS `nz_test_closure`.`type_add_queue`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_add_queue`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`type_add_queue`(
 		`ord` INT NOT NULL,
-		`id` INT NOT NULL UNIQUE,	-- to IGNORE already inserted elements
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`type`(`id`)
-			ON DELETE CASCADE
-	) ENGINE=`MEMORY`;
-
-	DROP TABLE IF EXISTS `nz_test_closure`.`new_type`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`new_type`(
 		`id` INT NOT NULL,
 		FOREIGN KEY (`id`)
 			REFERENCES `nz_test_closure`.`type`(`id`)
 			ON DELETE CASCADE
 	) ENGINE=`MEMORY`;
 
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_type`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`new_type`(
+		`id` INT NOT NULL,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`type`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _temp_after_add_types //
+CREATE PROCEDURE _temp_after_add_types()
+BEGIN
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_type`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_add_queue`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _add_types //
+CREATE PROCEDURE _add_types()
+BEGIN
+	DECLARE inserted_types_count INT DEFAULT 0;
+	DECLARE add_types_count INT DEFAULT 0;
+
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION
+	BEGIN
+    /*
+		SIGNAL SQLSTATE '40011'
+			SET MESSAGE_TEXT = "Some types can't be added";
+            */
+		RESIGNAL;
+	END;
+
 	CALL _order_insert_new_types();
-	TRUNCATE TABLE `nz_test_closure`.`type_add_list`;
+
+	SELECT COUNT(`id`)
+	INTO inserted_types_count
+	FROM `nz_test_closure`.`type_add_queue`;
+    
+    SELECT COUNT(`name`)
+	INTO add_types_count
+	FROM `nz_test_closure`.`type_add_list`;
+
+	IF (inserted_types_count != add_types_count) THEN
+		SIGNAL SQLSTATE '40011';
+	END IF;
+
+	DELETE FROM `nz_test_closure`.`type_add_list`;
 
 	CALL _add_new_types_to_closure();
-	DROP TABLE `nz_test_closure`.`type_add_queue`;
-
 	CALL _process_new_types();
-	DROP TABLE `nz_test_closure`.`new_type`;
 END //
 
 
@@ -305,33 +342,70 @@ END //
 --------------------------------------*/
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS remove_types //
-CREATE PROCEDURE remove_types()
+DROP PROCEDURE IF EXISTS _temp_before_remove_types //
+CREATE PROCEDURE _temp_before_remove_types()
 BEGIN
-	DROP TABLE IF EXISTS `nz_test_closure`.`removing_types_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_types_list`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_types_list`(
 		`id` INT NOT NULL UNIQUE,
 		`constr` TEXT NOT NULL,
 		`table_name` VARCHAR(64) NOT NULL
 	) ENGINE=`INNODB`;	-- TEXT is not supported in MEMORY engine
 
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_fields_list`(
+		`id` INT NOT NULL UNIQUE,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`field`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_types_buf`;
+	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_types_buf`(
+		`id` INT NOT NULL UNIQUE,
+		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
+
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`type`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _temp_after_remove_types //
+CREATE PROCEDURE _temp_after_remove_types()
+BEGIN
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_types_buf`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_types_list`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _remove_types //
+CREATE PROCEDURE _remove_types()
+BEGIN
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION
+	BEGIN
+		SIGNAL SQLSTATE '40012'
+			SET MESSAGE_TEXT = "Some types can't be removed";
+	END;
+
 	CALL _get_removing_types_constr();
-
 	CALL _remove_types_fields_from_table();
-
 	CALL _remove_types_from_closure();
-
+/*
+-- Debug
+	SELECT * FROM `nz_test_closure`.`removing_types_list`;
+*/
 	DELETE FROM `nz_test_closure`.`type`
 	WHERE `id` IN (
 		SELECT `id`
 		FROM `nz_test_closure`.`removing_types_list`
 	);
-/*
--- Debug
-	SELECT * FROM `nz_test_closure`.`removing_types_list`;
-*/
+
 	CALL _process_removed_types();
-	DROP TABLE `nz_test_closure`.`removing_types_list`;
 END //
 
 
@@ -382,14 +456,6 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _remove_types_fields_from_table //
 CREATE PROCEDURE _remove_types_fields_from_table()
 BEGIN
-	DROP TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_fields_list`(
-		`id` INT NOT NULL UNIQUE,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`field`(`id`)
-			ON DELETE CASCADE
-	) ENGINE=`MEMORY`;
-
 	INSERT INTO `nz_test_closure`.`removing_fields_list`
 	(`id`)
 	SELECT `id`
@@ -400,8 +466,6 @@ BEGIN
 	);
 
 	CALL _remove_deleted_fields_from_table();
-
-	DROP TABLE `nz_test_closure`.`removing_fields_list`;
 END //
 
 
@@ -454,16 +518,6 @@ CREATE PROCEDURE _remove_types_from_closure()
 BEGIN
 	DECLARE rest_count INT DEFAULT 0;
 
-	DROP TABLE IF EXISTS `nz_test_closure`.`removing_types_buf`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_types_buf`(
-		`id` INT NOT NULL UNIQUE,
-		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
-
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`type`(`id`)
-			ON DELETE CASCADE
-	) ENGINE=`MEMORY`;
-
 	LP_TERM: LOOP
 /*
 -- Debug
@@ -511,8 +565,6 @@ BEGIN
 
 		DELETE FROM `nz_test_closure`.`removing_types_buf`;
 	END LOOP;
-	
-	DROP TABLE `nz_test_closure`.`removing_types_buf`;
 /*
 -- Debug
 	SELECT * FROM `nz_test_closure`.`type_rem_list`;
@@ -526,8 +578,7 @@ BEGIN
 
 	IF (rest_count > 0) THEN
 -- TODO: write invalid typenames
-		SIGNAL SQLSTATE '40000'
-			SET MESSAGE_TEXT = "Some types can't be removed";
+		SIGNAL SQLSTATE '40012';
 	END IF;
 END //
 

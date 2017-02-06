@@ -12,7 +12,7 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS before_alter_fields //
 CREATE PROCEDURE before_alter_fields()
 BEGIN
-	DROP TABLE IF EXISTS `nz_test_closure`.`field_add_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`field_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_add_list`(
 		`owner_type_name` VARCHAR(128) NOT NULL CHECK(`owner_type_name` != ''),
 		`name` VARCHAR(128) NOT NULL CHECK(`name` != ''),
@@ -37,7 +37,7 @@ BEGIN
 			UNIQUE (`owner_type_name`, `name`)
 	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
 
-	DROP TABLE IF EXISTS `nz_test_closure`.`field_rem_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`field_rem_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_rem_list`(
 		`owner_type_name` VARCHAR(128) NOT NULL CHECK(`owner_type_name` != ''),
 		`name` VARCHAR(128) NOT NULL CHECK(`name` != ''),
@@ -52,9 +52,37 @@ END //
 --------------------------------------*/
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS add_fields //
-CREATE PROCEDURE add_fields()
+DROP PROCEDURE IF EXISTS _temp_before_add_fields //
+CREATE PROCEDURE _temp_before_add_fields()
 BEGIN
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_field`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`new_field`(
+		`id` INT NOT NULL,
+		FOREIGN KEY (`id`)
+			REFERENCES `nz_test_closure`.`field`(`id`)
+			ON DELETE CASCADE
+	) ENGINE=`MEMORY`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _temp_after_add_fields //
+CREATE PROCEDURE _temp_after_add_fields()
+BEGIN
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_field`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _add_fields //
+CREATE PROCEDURE _add_fields()
+BEGIN
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION
+	BEGIN
+		SIGNAL SQLSTATE '40021'
+			SET MESSAGE_TEXT = "Some fields can't be added";
+	END;
+
 	INSERT INTO `nz_test_closure`.`field`
 	(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
 	SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
@@ -74,14 +102,6 @@ BEGIN
 	ON f2.`id` = f1.`back_ref_id`
 	SET f2.`back_ref_id` = f1.`id`,
 		f2.`back_ref_name` = f1.`name`;
-
-	DROP TABLE IF EXISTS `nz_test_closure`.`new_field`;
-	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`new_field`(
-		`id` INT NOT NULL,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`field`(`id`)
-			ON DELETE CASCADE
-	) ENGINE=`MEMORY`;
 	
 	INSERT INTO `nz_test_closure`.`new_field`
 	SELECT f.`id`
@@ -91,9 +111,7 @@ BEGIN
 		AND f.`owner_type_name` = newf.`owner_type_name`;
 
 	CALL _update_types_add_fields();
-	DROP TABLE `nz_test_closure`.`new_field`;
-
-	TRUNCATE TABLE `nz_test_closure`.`field_add_list`;
+	DELETE FROM `nz_test_closure`.`field_add_list`;
 END //
 
 
@@ -158,19 +176,39 @@ END //
 --------------------------------------*/
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS remove_fields //
-CREATE PROCEDURE remove_fields()
+DROP PROCEDURE IF EXISTS _temp_before_remove_fields //
+CREATE PROCEDURE _temp_before_remove_fields()
 BEGIN
-	DECLARE rem_fields_count INT DEFAULT 0;
-
-	DROP TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_fields_list`(
 		`id` INT NOT NULL UNIQUE,
 		FOREIGN KEY (`id`)
 			REFERENCES `nz_test_closure`.`field`(`id`)
 			ON DELETE CASCADE
 	) ENGINE=`MEMORY`;
-	
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _temp_after_remove_fields //
+CREATE PROCEDURE _temp_after_remove_fields()
+BEGIN
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _remove_fields //
+CREATE PROCEDURE _remove_fields()
+BEGIN
+	DECLARE rem_fields_count INT DEFAULT 0;
+
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION
+	BEGIN
+		SIGNAL SQLSTATE '40022'
+			SET MESSAGE_TEXT = "Some fields can't be removed";
+	END;
+
 	SELECT COUNT(`name`)
 	INTO rem_fields_count
 	FROM `nz_test_closure`.`field_rem_list`;
@@ -183,15 +221,11 @@ BEGIN
 		AND f.`name` = remf.`name`;
 
 	IF (ROW_COUNT() != rem_fields_count) THEN
-		SIGNAL SQLSTATE '40000'
-			SET MESSAGE_TEXT = "Not all fields can be deleted";
+		SIGNAL SQLSTATE '40022';
 	END IF;
 
 	CALL _update_types_remove_fields();
-
 	CALL _remove_deleted_fields_from_table();
-	
-	DROP TABLE `nz_test_closure`.`removing_fields_list`;
 END //
 
 

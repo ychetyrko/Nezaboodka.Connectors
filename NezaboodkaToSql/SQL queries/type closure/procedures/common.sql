@@ -9,24 +9,9 @@ USE `nz_test_closure`;
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS _get_type_new_fields_and_constraints //
-CREATE PROCEDURE _get_type_new_fields_and_constraints
-	(IN c_type_id INT, IN inheriting BOOLEAN,
-	OUT fields_defs TEXT, OUT fields_constraints TEXT)
+DROP PROCEDURE IF EXISTS _temp_before_common //
+CREATE PROCEDURE _temp_before_common()
 BEGIN
-	DECLARE cf_id INT DEFAULT NULL;	-- for constraints names
-	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
-	DECLARE cf_type_name VARCHAR(128) DEFAULT NULL;
-	DECLARE cf_ref_type_id INT DEFAULT NULL;
-	DECLARE cf_is_list BOOLEAN DEFAULT FALSE;
-	DECLARE cf_compare_options VARCHAR(64);
-
-	SET fields_defs = '';
-	SET fields_constraints = '';
-/*
--- Debug
-	SELECT concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') AS debug;
-*/
 	DROP TABLE IF EXISTS `nz_test_closure`.`temp_type_fields`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`temp_type_fields`(
 		`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
@@ -47,7 +32,37 @@ BEGIN
 				'Ordinal'
 			) NOT NULL DEFAULT 'None'
 	) ENGINE=`MEMORY`;
+END //
 
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _temp_after_common //
+CREATE PROCEDURE _temp_after_common()
+BEGIN
+	DROP TABLE `nz_test_closure`.`temp_type_fields`;   
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _get_type_new_fields_and_constraints //
+CREATE PROCEDURE _get_type_new_fields_and_constraints
+	(IN c_type_id INT, IN inheriting BOOLEAN,
+	OUT fields_defs TEXT, OUT fields_constraints TEXT)
+BEGIN
+	DECLARE cf_id INT DEFAULT NULL;	-- for constraints names
+	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
+	DECLARE cf_type_name VARCHAR(128) DEFAULT NULL;
+	DECLARE cf_ref_type_id INT DEFAULT NULL;
+	DECLARE cf_is_list BOOLEAN DEFAULT FALSE;
+	DECLARE cf_compare_options VARCHAR(64);
+
+	SET fields_defs = '';
+	SET fields_constraints = '';
+/*
+-- Debug
+	SELECT concat('Start ', c_type_name, '(', c_type_id,')', ' altering.') AS debug;
+*/
+	DELETE FROM `nz_test_closure`.`temp_type_fields`;
 	IF inheriting THEN	-- get all parents' fields
 		INSERT INTO `nz_test_closure`.`temp_type_fields`
 		(`id`, `col_name`, `type_name`, `ref_type_id`,
@@ -100,7 +115,6 @@ BEGIN
 				cf_is_list, cf_compare_options;
 		END WHILE;
 	END;
-	DROP TABLE `nz_test_closure`.`temp_type_fields`;
 
 	IF (LEFT(fields_defs, 1) = ',') THEN
 		SET fields_defs = SUBSTRING(fields_defs, 2);

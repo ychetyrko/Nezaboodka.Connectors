@@ -30,18 +30,34 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS alter_db_schema //
 CREATE PROCEDURE alter_db_schema()
 BEGIN
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION
+	BEGIN
+		ROLLBACK;
+		CALL _cleanup_temp_tables_after_alter_db_schema();
+		RESIGNAL;
+	END;
+
 	-- To move all queries that provide implicit commit to the end of execution
-	DROP TABLE IF EXISTS `nz_test_closure`.`alter_query`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`alter_query`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`alter_query`(
 		`ord` INT NOT NULL UNIQUE AUTO_INCREMENT,
 		`query_text` TEXT DEFAULT NULL
 	) ENGINE=`INNODB`;
 
-	CALL remove_fields();
-	CALL remove_types();
+	CALL _temp_before_common();
+	CALL _temp_before_remove_fields();
+	CALL _temp_before_remove_types();
+	CALL _temp_before_add_types();
+	CALL _temp_before_add_fields();
 
-	CALL add_types();
-	CALL add_fields();
+	START TRANSACTION;
+
+	CALL _remove_fields();
+	CALL _remove_types();
+	CALL _add_types();
+	CALL _add_fields();    
+
+	COMMIT;
 /*
 -- Debug
 	SELECT * FROM `nz_test_closure`.`alter_query`;
@@ -76,7 +92,20 @@ BEGIN
 		END WHILE;
 
 		CLOSE query_cur;
-		DROP TABLE `nz_test_closure`.`alter_query`;
 	END;
 
+	CALL _cleanup_temp_tables_after_alter_db_schema();
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _cleanup_temp_tables_after_alter_db_schema //
+CREATE PROCEDURE _cleanup_temp_tables_after_alter_db_schema()
+BEGIN
+	CALL _temp_after_common();
+	CALL _temp_after_remove_fields();
+	CALL _temp_after_remove_types();
+	CALL _temp_after_add_types();
+	CALL _temp_after_add_fields();
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`alter_query`;
 END //
