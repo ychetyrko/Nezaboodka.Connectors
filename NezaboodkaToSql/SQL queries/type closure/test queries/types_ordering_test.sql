@@ -36,7 +36,7 @@ VALUES
 CALL alter_db_schema();
 
 /*---------------------------------------/
-	Fields for types remove test
+	Fields for further tests
 --------------------------------------*/
 CALL before_alter_db_schema();
 INSERT INTO `field_add_list`

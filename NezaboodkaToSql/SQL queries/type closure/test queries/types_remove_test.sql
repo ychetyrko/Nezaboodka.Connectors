@@ -1,5 +1,5 @@
 /*======================================
-		Remove fields tests
+		Remove types tests
  (based on `Types ordering tests`
   and `Add types and fields tests`)
 ======================================*/

@@ -70,11 +70,9 @@ BEGIN
 
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
 	BEGIN
-    /*
+-- RESIGNAL;
 		SIGNAL SQLSTATE '40011'
 			SET MESSAGE_TEXT = "Some types can't be added";
-            */
-		RESIGNAL;
 	END;
 
 	CALL _order_insert_new_types();
@@ -388,6 +386,7 @@ CREATE PROCEDURE _remove_types()
 BEGIN
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
 	BEGIN
+-- RESIGNAL;
 		SIGNAL SQLSTATE '40012'
 			SET MESSAGE_TEXT = "Some types can't be removed";
 	END;

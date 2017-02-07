@@ -1,6 +1,7 @@
 /*======================================
 		Remove fields tests
- (based on `Add types and fields tests`)
+ (based on `Add types and fields tests`
+  and `Types ordering tests`)
 ======================================*/
 
 USE `nz_test_closure`;
@@ -52,12 +53,15 @@ VALUES
 CALL alter_db_schema();
 
 /*---------------------------------------/
-	Remove nonexisting single field
+	Remove multiple fields
+		with one nonexisting
 		[Error expected]
 --------------------------------------*/
 CALL before_alter_db_schema();
 INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
-('Admin', 'Login');
+('GoodPeople', 'Goodies'),
+('People', 'Name'),
+('Admin', 'Login');	-- removed before
 CALL alter_db_schema();
