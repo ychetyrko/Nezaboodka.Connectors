@@ -14,15 +14,19 @@ CREATE PROCEDURE before_alter_types()
 BEGIN
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_add_list`(
-		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
-		`table_name` VARCHAR(64) NOT NULL UNIQUE CHECK(`table_name` != ''),
-		`base_type_name` VARCHAR(128) CHECK(`table_name` != '')
-	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
+		`name` VARCHAR(128) NOT NULL UNIQUE
+			CHECK(`name` != ''),
+		`table_name` VARCHAR(64) NOT NULL UNIQUE COLLATE `UTF8_GENERAL_CI`
+			CHECK(`table_name` != ''),
+		`base_type_name` VARCHAR(128)
+			CHECK(`table_name` != '')
+	) ENGINE=`MEMORY`;
 
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_rem_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_rem_list`(
-		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != '')
-	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
+		`name` VARCHAR(128) NOT NULL UNIQUE
+			CHECK(`name` != '')
+	) ENGINE=`MEMORY`;
 END //
 
 /*---------------------------------------/
@@ -127,7 +131,9 @@ END //
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS _ord_insert_roots //
-CREATE PROCEDURE _ord_insert_roots(IN current_ord INT)
+CREATE PROCEDURE _ord_insert_roots(
+	IN current_ord INT
+)
 BEGIN
 	DECLARE type_id INT;
 
@@ -173,7 +179,10 @@ END //
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS _ord_insert_existing_children //
-CREATE PROCEDURE _ord_insert_existing_children(IN current_ord INT, OUT insert_count INT)
+CREATE PROCEDURE _ord_insert_existing_children(
+	IN current_ord INT,
+	OUT insert_count INT
+)
 BEGIN
 	DECLARE type_id INT;
 	DECLARE last_insert_count INT DEFAULT 0;
@@ -291,7 +300,9 @@ BEGIN
 	INTO t_type_id, t_table_name;
 	WHILE NOT types_done DO
 
-		CALL _get_type_new_fields_and_constraints(t_type_id, TRUE, fields_defs, fields_constraints);
+		CALL _get_type_new_fields_and_constraints(
+			t_type_id, TRUE, fields_defs, fields_constraints
+		);
 
 		IF (CHAR_LENGTH(fields_defs) > 0) THEN 
 			SET fields_defs = CONCAT(',', fields_defs);
@@ -313,7 +324,7 @@ BEGIN
 
 					', fields_constraints, '
 
-			) ENGINE=`InnoDB` DEFAULT CHARSET=`utf8` COLLATE `utf8_bin`;
+			) ENGINE=`InnoDB`;
 		');
 /*
 -- Debug
@@ -470,8 +481,10 @@ END //
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS _get_type_constraints //
-CREATE PROCEDURE _get_type_constraints
-(IN c_type_id INT, OUT drop_constraints TEXT)
+CREATE PROCEDURE _get_type_constraints(
+	IN c_type_id INT,
+	OUT drop_constraints TEXT
+)
 BEGIN
 	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
 	DECLARE cf_ref_type_id INT DEFAULT NULL;

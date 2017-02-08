@@ -12,25 +12,26 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_before_common //
 CREATE PROCEDURE _temp_before_common()
 BEGIN
-	DROP TABLE IF EXISTS `nz_test_closure`.`temp_type_fields`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`temp_type_fields`;
 	CREATE TEMPORARY TABLE `nz_test_closure`.`temp_type_fields`(
 		`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-		`col_name` VARCHAR(64) NOT NULL COLLATE `UTF8_GENERAL_CI` CHECK(`col_name` != ''),
-		`type_name` VARCHAR(64) NOT NULL CHECK(`type_name` != ''),
+		`col_name` VARCHAR(64) NOT NULL COLLATE `UTF8_GENERAL_CI`
+			CHECK(`col_name` != ''),
+		`type_name` VARCHAR(64) NOT NULL
+			CHECK(`type_name` != ''),
 		`ref_type_id` INT DEFAULT NULL,
 		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
-		`compare_options` ENUM
-			(
-				'None',
-				'IgnoreCase',
-				'IgnoreNonSpace',
-				'IgnoreSymbols',
-				'IgnoreKanaType',
-				'IgnoreWidth',
-				'OrdinalIgnoreCase',
-				'StringSort',
-				'Ordinal'
-			) NOT NULL DEFAULT 'None'
+		`compare_options` ENUM (
+			'None',
+			'IgnoreCase',
+			'IgnoreNonSpace',
+			'IgnoreSymbols',
+			'IgnoreKanaType',
+			'IgnoreWidth',
+			'OrdinalIgnoreCase',
+			'StringSort',
+			'Ordinal'
+		) NOT NULL DEFAULT 'None'
 	) ENGINE=`MEMORY`;
 END //
 
@@ -39,15 +40,18 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_after_common //
 CREATE PROCEDURE _temp_after_common()
 BEGIN
-	DROP TABLE `nz_test_closure`.`temp_type_fields`;   
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`temp_type_fields`;   
 END //
 
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS _get_type_new_fields_and_constraints //
-CREATE PROCEDURE _get_type_new_fields_and_constraints
-	(IN c_type_id INT, IN inheriting BOOLEAN,
-	OUT fields_defs TEXT, OUT fields_constraints TEXT)
+CREATE PROCEDURE _get_type_new_fields_and_constraints(
+	IN c_type_id INT,
+	IN inheriting BOOLEAN,
+	OUT fields_defs TEXT,
+	OUT fields_constraints TEXT
+)
 BEGIN
 	DECLARE cf_id INT DEFAULT NULL;	-- for constraints names
 	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
@@ -106,9 +110,11 @@ BEGIN
 			cf_is_list, cf_compare_options;
 		WHILE NOT fields_done DO
 
-			CALL _update_type_fields_def_constr(fields_defs, fields_constraints, inheriting,
+			CALL _update_type_fields_def_constr(
+				fields_defs, fields_constraints, inheriting,
 				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
-				cf_is_list, cf_compare_options);
+				cf_is_list, cf_compare_options
+			);
 			
 			FETCH fields_cur
 			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
@@ -134,10 +140,18 @@ END //
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS _update_type_fields_def_constr //
-CREATE PROCEDURE _update_type_fields_def_constr
-	(INOUT f_defs TEXT, INOUT f_constrs TEXT, IN inheriting BOOLEAN,
-	IN c_type_id INT, IN cf_id INT, IN cf_col_name VARCHAR(64), IN cf_type_name VARCHAR(128),
-	IN cf_ref_type_id INT, IN cf_is_list BOOLEAN, IN cf_compare_options VARCHAR(128))
+CREATE PROCEDURE _update_type_fields_def_constr(
+	INOUT f_defs TEXT,
+	INOUT f_constrs TEXT,
+	IN inheriting BOOLEAN,
+	IN c_type_id INT,
+	IN cf_id INT,
+	IN cf_col_name VARCHAR(64),
+	IN cf_type_name VARCHAR(128),
+	IN cf_ref_type_id INT,
+	IN cf_is_list BOOLEAN,
+	IN cf_compare_options VARCHAR(128)
+)
 BEGIN
 	DECLARE constr_add_prefix TEXT DEFAULT 'CONSTRAINT FK_';
 	DECLARE constr_add_prefix_full TEXT DEFAULT '';
@@ -151,7 +165,6 @@ BEGIN
 	IF cf_ref_type_id IS NULL THEN
 		IF NOT cf_is_list THEN
 			SET field_type = cf_type_name;
-			
 			IF field_type LIKE 'VARCHAR(%' OR field_type = 'TEXT' THEN
 				IF cf_compare_options = 'IgnoreCase' THEN
 					SET field_type = CONCAT(field_type, ' COLLATE `utf8_general_ci`');
@@ -169,9 +182,9 @@ BEGIN
 			SET field_type = 'BLOB';
 		END IF;
 	ELSE	-- reference
-		-- FK Constraint name = FK_<tpe_id>_<field_id>
+		-- FK Constraint name = FK_<type_id>_<field_id>
 		SET constr_add_prefix_full = CONCAT('
-			',constr_add_prefix, c_type_id, '_', cf_id);
+			', constr_add_prefix, c_type_id, '_', cf_id);
 		
 		IF NOT cf_is_list THEN
 			SET field_type = 'BIGINT(0)';

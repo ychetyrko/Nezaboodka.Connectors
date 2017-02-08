@@ -14,33 +14,39 @@ CREATE PROCEDURE before_alter_fields()
 BEGIN
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`field_add_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_add_list`(
-		`owner_type_name` VARCHAR(128) NOT NULL CHECK(`owner_type_name` != ''),
-		`name` VARCHAR(128) NOT NULL CHECK(`name` != ''),
-		`col_name` VARCHAR(64) NOT NULL COLLATE `UTF8_GENERAL_CI` CHECK(`col_name` != ''),
-		`type_name` VARCHAR(64) NOT NULL CHECK(`type_name` != ''),
+		`owner_type_name` VARCHAR(128) NOT NULL
+			CHECK(`owner_type_name` != ''),
+		`name` VARCHAR(128) NOT NULL
+			CHECK(`name` != ''),
+		`col_name` VARCHAR(64) NOT NULL COLLATE `UTF8_GENERAL_CI`
+			CHECK(`col_name` != ''),
+		`type_name` VARCHAR(64) NOT NULL
+			CHECK(`type_name` != ''),
 		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
-		`compare_options` ENUM
-			(
-				'None',
-				'IgnoreCase',
-				'IgnoreNonSpace',
-				'IgnoreSymbols',
-				'IgnoreKanaType',
-				'IgnoreWidth',
-				'OrdinalIgnoreCase',
-				'StringSort',
-				'Ordinal'
-			) NOT NULL DEFAULT 'None',
-		`back_ref_name` VARCHAR(128) DEFAULT NULL CHECK(`back_ref_name` != ''),
+		`compare_options` ENUM (
+			'None',
+			'IgnoreCase',
+			'IgnoreNonSpace',
+			'IgnoreSymbols',
+			'IgnoreKanaType',
+			'IgnoreWidth',
+			'OrdinalIgnoreCase',
+			'StringSort',
+			'Ordinal'
+		) NOT NULL DEFAULT 'None',
+		`back_ref_name` VARCHAR(128) DEFAULT NULL
+			CHECK(`back_ref_name` != ''),
 
 		CONSTRAINT `uc_pair`
 			UNIQUE (`owner_type_name`, `name`)
-	) ENGINE=`MEMORY` DEFAULT CHARSET=`UTF8` COLLATE `UTF8_GENERAL_CI`;
+	) ENGINE=`MEMORY`;
 
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`field_rem_list`;
 	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_rem_list`(
-		`owner_type_name` VARCHAR(128) NOT NULL CHECK(`owner_type_name` != ''),
-		`name` VARCHAR(128) NOT NULL CHECK(`name` != ''),
+		`owner_type_name` VARCHAR(128) NOT NULL
+			CHECK(`owner_type_name` != ''),
+		`name` VARCHAR(128) NOT NULL
+			CHECK(`name` != ''),
 
 		CONSTRAINT `uc_pair`
 			UNIQUE (`owner_type_name`, `name`)
@@ -139,7 +145,9 @@ BEGIN
 	FETCH type_cur	
 	INTO t_type_id, t_table_name;
 	WHILE NOT types_done DO
-		CALL _get_type_new_fields_and_constraints(t_type_id, FALSE, fields_defs, fields_constraints);
+		CALL _get_type_new_fields_and_constraints(
+			t_type_id, FALSE, fields_defs, fields_constraints
+		);
 
 		IF (LENGTH(fields_defs) > 0) THEN
 			IF (LENGTH(fields_constraints) > 0) THEN 
@@ -217,8 +225,8 @@ BEGIN
 
 	INSERT INTO `nz_test_closure`.`removing_fields_list`
 	SELECT f.`id`
-	FROM `nz_test_closure`.`field` as f
-	JOIN `nz_test_closure`.`field_rem_list` as remf
+	FROM `nz_test_closure`.`field` AS f
+	JOIN `nz_test_closure`.`field_rem_list` AS remf
 	ON f.`owner_type_name` = remf.`owner_type_name`
 		AND f.`name` = remf.`name`;
 
@@ -258,7 +266,9 @@ BEGIN
 -- Debug
 		SELECT c_type_id AS 'Current type id';
 */
-		CALL _get_type_removed_fields_and_constraints(c_type_id, drop_constraints, drop_columns);
+		CALL _get_type_removed_fields_and_constraints(
+			c_type_id, drop_constraints, drop_columns
+		);
 
 		IF (LENGTH(drop_columns) > 0) THEN
 			IF (LENGTH(drop_constraints) > 0) THEN 
@@ -289,8 +299,11 @@ END //
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS _get_type_removed_fields_and_constraints //
-CREATE PROCEDURE _get_type_removed_fields_and_constraints
-(IN cf_owner_type_id INT, OUT drop_constraints TEXT, OUT drop_columns TEXT)
+CREATE PROCEDURE _get_type_removed_fields_and_constraints(
+	IN cf_owner_type_id INT,
+	OUT drop_constraints TEXT,
+	OUT drop_columns TEXT
+)
 BEGIN
 	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
 	DECLARE cf_ref_type_id INT DEFAULT NULL;
