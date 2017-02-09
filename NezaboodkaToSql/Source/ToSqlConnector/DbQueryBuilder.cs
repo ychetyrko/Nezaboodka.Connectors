@@ -9,7 +9,8 @@ namespace Nezaboodka.ToSqlConnector
         public const string CleanupRemovedDatabasesQuery = "CALL cleanup_removed_databases();";
         public const string GetDatabaseListQuery =
             "SELECT `" + AdminDatabaseConst.NameField + "`" +
-            "FROM `" + AdminDatabaseConst.DatabasesList + "`;";
+            "FROM `" + AdminDatabaseConst.DatabasesList + "`" +
+            "WHERE NOT `" + AdminDatabaseConst.IsRemovedField + "`;";
 
         // Public
 

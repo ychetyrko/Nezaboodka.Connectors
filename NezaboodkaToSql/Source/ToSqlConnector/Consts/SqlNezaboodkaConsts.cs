@@ -15,6 +15,7 @@ namespace Nezaboodka.ToSqlConnector
         public const string AddDbList = "db_add_list";
         public const string NameField = "name";
         public const string AccessField = "access";
+        public const string IsRemovedField = "is_removed";
     }
 
     public static class SchemaTableConst
