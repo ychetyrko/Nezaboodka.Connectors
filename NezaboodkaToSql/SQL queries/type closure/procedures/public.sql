@@ -78,14 +78,11 @@ BEGIN
 		FETCH query_cur
 		INTO q_text;
 		WHILE NOT done DO
-			SET @prep_str = q_text;
 /*
 -- Debug
-			SELECT @prep_str;
+			SELECT q_text;
 */
-			PREPARE p_alter_query FROM @prep_str;
-			EXECUTE p_alter_query;
-			DEALLOCATE PREPARE p_alter_query;
+			CALL QEXEC(q_text);
 
 			FETCH query_cur
 			INTO q_text;
