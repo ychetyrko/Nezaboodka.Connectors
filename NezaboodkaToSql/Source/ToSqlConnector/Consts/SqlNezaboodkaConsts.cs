@@ -1,6 +1,6 @@
 namespace Nezaboodka.ToSqlConnector
 {
-    public static class SqlAuthData  // TODO: read credentials from Protected Configuration
+    public static class SqlAuthData // TODO: read credentials from Protected Configuration
     {
         public static string UserId => "nz_admin";
         public static string Pass => "nezaboodka";

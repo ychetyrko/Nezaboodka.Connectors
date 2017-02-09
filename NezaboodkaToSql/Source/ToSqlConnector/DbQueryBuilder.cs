@@ -7,9 +7,10 @@ namespace Nezaboodka.ToSqlConnector
     public static class DbQueryBuilder
     {
         public const string CleanupRemovedDatabasesQuery = "CALL cleanup_removed_databases();";
+
         public const string GetDatabaseListQuery =
-            "SELECT `" + AdminDatabaseConst.NameField + "`" +
-            "FROM `" + AdminDatabaseConst.DatabasesList + "`" +
+            "SELECT `" + AdminDatabaseConst.NameField + "` " +
+            "FROM `" + AdminDatabaseConst.DatabasesList + "` " +
             "WHERE NOT `" + AdminDatabaseConst.IsRemovedField + "`;";
 
         // Public
@@ -19,7 +20,7 @@ namespace Nezaboodka.ToSqlConnector
             return "SELECT `" + AdminDatabaseConst.AccessField + "` " +
                    "FROM `" + AdminDatabaseConst.DatabasesList + "` " +
                    "WHERE `" + AdminDatabaseConst.NameField + $"` = '{dbName}' " +
-                   "LIMIT 1;";  // optimization
+                   "LIMIT 1;";
         }
 
         public static string AlterDatabaseListQuery(IEnumerable<string> namesToRemove, IEnumerable<string> namesToAdd)
@@ -38,7 +39,7 @@ namespace Nezaboodka.ToSqlConnector
         {
             var result = "SELECT `" + SchemaFieldConst.TypeName + "`, " +
                                 "`" + SchemaFieldConst.BaseTypeName + "` " +
-                         $"FROM `{dbName}`.`" + SchemaTableConst.TypeTableName + "`;" +
+                         $"FROM `{dbName}`.`" + SchemaTableConst.TypeTableName + "`; " +
                          "SELECT `" + SchemaFieldConst.FieldName + "`, " +
                                 "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
                                 "`" + SchemaFieldConst.FieldTypeName + "`, " +
@@ -76,19 +77,34 @@ namespace Nezaboodka.ToSqlConnector
                     string columnName = GenerateLowerName(fieldDefinition.FieldName);
                     string fieldTypeName = fieldDefinition.FieldTypeName;
                     fieldTypeName = NezaboodkaSqlTypeMapper.SqlTypeNameByNezaboodkaTypeName(fieldTypeName);
-                    string fieldRec = $"'{fieldDefinition.FieldName}', '{columnName}', '{currentTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
+                    string fieldRec =
+                        $"'{fieldDefinition.FieldName}', '{columnName}', '{currentTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
                     fieldsList.Add(fieldRec);
                 }
             }
             string typesListStr = FormatValuesList(typesList);
             string fieldsListStr = FormatValuesList(fieldsList);
-            return $"INSERT INTO `{dbName}`.`{SchemaTableConst.TypeTableName}` " +
-                   $"(`{SchemaFieldConst.TypeName}`, `{SchemaFieldConst.TableName}`, `{SchemaFieldConst.BaseTypeName}`) " +
-                   $"VALUES {typesListStr}; " +
-                   $"INSERT INTO `{dbName}`.`{SchemaTableConst.FieldTableName}` " +
-                   $"(`{SchemaFieldConst.FieldName}`, `{SchemaFieldConst.FieldColumnName}`, `{SchemaFieldConst.FieldOwnerTypeName}`, `{SchemaFieldConst.FieldTypeName}`, `{SchemaFieldConst.FieldIsList}`, `{SchemaFieldConst.FieldCompareOptions}`, `{SchemaFieldConst.FieldBackRefName}`) " +
-                   $"VALUES {fieldsListStr}; " +
-                   $"CALL alter_db_schema('{dbName}');";
+            var result =
+                $"INSERT INTO `{dbName}`.`" + SchemaTableConst.TypeTableName + "` " +
+                "(" +
+                    "`" + SchemaFieldConst.TypeName + "`, " +
+                    "`" + SchemaFieldConst.TableName + "`, " +
+                    "`" + SchemaFieldConst.BaseTypeName + "`" +
+                ") " +
+                $"VALUES {typesListStr}; " +
+                $"INSERT INTO `{dbName}`.`" + SchemaTableConst.FieldTableName + "` " +
+                "(" +
+                    "`" + SchemaFieldConst.FieldName + "`, " +
+                    "`" + SchemaFieldConst.FieldColumnName + "`, " +
+                    "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
+                    "`" + SchemaFieldConst.FieldTypeName + "`, " +
+                    "`" + SchemaFieldConst.FieldIsList + "`, " +
+                    "`" + SchemaFieldConst.FieldCompareOptions + "`, " +
+                    "`" + SchemaFieldConst.FieldBackRefName + "`" +
+                ") " +
+                $"VALUES {fieldsListStr}; " +
+                $"CALL alter_db_schema('{dbName}');";
+            return result;
         }
 
         private static string RemoveDatabaseListPrepareQuery(IEnumerable<string> namesList)

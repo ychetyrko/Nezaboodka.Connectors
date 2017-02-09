@@ -15,7 +15,9 @@ namespace Nezaboodka.ToSqlConnector
                     result = $"VARCHAR({capacity})";
                 else
                     result = "TEXT";
-            } else {
+            }
+            else
+            {
                 bool nullable = nezaboodkaTypeName.EndsWith("?");
                 result = nezaboodkaTypeName.TrimEnd('?');
                 if (SqlTypeByNezaboodkaTypeNameMap.ContainsKey(result))
@@ -30,9 +32,8 @@ namespace Nezaboodka.ToSqlConnector
             string result = sqlTypeName.TrimEnd('?');
             if (result.StartsWith("VARCHAR") || result.StartsWith("TEXT"))
                 result = "String";
-            else
-                if (NezaboodkaTypeNameBySqlTypeMap.ContainsKey(result))
-                    result = NezaboodkaTypeNameBySqlTypeMap[result] + (nullable ? "?" : string.Empty);
+            else if (NezaboodkaTypeNameBySqlTypeMap.ContainsKey(result))
+                result = NezaboodkaTypeNameBySqlTypeMap[result] + (nullable ? "?" : string.Empty);
             return result;
         }
 
