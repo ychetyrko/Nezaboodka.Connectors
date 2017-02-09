@@ -86,7 +86,7 @@ BEGIN
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
 	BEGIN
 -- RESIGNAL;
-		SIGNAL SQLSTATE '40021'
+		SIGNAL SQLSTATE 'HY000'
 			SET MESSAGE_TEXT = "Some fields can't be added";
 	END;
 
@@ -215,7 +215,7 @@ BEGIN
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
 	BEGIN
 -- RESIGNAL;
-		SIGNAL SQLSTATE '40022'
+		SIGNAL SQLSTATE 'HY000'
 			SET MESSAGE_TEXT = "Some fields can't be removed";
 	END;
 
@@ -231,7 +231,7 @@ BEGIN
 		AND f.`name` = remf.`name`;
 
 	IF (ROW_COUNT() != rem_fields_count) THEN
-		SIGNAL SQLSTATE '40022';
+		SIGNAL SQLSTATE 'HY000';
 	END IF;
 
 	CALL _update_types_remove_fields();
