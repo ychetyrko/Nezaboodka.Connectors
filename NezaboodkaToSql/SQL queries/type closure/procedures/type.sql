@@ -9,11 +9,11 @@ USE `nz_test_closure`;
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS before_alter_types //
-CREATE PROCEDURE before_alter_types()
+DROP PROCEDURE IF EXISTS _before_alter_types //
+CREATE PROCEDURE _before_alter_types()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_add_list`;
-	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_add_list`(
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`type_add_list`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_admin_db`.`type_add_list`(
 		`name` VARCHAR(128) NOT NULL UNIQUE
 			CHECK(`name` != ''),
 		`table_name` VARCHAR(64) NOT NULL UNIQUE COLLATE `UTF8_GENERAL_CI`
@@ -22,8 +22,8 @@ BEGIN
 			CHECK(`table_name` != '')
 	) ENGINE=`MEMORY`;
 
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_rem_list`;
-	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`type_rem_list`(
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`type_rem_list`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_admin_db`.`type_rem_list`(
 		`name` VARCHAR(128) NOT NULL UNIQUE
 			CHECK(`name` != '')
 	) ENGINE=`MEMORY`;
@@ -37,21 +37,15 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_before_add_types //
 CREATE PROCEDURE _temp_before_add_types()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_add_queue`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`type_add_queue`(
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`type_add_queue`;
+	CREATE TEMPORARY TABLE `nz_admin_db`.`type_add_queue`(
 		`ord` INT NOT NULL,
-		`id` INT NOT NULL,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`type`(`id`)
-			ON DELETE CASCADE
+		`id` INT NOT NULL
 	) ENGINE=`MEMORY`;
 
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_type`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`new_type`(
-		`id` INT NOT NULL,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`type`(`id`)
-			ON DELETE CASCADE
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`new_type`;
+	CREATE TEMPORARY TABLE `nz_admin_db`.`new_type`(
+		`id` INT NOT NULL
 	) ENGINE=`MEMORY`;
 END //
 
@@ -60,8 +54,8 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_after_add_types //
 CREATE PROCEDURE _temp_after_add_types()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_type`;
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_add_queue`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`new_type`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`type_add_queue`;
 END //
 
 
@@ -83,17 +77,17 @@ BEGIN
 
 	SELECT COUNT(`id`)
 	INTO inserted_types_count
-	FROM `nz_test_closure`.`type_add_queue`;
+	FROM `nz_admin_db`.`type_add_queue`;
     
     SELECT COUNT(`name`)
 	INTO add_types_count
-	FROM `nz_test_closure`.`type_add_list`;
+	FROM `nz_admin_db`.`type_add_list`;
 
 	IF (inserted_types_count != add_types_count) THEN
 		SIGNAL SQLSTATE '40011';
 	END IF;
 
-	DELETE FROM `nz_test_closure`.`type_add_list`;
+	DELETE FROM `nz_admin_db`.`type_add_list`;
 
 	CALL _add_new_types_to_closure();
 	CALL _process_new_types();
@@ -144,7 +138,7 @@ BEGIN
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE cur CURSOR FOR
 		SELECT `name`, `base_type_name`, `table_name`
-		FROM `nz_test_closure`.`type_add_list`
+		FROM `nz_admin_db`.`type_add_list`
 		WHERE `base_type_name` IS NULL;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET done = TRUE;
@@ -153,7 +147,7 @@ BEGIN
 	FETCH cur
 	INTO t_name, t_base_name, t_table_name;
 	WHILE NOT done DO	
-		INSERT INTO `nz_test_closure`.`type`
+		INSERT INTO `{@db_name}`.`type`
 		(`name`, `base_type_name`, `table_name`)
 		VALUE
 		(t_name, t_base_name, t_table_name);
@@ -161,12 +155,12 @@ BEGIN
 		SELECT LAST_INSERT_ID()
 		INTO type_id;
 
-		INSERT INTO `nz_test_closure`.`type_add_queue`
+		INSERT INTO `nz_admin_db`.`type_add_queue`
 		(`ord`, `id`)
 		VALUE
 		(current_ord, type_id);
 
-		INSERT INTO `nz_test_closure`.`new_type`
+		INSERT INTO `nz_admin_db`.`new_type`
 		(`id`)
 		VALUE 
 		(type_id);
@@ -194,8 +188,8 @@ BEGIN
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE cur CURSOR FOR
 		SELECT tadd.`name`, tadd.`base_type_name`, tadd.`table_name`
-		FROM `nz_test_closure`.`type_add_list` AS tadd
-		JOIN `nz_test_closure`.`type` AS t
+		FROM `nz_admin_db`.`type_add_list` AS tadd
+		JOIN `{@db_name}`.`type` AS t
 		ON tadd.`base_type_name` = t.`name`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET done = TRUE;
@@ -208,7 +202,7 @@ BEGIN
 	WHILE NOT done DO
 		SET @@SESSION.last_insert_id = 0;
 
-		INSERT IGNORE INTO `nz_test_closure`.`type`
+		INSERT IGNORE INTO `{@db_name}`.`type`
 		(`name`, `base_type_name`, `table_name`)
 		VALUE
 		(t_name, t_base_name, t_table_name);
@@ -218,12 +212,12 @@ BEGIN
 		IF (type_id != 0) THEN
 			SET insert_count = insert_count + 1;
 
-			INSERT INTO `nz_test_closure`.`type_add_queue`
+			INSERT INTO `nz_admin_db`.`type_add_queue`
 			(`ord`, `id`)
 			VALUE
 			(current_ord, type_id);
 
-			INSERT INTO `nz_test_closure`.`new_type`
+			INSERT INTO `nz_admin_db`.`new_type`
 			(`id`)
 			VALUE 
 			(type_id);
@@ -245,10 +239,10 @@ BEGIN
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE cur CURSOR FOR
 		SELECT tadd.`id`, tbase.`id`
-		FROM `nz_test_closure`.`type` AS tadd
-		JOIN `nz_test_closure`.`type_add_queue` AS q
+		FROM `{@db_name}`.`type` AS tadd
+		JOIN `nz_admin_db`.`type_add_queue` AS q
 		ON tadd.`id` = q.`id`
-		LEFT JOIN `nz_test_closure`.`type` AS tbase
+		LEFT JOIN `{@db_name}`.`type` AS tbase
 		ON tbase.`name` = tadd.`base_type_name`
 		ORDER BY q.`ord`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
@@ -258,10 +252,10 @@ BEGIN
 	FETCH cur
 	INTO type_id, base_id;
 	WHILE NOT done DO		
-		INSERT INTO `nz_test_closure`.`type_closure`
+		INSERT INTO `{@db_name}`.`type_closure`
 		(`ancestor`, `descendant`)
 		SELECT clos.`ancestor`, type_id
-		FROM `nz_test_closure`.`type_closure` AS clos
+		FROM `{@db_name}`.`type_closure` AS clos
 		WHERE clos.`descendant` = base_id
 		UNION
 		SELECT type_id, type_id;
@@ -278,8 +272,6 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _process_new_types //
 CREATE PROCEDURE _process_new_types()
 BEGIN
-	DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
-
 	DECLARE t_type_id INT DEFAULT NULL;
 	DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
 	DECLARE fields_defs TEXT;
@@ -288,8 +280,8 @@ BEGIN
 	DECLARE types_done BOOLEAN DEFAULT FALSE;
 	DECLARE new_type_cur CURSOR FOR
 		SELECT t.`id` ,t.`table_name`
-		FROM `nz_test_closure`.`type` AS t
-		JOIN `nz_test_closure`.`new_type` AS n
+		FROM `{@db_name}`.`type` AS t
+		JOIN `nz_admin_db`.`new_type` AS n
 		WHERE t.`id` = n.`id`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
@@ -313,13 +305,13 @@ BEGIN
 		END IF;
 
 		SET @prep_str = CONCAT('
-			CREATE TABLE `', db_name ,'`.`', t_table_name, '` (
+			CREATE TABLE `', {@db_name} ,'`.`', t_table_name, '` (
 				id BIGINT(0) PRIMARY KEY NOT NULL
 
 				', fields_defs ,',
 
 				FOREIGN KEY (id)
-					REFERENCES `', db_name ,'`.`db_key`(`sys_id`)
+					REFERENCES `db_key`(`sys_id`)
 					ON DELETE CASCADE	-- delete object when it\'s key is removed
 
 					', fields_constraints, '
@@ -334,7 +326,7 @@ BEGIN
 		PREPARE p_create_table FROM @prep_str;
 		DEALLOCATE PREPARE p_create_table;
 
-		INSERT INTO `nz_test_closure`.`alter_query`
+		INSERT INTO `nz_admin_db`.`alter_query`
 		(`query_text`)
 		VALUE
 		(@prep_str);
@@ -354,29 +346,22 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_before_remove_types //
 CREATE PROCEDURE _temp_before_remove_types()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_types_list`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_types_list`(
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`removing_types_list`;
+	CREATE TEMPORARY TABLE `nz_admin_db`.`removing_types_list`(
 		`id` INT NOT NULL UNIQUE,
 		`constr` TEXT NOT NULL,
 		`table_name` VARCHAR(64) NOT NULL
 	) ENGINE=`INNODB`;	-- TEXT is not supported in MEMORY engine
 
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_fields_list`(
-		`id` INT NOT NULL UNIQUE,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`field`(`id`)
-			ON DELETE CASCADE
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`removing_fields_list`;
+	CREATE TEMPORARY TABLE `nz_admin_db`.`removing_fields_list`(
+		`id` INT NOT NULL UNIQUE
 	) ENGINE=`MEMORY`;
 
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_types_buf`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_types_buf`(
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`removing_types_buf`;
+	CREATE TEMPORARY TABLE `nz_admin_db`.`removing_types_buf`(
 		`id` INT NOT NULL UNIQUE,
-		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != ''),
-
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`type`(`id`)
-			ON DELETE CASCADE
+		`name` VARCHAR(128) NOT NULL UNIQUE CHECK(`name` != '')
 	) ENGINE=`MEMORY`;
 END //
 
@@ -385,9 +370,9 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_after_remove_types //
 CREATE PROCEDURE _temp_after_remove_types()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_types_buf`;
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_types_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`removing_types_buf`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`removing_fields_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`removing_types_list`;
 END //
 
 
@@ -409,10 +394,10 @@ BEGIN
 -- Debug
 	SELECT * FROM `nz_test_closure`.`removing_types_list`;
 */
-	DELETE FROM `nz_test_closure`.`type`
+	DELETE FROM `{@db_name}`.`type`
 	WHERE `id` IN (
 		SELECT `id`
-		FROM `nz_test_closure`.`removing_types_list`
+		FROM `nz_admin_db`.`removing_types_list`
 	);
 
 	CALL _process_removed_types();
@@ -423,7 +408,6 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _get_removing_types_constr //
 CREATE PROCEDURE _get_removing_types_constr()
 BEGIN
-	DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
 	DECLARE t_type_id INT DEFAULT NULL;
 	DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
 	DECLARE dropping_constraints TEXT DEFAULT '';
@@ -431,8 +415,8 @@ BEGIN
 	DECLARE types_done BOOLEAN DEFAULT FALSE;
 	DECLARE type_cur CURSOR FOR
 		SELECT t.`id` ,t.`table_name`
-		FROM `nz_test_closure`.`type` AS t
-		JOIN `nz_test_closure`.`type_rem_list` AS remt
+		FROM `{@db_name}`.`type` AS t
+		JOIN `nz_admin_db`.`type_rem_list` AS remt
 		WHERE t.`name` = remt.`name`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
@@ -446,12 +430,12 @@ BEGIN
 		
 		IF (CHAR_LENGTH(dropping_constraints) > 0) THEN 
 			SET dropping_constraints = CONCAT(
-				'ALTER TABLE `',db_name, '`.`', t_table_name, '`
+				'ALTER TABLE `', {@db_name}, '`.`', t_table_name, '`
 				', dropping_constraints, ';'
 			);
 		END IF;
 
-		INSERT INTO `nz_test_closure`.`removing_types_list`
+		INSERT INTO `nz_admin_db`.`removing_types_list`
 		(`id`, `table_name`, `constr`)
 		VALUE
 		(t_type_id, t_table_name, dropping_constraints);
@@ -466,13 +450,13 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _remove_types_fields_from_table //
 CREATE PROCEDURE _remove_types_fields_from_table()
 BEGIN
-	INSERT INTO `nz_test_closure`.`removing_fields_list`
+	INSERT INTO `nz_admin_db`.`removing_fields_list`
 	(`id`)
 	SELECT `id`
-	FROM `nz_test_closure`.`field`
+	FROM `{@db_name}`.`field`
 	WHERE `owner_type_id` IN (
 		SELECT `id`
-		FROM `nz_test_closure`.`removing_types_list`
+		FROM `nz_admin_db`.`removing_types_list`
 	);
 
 	CALL _remove_deleted_fields_from_table();
@@ -493,10 +477,10 @@ BEGIN
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE fields_cur CURSOR FOR
 		SELECT `id`, `ref_type_id`
-		FROM `nz_test_closure`.`field` 
+		FROM `{@db_name}`.`field` 
 		WHERE `owner_type_id` IN (
 			SELECT clos.`ancestor`	-- get all super classes
-			FROM `nz_test_closure`.`type_closure` AS clos
+			FROM `{@db_name}`.`type_closure` AS clos
 			WHERE clos.`descendant` = c_type_id
 		);
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
@@ -534,59 +518,59 @@ BEGIN
 /*
 -- Debug
 		SELECT t.`id`, t.`name`
-		FROM `nz_test_closure`.`type` AS t
-		JOIN `nz_test_closure`.`removing_types_list` AS remtlist
+		FROM `{@db_name}`.`type` AS t
+		JOIN `nz_admin_db`.`removing_types_list` AS remtlist
 		ON t.`id` = remtlist.`id`
 		WHERE (
 			SELECT COUNT(clos.`ancestor`)
-			FROM `nz_test_closure`.`type_closure` AS clos
+			FROM `{@db_name}`.`type_closure` AS clos
 			WHERE clos.`ancestor` = t.`id`
 		) = 1;	-- Сheck if terminating type
 */
-		INSERT INTO `nz_test_closure`.`removing_types_buf`
+		INSERT INTO `nz_admin_db`.`removing_types_buf`
 		(`id`, `name`)
 		SELECT t.`id`, t.`name`
-		FROM `nz_test_closure`.`type` AS t
-		JOIN `nz_test_closure`.`removing_types_list` AS remtlist
+		FROM `{@db_name}`.`type` AS t
+		JOIN `nz_admin_db`.`removing_types_list` AS remtlist
 		ON t.`id` = remtlist.`id`
 		WHERE (
 			SELECT COUNT(clos.`ancestor`)
-			FROM `nz_test_closure`.`type_closure` AS clos
+			FROM `{@db_name}`.`type_closure` AS clos
 			WHERE clos.`ancestor` = t.`id`
 		) = 1;	-- Сheck if terminating type
 /*
 -- Debug
 		SELECT *
-		FROM `nz_test_closure`.`removing_types_buf`;
+		FROM `nz_admin_db`.`removing_types_buf`;
 */
 		IF (ROW_COUNT() = 0) THEN
 			LEAVE LP_TERM;
 		END IF;
 		
-		DELETE FROM `nz_test_closure`.`type_closure`
+		DELETE FROM `{@db_name}`.`type_closure`
 		WHERE `descendant` IN (
 			SELECT `id`
-			FROM `nz_test_closure`.`removing_types_buf`
+			FROM `nz_admin_db`.`removing_types_buf`
 		);
 
-		DELETE FROM `nz_test_closure`.`type_rem_list`
+		DELETE FROM `nz_admin_db`.`type_rem_list`
 		WHERE `name` IN (
 			SELECT `name`
-			FROM `nz_test_closure`.`removing_types_buf`
+			FROM `nz_admin_db`.`removing_types_buf`
 		);
 
-		DELETE FROM `nz_test_closure`.`removing_types_buf`;
+		DELETE FROM `nz_admin_db`.`removing_types_buf`;
 	END LOOP;
 /*
 -- Debug
-	SELECT * FROM `nz_test_closure`.`type_rem_list`;
+	SELECT * FROM `nz_admin_db`.`type_rem_list`;
 	SELECT COUNT(`name`)
-	FROM `nz_test_closure`.`type_rem_list`;
+	FROM `nz_admin_db`.`type_rem_list`;
 	SELECT rest_count;
 */
 	SELECT COUNT(`name`)
 	INTO rest_count
-	FROM `nz_test_closure`.`type_rem_list`;
+	FROM `nz_admin_db`.`type_rem_list`;
 
 	IF (rest_count > 0) THEN
 -- TODO: write invalid typenames
@@ -599,8 +583,6 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _process_removed_types //
 CREATE PROCEDURE _process_removed_types()
 BEGIN
-	DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
-
 	DECLARE t_type_id INT DEFAULT NULL;
 	DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
 	DECLARE dropping_constraints TEXT DEFAULT '';
@@ -608,7 +590,7 @@ BEGIN
 	DECLARE types_done BOOLEAN DEFAULT FALSE;
 	DECLARE rem_type_cur CURSOR FOR
 		SELECT `id`, `table_name`, `constr`
-		FROM `nz_test_closure`.`removing_types_list`;
+		FROM `nz_admin_db`.`removing_types_list`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
 
@@ -623,18 +605,18 @@ BEGIN
 -- Debug
 		SELECT @prep_str;
 */
-			INSERT INTO `nz_test_closure`.`alter_query`
+			INSERT INTO `nz_admin_db`.`alter_query`
 			(`query_text`)
 			VALUE
 			(@prep_str);
 		END IF;
 
-		SET @prep_str = CONCAT('DROP TABLE `', db_name ,'`.`', t_table_name, '`;');
+		SET @prep_str = CONCAT('DROP TABLE `', {@db_name} ,'`.`', t_table_name, '`;');
 /*
 -- Debug
 		SELECT @prep_str;
 */
-		INSERT INTO `nz_test_closure`.`alter_query`
+		INSERT INTO `nz_admin_db`.`alter_query`
 		(`query_text`)
 		VALUE
 		(@prep_str);

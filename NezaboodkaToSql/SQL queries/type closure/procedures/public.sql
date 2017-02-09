@@ -21,19 +21,22 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS before_alter_db_schema //
 CREATE PROCEDURE before_alter_db_schema()
 BEGIN
-	CALL before_alter_fields();
-	CALL before_alter_types();
+	CALL _before_alter_fields();
+	CALL _before_alter_types();
 END //
 
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS alter_db_schema //
-CREATE PROCEDURE alter_db_schema()
+CREATE PROCEDURE alter_db_schema(
+	IN db_name varchar(64)
+)
 BEGIN
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
 	BEGIN
 		ROLLBACK;
 		CALL _cleanup_temp_tables_after_alter_db_schema();
+		SET @db_name = NULL;
 		RESIGNAL;
 	END;
 
@@ -44,6 +47,11 @@ BEGIN
 		`query_text` TEXT DEFAULT NULL
 	) ENGINE=`INNODB`;
 
+	SET @db_name = db_name;
+
+-- Debug
+	SELECT @db_name AS 'Database name';
+
 	CALL _temp_before_common();
 	CALL _temp_before_remove_fields();
 	CALL _temp_before_remove_types();
@@ -52,10 +60,15 @@ BEGIN
 
 	START TRANSACTION;
 
+SELECT 'Start!';
 	CALL _remove_fields();
+SELECT 'Fields removed!';
 	CALL _remove_types();
+SELECT 'Types removed!';
 	CALL _add_types();
-	CALL _add_fields();    
+SELECT 'Types added!';
+	CALL _add_fields();
+SELECT 'Fields added!';
 
 	COMMIT;
 /*
@@ -92,6 +105,7 @@ BEGIN
 	END;
 
 	CALL _cleanup_temp_tables_after_alter_db_schema();
+	SET @db_name = NULL;
 END //
 
 

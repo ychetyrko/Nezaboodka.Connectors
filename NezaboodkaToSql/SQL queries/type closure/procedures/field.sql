@@ -9,11 +9,11 @@ USE `nz_test_closure`;
 ﻿
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS before_alter_fields //
-CREATE PROCEDURE before_alter_fields()
+DROP PROCEDURE IF EXISTS _before_alter_fields //
+CREATE PROCEDURE _before_alter_fields()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`field_add_list`;
-	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_add_list`(
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`field_add_list`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_admin_db`.`field_add_list`(
 		`owner_type_name` VARCHAR(128) NOT NULL
 			CHECK(`owner_type_name` != ''),
 		`name` VARCHAR(128) NOT NULL
@@ -41,8 +41,8 @@ BEGIN
 			UNIQUE (`owner_type_name`, `name`)
 	) ENGINE=`MEMORY`;
 
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`field_rem_list`;
-	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`field_rem_list`(
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`field_rem_list`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_admin_db`.`field_rem_list`(
 		`owner_type_name` VARCHAR(128) NOT NULL
 			CHECK(`owner_type_name` != ''),
 		`name` VARCHAR(128) NOT NULL
@@ -61,12 +61,9 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_before_add_fields //
 CREATE PROCEDURE _temp_before_add_fields()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_field`;
-	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`new_field`(
-		`id` INT NOT NULL,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`field`(`id`)
-			ON DELETE CASCADE
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`new_field`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_admin_db`.`new_field`(
+		`id` INT NOT NULL
 	) ENGINE=`MEMORY`;
 END //
 
@@ -75,7 +72,7 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_after_add_fields //
 CREATE PROCEDURE _temp_after_add_fields()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_field`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`new_field`;
 END //
 
 
@@ -90,35 +87,35 @@ BEGIN
 			SET MESSAGE_TEXT = "Some fields can't be added";
 	END;
 
-	INSERT INTO `nz_test_closure`.`field`
+	INSERT INTO `{@db_name}`.`field`
 	(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
 	SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
-	FROM `nz_test_closure`.`field_add_list` AS newf
-	JOIN `nz_test_closure`.`type` AS ownt
+	FROM `nz_admin_db`.`field_add_list` AS newf
+	JOIN `{@db_name}`.`type` AS ownt
 	ON ownt.`name` = newf.`owner_type_name`
-	LEFT JOIN `nz_test_closure`.`type` AS reft
+	LEFT JOIN `{@db_name}`.`type` AS reft
 	ON reft.`name` = newf.`type_name`;
 
-	UPDATE `nz_test_closure`.`field` AS f1
-	JOIN `nz_test_closure`.`field` AS f2
+	UPDATE `{@db_name}`.`field` AS f1
+	JOIN `{@db_name}`.`field` AS f2
 	ON f2.`name` = f1.`back_ref_name`
 	SET f1.`back_ref_id` = f2.`id`;
 
-	UPDATE `nz_test_closure`.`field` AS f1
-	JOIN `nz_test_closure`.`field` AS f2
+	UPDATE `{@db_name}`.`field` AS f1
+	JOIN `{@db_name}`.`field` AS f2
 	ON f2.`id` = f1.`back_ref_id`
 	SET f2.`back_ref_id` = f1.`id`,
 		f2.`back_ref_name` = f1.`name`;
 	
-	INSERT INTO `nz_test_closure`.`new_field`
+	INSERT INTO `nz_admin_db`.`new_field`
 	SELECT f.`id`
-	FROM `nz_test_closure`.`field` AS f
-	JOIN `nz_test_closure`.`field_add_list` AS newf
+	FROM `{@db_name}`.`field` AS f
+	JOIN `nz_admin_db`.`field_add_list` AS newf
 	ON f.`name` = newf.`name`
 		AND f.`owner_type_name` = newf.`owner_type_name`;
 
 	CALL _update_types_add_fields();
-	DELETE FROM `nz_test_closure`.`field_add_list`;
+	DELETE FROM `nz_admin_db`.`field_add_list`;
 END //
 
 
@@ -126,8 +123,6 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _update_types_add_fields //
 CREATE PROCEDURE _update_types_add_fields()
 BEGIN
-	DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
-
 	DECLARE t_type_id VARCHAR(128) DEFAULT NULL;
 	DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
 	DECLARE fields_defs TEXT;
@@ -136,7 +131,7 @@ BEGIN
 	DECLARE types_done BOOLEAN DEFAULT FALSE;
 	DECLARE type_cur CURSOR FOR
 		SELECT t.`id` ,t.`table_name`
-		FROM `nz_test_closure`.`type` AS t;
+		FROM `{@db_name}`.`type` AS t;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
 	
@@ -155,7 +150,7 @@ BEGIN
 			END IF;
 
 			SET @prep_str = CONCAT('
-				ALTER TABLE `', db_name ,'`.`', t_table_name, '`
+				ALTER TABLE `', {@db_name} ,'`.`', t_table_name, '`
 					ADD COLUMN (', fields_defs ,')
 					', fields_constraints, ';
 				');
@@ -167,7 +162,7 @@ BEGIN
 			PREPARE p_alter_table FROM @prep_str;
 			DEALLOCATE PREPARE p_alter_table;
 
-			INSERT INTO `nz_test_closure`.`alter_query`
+			INSERT INTO `nz_admin_db`.`alter_query`
 			(`query_text`)
 			VALUE
 			(@prep_str);
@@ -188,12 +183,9 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_before_remove_fields //
 CREATE PROCEDURE _temp_before_remove_fields()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
-	CREATE TEMPORARY TABLE `nz_test_closure`.`removing_fields_list`(
-		`id` INT NOT NULL UNIQUE,
-		FOREIGN KEY (`id`)
-			REFERENCES `nz_test_closure`.`field`(`id`)
-			ON DELETE CASCADE
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`removing_fields_list`;
+	CREATE TEMPORARY TABLE `nz_admin_db`.`removing_fields_list`(
+		`id` INT NOT NULL UNIQUE
 	) ENGINE=`MEMORY`;
 END //
 
@@ -202,7 +194,7 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_after_remove_fields //
 CREATE PROCEDURE _temp_after_remove_fields()
 BEGIN
-	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`removing_fields_list`;
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`removing_fields_list`;
 END //
 
 
@@ -221,12 +213,12 @@ BEGIN
 
 	SELECT COUNT(`name`)
 	INTO rem_fields_count
-	FROM `nz_test_closure`.`field_rem_list`;
+	FROM `nz_admin_db`.`field_rem_list`;
 
-	INSERT INTO `nz_test_closure`.`removing_fields_list`
+	INSERT INTO `nz_admin_db`.`removing_fields_list`
 	SELECT f.`id`
-	FROM `nz_test_closure`.`field` AS f
-	JOIN `nz_test_closure`.`field_rem_list` AS remf
+	FROM `{@db_name}`.`field` AS f
+	JOIN `nz_admin_db`.`field_rem_list` AS remf
 	ON f.`owner_type_name` = remf.`owner_type_name`
 		AND f.`name` = remf.`name`;
 
@@ -243,8 +235,6 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _update_types_remove_fields //
 CREATE PROCEDURE _update_types_remove_fields()
 BEGIN
-	DECLARE db_name VARCHAR(64) DEFAULT 'nz_test_closure';
-
 	DECLARE c_type_id INT DEFAULT NULL;
 	DECLARE t_table_name VARCHAR(64) DEFAULT NULL;
 	DECLARE drop_columns TEXT DEFAULT '';
@@ -253,7 +243,7 @@ BEGIN
 	DECLARE types_done BOOLEAN DEFAULT FALSE;
 	DECLARE type_cur CURSOR FOR
 		SELECT t.`id` ,t.`table_name`
-		FROM `nz_test_closure`.`type` AS t;
+		FROM `{@db_name}`.`type` AS t;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
 	
@@ -275,7 +265,7 @@ BEGIN
 				SET drop_constraints = CONCAT(drop_constraints, ',');
 			END IF;
 			SET @prep_str = CONCAT('
-				ALTER TABLE `', db_name ,'`.`', t_table_name, '`
+				ALTER TABLE `', {@db_name} ,'`.`', t_table_name, '`
 					', drop_constraints,'
 					', drop_columns,'
 				');
@@ -283,7 +273,7 @@ BEGIN
 -- Debug
 			SELECT @prep_str AS 'Altering query';
 */
-			INSERT INTO `nz_test_closure`.`alter_query`
+			INSERT INTO `nz_admin_db`.`alter_query`
 			(`query_text`)
 			VALUE
 			(@prep_str);
@@ -312,12 +302,12 @@ BEGIN
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE fields_cur CURSOR FOR
 		SELECT f.`col_name`, f.`id`, f.`ref_type_id`
-		FROM `nz_test_closure`.`removing_fields_list` AS remf
-		JOIN `nz_test_closure`.`field` AS f
+		FROM `nz_admin_db`.`removing_fields_list` AS remf
+		JOIN `{@db_name}`.`field` AS f
 		ON remf.`id` = f.`id`
 		WHERE f.`owner_type_id` IN (
 			SELECT clos.`ancestor`	-- get all super classes
-			FROM `nz_test_closure`.`type_closure` AS clos
+			FROM `{@db_name}`.`type_closure` AS clos
 			WHERE clos.`descendant` = cf_owner_type_id
 		);
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
