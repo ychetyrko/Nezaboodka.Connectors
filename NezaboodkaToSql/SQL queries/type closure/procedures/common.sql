@@ -22,12 +22,15 @@ BEGIN
 		END IF;
 		RESIGNAL;
 	END;
+
+	SET @qexec_row_count = 0;
 	SET @prep_str = query_text;
 
 	PREPARE p_prep_proc FROM @prep_str;
 	SET is_prepared = TRUE;
 
 	EXECUTE p_prep_proc;
+	SET @qexec_row_count = ROW_COUNT();
 
 	DEALLOCATE PREPARE p_prep_proc;
 	SET @prep_str = NULL;
