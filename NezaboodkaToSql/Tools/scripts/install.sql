@@ -48,12 +48,15 @@ BEGIN
 		END IF;
 		RESIGNAL;
 	END;
+
+	SET @qexec_row_count = 0;
 	SET @prep_str = query_text;
 
 	PREPARE p_prep_proc FROM @prep_str;
 	SET is_prepared = TRUE;
 
 	EXECUTE p_prep_proc;
+	SET @qexec_row_count = ROW_COUNT();
 
 	DEALLOCATE PREPARE p_prep_proc;
 	SET @prep_str = NULL;
@@ -136,7 +139,13 @@ BEGIN
 			
 			FOREIGN KEY(`back_ref_id`)
 				REFERENCES `field`(`id`)
-				ON DELETE SET NULL
+				ON DELETE SET NULL,
+
+			CONSTRAINT `uc_type_fields`
+				UNIQUE (`owner_type_name`, `name`),
+
+			CONSTRAINT `uc_table_columns`
+				UNIQUE (`owner_type_name`, `col_name`)
 		) ENGINE=`INNODB`;"
 	));
 
@@ -324,7 +333,7 @@ CREATE PROCEDURE _cleanup_temp_tables_after_alter_database_list()
 BEGIN
 	DROP TEMPORARY TABLE IF EXISTS `db_rem_list`;
 	DROP TEMPORARY TABLE IF EXISTS `db_add_list`;
-END;
+END //
 
 
 /*********************************************

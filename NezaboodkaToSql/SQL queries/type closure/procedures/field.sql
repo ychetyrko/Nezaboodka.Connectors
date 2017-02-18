@@ -37,8 +37,11 @@ BEGIN
 		`back_ref_name` VARCHAR(128) DEFAULT NULL
 			CHECK(`back_ref_name` != ''),
 
-		CONSTRAINT `uc_pair`
-			UNIQUE (`owner_type_name`, `name`)
+		CONSTRAINT `uc_type_fields`
+			UNIQUE (`owner_type_name`, `name`),
+
+		CONSTRAINT `uc_table_columns`
+			UNIQUE (`owner_type_name`, `col_name`)
 	) ENGINE=`MEMORY`;
 
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`field_rem_list`;

@@ -79,7 +79,13 @@ CREATE TABLE `nz_test_closure`.`field` (
 	
 	FOREIGN KEY(`back_ref_id`)
 		REFERENCES `field`(`id`)
-		ON DELETE SET NULL
+		ON DELETE SET NULL,
+
+	CONSTRAINT `uc_type_fields`
+		UNIQUE (`owner_type_name`, `name`),
+
+	CONSTRAINT `uc_table_columns`
+		UNIQUE (`owner_type_name`, `col_name`)
 ) ENGINE=`INNODB`;
 
 /*---------------------------------------/
