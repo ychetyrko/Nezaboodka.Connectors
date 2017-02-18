@@ -85,14 +85,15 @@ namespace Nezaboodka.ToSqlConnector
             string typesListStr = FormatValuesList(typesList);
             string fieldsListStr = FormatValuesList(fieldsList);
             var result =
-                $"INSERT INTO `{dbName}`.`" + SchemaTableConst.TypeTableName + "` " +
+                "CALL before_alter_database_schema(); " +
+                "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddTypeList + "` " +
                 "(" +
                     "`" + SchemaFieldConst.TypeName + "`, " +
                     "`" + SchemaFieldConst.TableName + "`, " +
                     "`" + SchemaFieldConst.BaseTypeName + "`" +
                 ") " +
                 $"VALUES {typesListStr}; " +
-                $"INSERT INTO `{dbName}`.`" + SchemaTableConst.FieldTableName + "` " +
+                "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddFieldList + "` " +
                 "(" +
                     "`" + SchemaFieldConst.FieldName + "`, " +
                     "`" + SchemaFieldConst.FieldColumnName + "`, " +
@@ -103,7 +104,7 @@ namespace Nezaboodka.ToSqlConnector
                     "`" + SchemaFieldConst.FieldBackRefName + "`" +
                 ") " +
                 $"VALUES {fieldsListStr}; " +
-                $"CALL alter_db_schema('{dbName}');";
+                $"CALL alter_database_Schema('{dbName}');";
             return result;
         }
 

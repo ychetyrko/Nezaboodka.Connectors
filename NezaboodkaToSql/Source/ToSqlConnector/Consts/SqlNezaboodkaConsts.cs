@@ -13,6 +13,10 @@ namespace Nezaboodka.ToSqlConnector
         public const string DatabasesList = "db_list";
         public const string RemoveDbList = "db_rem_list";
         public const string AddDbList = "db_add_list";
+        public const string RemoveTypeList = "type_rem_list";
+        public const string AddTypeList = "type_add_list";
+        public const string RemoveFieldList = "field_rem_list";
+        public const string AddFieldList = "field_add_list";
         public const string NameField = "name";
         public const string AccessField = "access";
         public const string IsRemovedField = "is_removed";
