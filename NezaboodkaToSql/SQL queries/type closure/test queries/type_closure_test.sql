@@ -11,19 +11,19 @@ CALL before_alter_db_schema();
 INSERT INTO `type_add_list`
 (`name`, `table_name`, `base_type_name`)
 VALUES
-('User', '_user', NULL),
-('Group', '_group', NULL);
+('User', '_user', ''),
+('Group', '_group', '');
 
 INSERT INTO `field_add_list`
 (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
 -- User
-('Login', '_login', 'User', 'VARCHAR(60)', FALSE, 'IgnoreCase', NULL),
+('Login', '_login', 'User', 'VARCHAR(60)', FALSE, 'IgnoreCase', ''),
 ('Group', '_group', 'User', 'Group', FALSE, 'None', 'Participants'),
 -- Group
-('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', NULL),
-('Participants', '_participants', 'Group', 'User', TRUE, 'None', NULL),	-- auto-updated back reference
-('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', NULL);
+('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', ''),
+('Participants', '_participants', 'Group', 'User', TRUE, 'None', ''),	-- auto-updated back reference
+('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', '');
 CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
@@ -45,7 +45,7 @@ VALUES
 ('ModeratedGroup', '_moderated_group', 'Moderator', 'Group', FALSE, 'None', 'Moderators'),
 -- Group
 ('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', NULL),	-- auto-updated back reference
-('Moderators', '_moderators', 'Group', 'Moderator', TRUE, 'None', NULL);	-- auto-updated back reference
+('Moderators', '_moderators', 'Group', 'Moderator', TRUE, 'None', '');	-- auto-updated back reference
 CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
@@ -60,5 +60,5 @@ VALUE
 INSERT INTO `field_add_list`
 (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
-('UberRating', '_uber_rating', 'UberAdmin', 'INT', FALSE, 'None', NULL);
+('UberRating', '_uber_rating', 'UberAdmin', 'INT', FALSE, 'None', '');
 CALL alter_db_schema('nz_test_closure');

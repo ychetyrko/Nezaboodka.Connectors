@@ -70,7 +70,7 @@ BEGIN
 		`id` INT NOT NULL,
 		`name` VARCHAR(128) NOT NULL UNIQUE,
 		`table_name` VARCHAR(64) NOT NULL UNIQUE COLLATE `UTF8_GENERAL_CI`,
-		`base_type_name` VARCHAR(128)
+		`base_type_name` VARCHAR(128) NOT NULL DEFAULT ''
 	) ENGINE=`MEMORY`;
 
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_shadow_base`;
@@ -104,7 +104,7 @@ BEGIN
 			'StringSort',
 			'Ordinal'
 		) NOT NULL DEFAULT 'None',
-		`back_ref_name` VARCHAR(128) DEFAULT NULL,
+		`back_ref_name` VARCHAR(128) NOT NULL DEFAULT '',
 		`back_ref_id` INT DEFAULT NULL
 	) ENGINE=`MEMORY`;
 END //
@@ -358,7 +358,7 @@ CREATE PROCEDURE _remove_deleted_fields_from_table()
 BEGIN
 	CALL QEXEC(CONCAT(
 		"UPDATE `", @db_name, "`.`field`
-		SET `back_ref_name` = NULL
+		SET `back_ref_name` = ''
 		WHERE `back_ref_id` IN (
 			SELECT `id`
 			FROM `nz_test_closure`.`removing_fields_list`

@@ -14,8 +14,8 @@ INSERT INTO `type_add_list`
 VALUES
 ('VeryGoodPeople', '_very_good_people', 'GoodPeople'),
 ('GoodPeople', '_good_people', 'People'),
-('People', '_people', NULL),
-('Vehicle', '_vehicle', NULL);
+('People', '_people', ''),
+('Vehicle', '_vehicle', '');
 CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
@@ -31,7 +31,7 @@ VALUES
 ('Chopper', '_chopper', 'Motocycle'),
 ('Car', '_car', 'Vehicle'),
 ('Motocycle', '_motocycle', 'Vehicle'),
-('Buildng', '_building', NULL),
+('Buildng', '_building', ''),
 ('Sedan', '_sedan', 'Car');
 CALL alter_db_schema('nz_test_closure');
 
@@ -42,7 +42,7 @@ CALL before_alter_db_schema();
 INSERT INTO `field_add_list`
 (`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
-('Name', '_name', 'People', 'VARCHAR(50)', FALSE, 'IgnoreCase', NULL),
-('Goodies', '_goodies', 'GoodPeople', 'TEXT', TRUE, 'None', NULL),
-('Car', '_car', 'VeryGoodPeople', 'Car', FALSE, 'None', NULL);
+('Name', '_name', 'People', 'VARCHAR(50)', FALSE, 'IgnoreCase', ''),
+('Goodies', '_goodies', 'GoodPeople', 'TEXT', TRUE, 'None', ''),
+('Car', '_car', 'VeryGoodPeople', 'Car', FALSE, 'None', '');
 CALL alter_db_schema('nz_test_closure');

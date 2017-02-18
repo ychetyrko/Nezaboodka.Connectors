@@ -18,8 +18,7 @@ BEGIN
 			CHECK(`name` != ''),
 		`table_name` VARCHAR(64) NOT NULL UNIQUE COLLATE `UTF8_GENERAL_CI`
 			CHECK(`table_name` != ''),
-		`base_type_name` VARCHAR(128)
-			CHECK(`table_name` != '')
+		`base_type_name` VARCHAR(128) NOT NULL DEFAULT ''
 	) ENGINE=`MEMORY`;
 
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`type_rem_list`;
@@ -143,26 +142,25 @@ BEGIN
 
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE cur CURSOR FOR
-		SELECT `name`, `base_type_name`, `table_name`
+		SELECT `name`, `table_name`
 		FROM `nz_test_closure`.`type_add_list`
-		WHERE `base_type_name` IS NULL;
+		WHERE `base_type_name` = '';
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET done = TRUE;
 
 	OPEN cur;
 	FETCH cur
-	INTO t_name, t_base_name, t_table_name;
+	INTO t_name, t_table_name;
 /*
 -- Debug
 	SELECT t_name, t_base_name, t_table_name;
 */
 	WHILE NOT done DO
-		SET @t_base_name = t_base_name;
 		CALL QEXEC(CONCAT(
 			"INSERT INTO `", @db_name, "`.`type`
 			(`name`, `base_type_name`, `table_name`)
 			VALUE
-			('", t_name, "', @t_base_name, '", t_table_name, "');"
+			('", t_name, "', '', '", t_table_name, "');"
 		));
 
 		SELECT LAST_INSERT_ID()
@@ -182,10 +180,8 @@ BEGIN
 		(type_id);
 
         FETCH cur
-		INTO t_name, t_base_name, t_table_name;
+		INTO t_name, t_table_name;
 	END WHILE;
-
-	SET @t_base_name = NULL;
 END //
 
 

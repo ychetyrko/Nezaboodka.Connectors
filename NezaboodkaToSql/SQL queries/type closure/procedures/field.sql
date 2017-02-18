@@ -34,8 +34,7 @@ BEGIN
 			'StringSort',
 			'Ordinal'
 		) NOT NULL DEFAULT 'None',
-		`back_ref_name` VARCHAR(128) DEFAULT NULL
-			CHECK(`back_ref_name` != ''),
+		`back_ref_name` VARCHAR(128) NOT NULL DEFAULT '',
 
 		CONSTRAINT `uc_type_fields`
 			UNIQUE (`owner_type_name`, `name`),

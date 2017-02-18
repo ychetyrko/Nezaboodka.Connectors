@@ -19,8 +19,7 @@ CREATE TABLE `nz_test_closure`.`type`(
 		CHECK(`name` != ''),
 	`table_name` VARCHAR(64) NOT NULL UNIQUE COLLATE `UTF8_GENERAL_CI`
 		CHECK(`table_name` != ''),
-	`base_type_name` VARCHAR(128)
-		CHECK(`base_type_name` != '')
+	`base_type_name` VARCHAR(128) NOT NULL DEFAULT ''
 ) ENGINE=`INNODB`;
 
 
@@ -65,8 +64,7 @@ CREATE TABLE `nz_test_closure`.`field` (
 		'StringSort',
 		'Ordinal'
 	) NOT NULL DEFAULT 'None',
-	`back_ref_name` VARCHAR(128) DEFAULT NULL
-		CHECK(`back_ref_name` != ''),
+	`back_ref_name` VARCHAR(128) NOT NULL DEFAULT '',
 	`back_ref_id` INT DEFAULT NULL,
 	
 	FOREIGN KEY(`owner_type_id`)
