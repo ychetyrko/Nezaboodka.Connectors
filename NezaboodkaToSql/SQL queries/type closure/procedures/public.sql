@@ -48,10 +48,10 @@ BEGIN
 	) ENGINE=`INNODB`;
 
 	SET @db_name = db_name;
-
+/*
 -- Debug
 	SELECT @db_name AS 'Database name';
-
+*/
 	CALL _temp_before_common();
 	CALL _temp_before_remove_fields();
 	CALL _temp_before_remove_types();
@@ -60,15 +60,10 @@ BEGIN
 
 	START TRANSACTION;
 
-SELECT 'Start!';
 	CALL _remove_fields();
-SELECT 'Fields removed!';
 	CALL _remove_types();
-SELECT 'Types removed!';
 	CALL _add_types();
-SELECT 'Types added!';
 	CALL _add_fields();
-SELECT 'Fields added!';
 
 	COMMIT;
 /*
