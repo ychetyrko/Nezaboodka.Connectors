@@ -9,4 +9,4 @@ INSERT INTO `type_rem_list`
 (`name`)
 SELECT `name`
 FROM `nz_test_closure`.`type`;
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');

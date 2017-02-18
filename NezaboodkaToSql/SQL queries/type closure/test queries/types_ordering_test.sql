@@ -16,7 +16,7 @@ VALUES
 ('GoodPeople', '_good_people', 'People'),
 ('People', '_people', NULL),
 ('Vehicle', '_vehicle', NULL);
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 			Mixed order
@@ -33,7 +33,7 @@ VALUES
 ('Motocycle', '_motocycle', 'Vehicle'),
 ('Buildng', '_building', NULL),
 ('Sedan', '_sedan', 'Car');
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 	Fields for further tests
@@ -45,4 +45,4 @@ VALUES
 ('Name', '_name', 'People', 'VARCHAR(50)', FALSE, 'IgnoreCase', NULL),
 ('Goodies', '_goodies', 'GoodPeople', 'TEXT', TRUE, 'None', NULL),
 ('Car', '_car', 'VeryGoodPeople', 'Car', FALSE, 'None', NULL);
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');

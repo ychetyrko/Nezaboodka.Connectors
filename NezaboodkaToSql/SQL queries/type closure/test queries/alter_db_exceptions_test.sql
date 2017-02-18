@@ -17,7 +17,7 @@ INSERT INTO `field_add_list`
 (`owner_type_name`, `name`, `col_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
 ('Child1', 'RightChild', '_right_child', 'Child2', FALSE, 'IgnoreCase', NULL);
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 	Add type with incorrect parent
@@ -28,7 +28,7 @@ INSERT INTO `type_add_list`
 VALUES
 ('Child4', '_child4', 'Parent'),
 ('NewType', '_new_type', 'IncorrectParent');	-- incorrect
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 	Add type with existing table name
@@ -39,7 +39,7 @@ INSERT INTO `type_add_list`
 VALUES
 ('Child4', '_child4', 'Parent'),
 ('NewType1', '_parent', 'Parent');	-- incorrect
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 	Add field with incorrect types
@@ -50,7 +50,7 @@ INSERT INTO `field_add_list`
 VALUES
 ('Parent', 'Age', '_age', 'INT', FALSE, 'None', NULL),
 ('Parent', 'Name', '_name', 'IncorrectType123~', FALSE, 'IgnoreCase', NULL);	-- incorrect
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 		Remove inexisting type
@@ -61,7 +61,7 @@ INSERT INTO `type_rem_list`
 VALUES
 ('Child1'),
 ('InexistingType');	-- incorrect
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 		Remove inherited type
@@ -72,7 +72,7 @@ INSERT INTO `type_rem_list`
 VALUES
 ('Parent'),	-- inherited by Child1
 ('Child2');
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 		Remove inexisting field
@@ -83,13 +83,24 @@ INSERT INTO `field_rem_list`
 VALUES
 ('Child1', 'RightChild'),
 ('Child1', 'InexistingFiled');
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 		Add duplicated field
 --------------------------------------*/
+CALL before_alter_db_schema();
 INSERT INTO `field_add_list`
 (`owner_type_name`, `name`, `col_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
 ('Child1', 'RightChild', '_right_child_new', 'Child3', FALSE, 'IgnoreCase', NULL);
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
+
+/*---------------------------------------/
+		Add duplicated column
+--------------------------------------*/
+CALL before_alter_db_schema();
+INSERT INTO `field_add_list`
+(`owner_type_name`, `name`, `col_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
+VALUES
+('Child1', 'NewChild', '_right_child', 'Child3', FALSE, 'IgnoreCase', NULL);
+CALL alter_db_schema('nz_test_closure');

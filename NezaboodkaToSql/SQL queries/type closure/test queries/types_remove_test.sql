@@ -18,7 +18,7 @@ VALUES
 ('UberAdmin'),
 ('Group'),
 ('User');
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 		Remove terminating types
@@ -28,8 +28,9 @@ INSERT INTO `type_rem_list`
 (`name`)
 VALUES
 ('CoolChopper'),
-('Sedan');
-CALL alter_db_schema();
+('Sedan'),
+('HotRod');
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 		Remove referenced type
@@ -40,4 +41,4 @@ INSERT INTO `type_rem_list`
 (`name`)
 VALUES
 ('Car');	-- referenced by VeryGoodPeople
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');

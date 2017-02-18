@@ -15,7 +15,7 @@ INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('User', 'Login');
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 	Remove single nested field
@@ -26,7 +26,7 @@ INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('User', 'Group');
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 	Remove single non-nested field
@@ -37,7 +37,7 @@ INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('Group', 'Admin');
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 	Remove multiple non-nested fields
@@ -50,7 +50,7 @@ VALUES
 ('Admin', 'ControlGroup'),
 ('Group', 'Title'),
 ('UberAdmin', 'UberRating');
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
 
 /*---------------------------------------/
 	Remove multiple fields
@@ -64,4 +64,4 @@ VALUES
 ('GoodPeople', 'Goodies'),
 ('People', 'Name'),
 ('Admin', 'Login');	-- removed before
-CALL alter_db_schema();
+CALL alter_db_schema('nz_test_closure');
