@@ -7,19 +7,19 @@
 
 	Protocol to alter database schema:
 
- 1. Call `before_alter_db_schema`
+ 1. Call `before_alter_database_schema`
  2. Fill following tables:
 	- `fields_add_list`
 	- `fields_rem_list`
 	- `types_add_list`
 	- `types_rem_list`
- 3. Call `alter_db_schema`
+ 3. Call `alter_database_schema`
 
 ======================================*/﻿
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS before_alter_db_schema //
-CREATE PROCEDURE before_alter_db_schema()
+DROP PROCEDURE IF EXISTS before_alter_database_schema //
+CREATE PROCEDURE before_alter_database_schema()
 BEGIN
 	CALL _before_alter_fields();
 	CALL _before_alter_types();
@@ -27,8 +27,8 @@ END //
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS alter_db_schema //
-CREATE PROCEDURE alter_db_schema(
+DROP PROCEDURE IF EXISTS alter_database_schema //
+CREATE PROCEDURE alter_database_schema(
 	IN db_name varchar(64)
 )
 BEGIN
