@@ -1,0 +1,13 @@
+/Build/Debug
+/Build/Release
+bin
+obj
+Debug
+Release
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.orig
+*.sdf
+*.opensdf
