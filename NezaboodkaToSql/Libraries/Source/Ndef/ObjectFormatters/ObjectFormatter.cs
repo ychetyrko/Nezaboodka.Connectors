@@ -30,7 +30,7 @@ namespace Nezaboodka.Ndef
             base.Initialize(typeBinder, codegen);
             if (codegen != null)
             {
-                IEnumerable<FieldInfo> fields = typeof(T).GetFields()
+                IEnumerable<FieldInfo> fields = typeof(T).GetFields(BindingFlags.Instance | BindingFlags.Public)
                     .Where((FieldInfo x) => x.DeclaringType.Name != "DbObject");
                 codegen.GenerateFieldsAccessors(typeBinder, typeof(T), fields);
             }
@@ -105,7 +105,8 @@ namespace Nezaboodka.Ndef
         {
             FieldInfo[] fields = typeof(T).GetFields(BindingFlags.Instance | BindingFlags.Public)
                 .Where((FieldInfo x) => x.DeclaringType.Name != "DbObject").ToArray(); // игнорировать DbObject.Key
-            INdefFormatter<object>[] formatters = fields.Select((FieldInfo x) => (INdefFormatter<object>)typeBinder.LookupTypeInfoByType(x.FieldType).Formatter).ToArray();
+            INdefFormatter<object>[] formatters = fields.Select(
+                (FieldInfo x) => (INdefFormatter<object>)typeBinder.LookupTypeInfoByType(x.FieldType).Formatter).ToArray();
             for (int i = 0; i < fields.Length; i++)
             {
                 FieldInfo f = fields[i];

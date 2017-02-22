@@ -16,9 +16,9 @@ namespace Nezaboodka.Ndef
 
     public interface INdefWriter
     {
-        void WriteDataSetStart(bool isExtensionOfPreviousDataSet, string header);
-        void WriteDataSetEnd();
-        void WriteObjectStart(bool noBraces, string type, string key, string number);
+        void WriteDataSetStart(string header, bool isExtension, bool noBraces);
+        void WriteDataSetEnd(bool noBraces);
+        void WriteObjectStart(string type, string key, string number, bool noBraces);
         void WriteObjectEnd(bool noBraces);
         void WriteFieldName(string name); // string.IsNullOrEmpty(name) означает поле без имени, объект как целое
         void WriteListItem(bool isRemoved);
@@ -36,10 +36,6 @@ namespace Nezaboodka.Ndef
         NdefTypeInfo LookupTypeInfoByType(Type type);
         NdefTypeInfo LookupTypeInfoByName(string typeName);
         NdefTypeInfo LookupTypeInfoByField(NdefTypeInfo ndefTypeInfo, NdefField ndefField, bool adjustToActualType, out Type formalType);
-        bool IsStubObject(object obj);
-        void MarkAsStubObject(object obj);
-        bool IsImplicitObject(object obj);
-        void MarkAsImplicitObject(object obj);
     }
 
     public interface INdefFormatter

@@ -24,115 +24,118 @@ namespace Nezaboodka
             Directory.CreateDirectory(LocalFilesFolder);
         }
 
-        public virtual void WriteFiles(SaveObjectsRequest request, Dictionary<object, long> objectNumberByFileObject,
-            NdefWriter ndefWriter)
+        public virtual void WriteFiles(NdefWriter ndefWriter, SaveObjectsRequest request,
+            Dictionary<object, long> objectNumberByFileObject)
         {
-            ndefWriter.WriteDataSetStart(true, null);
+            ndefWriter.WriteDataSetStart(null, true, false);
             foreach (SaveQuery query in request.Queries)
                 for (int i = 0; i < query.ForEachIn.Count; i++)
                 {
                     FileObject fileObject = query.ForEachIn[i] as FileObject;
                     if (fileObject != null)
                     {
-                        ndefWriter.WriteObjectStart(false, null, objectNumberByFileObject[fileObject].ToString(), null);
+                        ndefWriter.WriteObjectStart(null, objectNumberByFileObject[fileObject].ToString(),
+                            fileObject.Key.ToString(), false);
                         using (Stream stream = ndefWriter.WriteBinaryData(fileObject.FileContent.FileRange.Length))
-                        {
-                            WriteFileToStream(fileObject, fileObject.FileContent.FileRange.Position,
-                                fileObject.FileContent.FileRange.Length, stream);
-                        }
+                            WriteFile(fileObject, stream);
                         ndefWriter.WriteObjectEnd(false);
                     }
                 }
-            ndefWriter.WriteDataSetEnd();
+            ndefWriter.WriteDataSetEnd(false);
         }
 
         public virtual void ReadFiles(NdefDeserializer deserializer)
         {
-            if (deserializer.MoveToNextDataSet() && string.IsNullOrEmpty(deserializer.DataSetHeader))
+            if (deserializer.MoveToNextDataSet() && !deserializer.CurrentDataSet.IsStartOfDataSet)
                 while (deserializer.MoveToNextObject())
                 {
                     FileObject fileObject = (FileObject)deserializer.CurrentObject;
-                    ReadFileFromStream(fileObject, fileObject.FileContent.FileRange.Position,
-                        fileObject.FileContent.FileRange.Length, deserializer.CurrentStream);
+                    if (deserializer.CurrentStream != null)
+                        ReadFile(fileObject, deserializer.CurrentStream);
                 }
         }
 
-        // WriteFiles
+        // WriteFile
 
-        protected virtual void WriteFileToStream(FileObject fileObject, long position, long length, Stream stream)
+        protected virtual void WriteFile(FileObject fileObject, Stream destination)
         {
-            object fileData = fileObject.FileContent.FileData;
-            if (fileData is string)
-                WriteFromFile(fileData as string, position, length, stream);
-            else if (fileData is Stream)
-                WriteFromStream(fileData as Stream, position, length, stream);
-            else if (fileData.GetType() == typeof(byte[]))
-            {
-                byte[] buffer = fileData as byte[];
-                if (position >= 0 && position <= int.MaxValue && length >= 0 && length <= buffer.Length)
-                    WriteFromBuffer(buffer, position, length, stream);
-                else
-                    throw new NezaboodkaException(string.Format(
-                        "wrong buffer range [{0}, {1}] specified for file object {2} (file name: {3})",
-                        position, length, fileObject.Key, fileObject.FileName));
-            }
+            object source = fileObject.FileContent.FileData;
+            if (source is string)
+                WriteFileFromFile(fileObject, source as string, destination);
+            else if (source is Stream)
+                WriteFileFromStream(fileObject, source as Stream, destination);
+            else if (source.GetType() == typeof(byte[]))
+                WriteFileFromBuffer(fileObject, source as byte[], destination);
             else
                 throw new NezaboodkaException(string.Format(
                     "type {0} in FileObject.FileObjectMetadata.FileData is not supported, file object {1} (file name: {2})",
-                    fileData.GetType(), fileObject.Key, fileObject.FileName));
+                    source.GetType(), fileObject.Key, fileObject.FileName));
         }
 
-        protected virtual void WriteFromFile(string filePath, long position, long length, Stream destination)
+        protected virtual void WriteFileFromFile(FileObject fileObject, string source, Stream destination)
         {
-            using (var source = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            using (var sourceStream = new FileStream(source, FileMode.Open, FileAccess.Read))
             {
-                WriteFromStream(source, position, length, destination);
+                if (fileObject.FileContent.FileRange.Length <= sourceStream.Length)
+                    WriteFileFromStream(fileObject, sourceStream, destination);
+                else
+                    throw new NezaboodkaException(string.Format(
+                        "actual file length {0} is less than the specified length {1} for file object {2} with file name {3}, see local file {4}",
+                        sourceStream.Length, fileObject.FileContent.FileRange.Length, fileObject, fileObject.FileName, source));
             }
         }
 
-        protected virtual void WriteFromStream(Stream source, long position, long length, Stream destination)
+        protected virtual void WriteFileFromStream(FileObject fileObject, Stream source, Stream destination)
         {
-            if (position != 0)
-                source.Seek(position, SeekOrigin.Begin);
             var buffer = new byte[Const.DefaultFileBlockSize];
-            int count = 0;
-            while (length - count > 0)
+            long length = fileObject.FileContent.FileRange.Length;
+            int received = 1; // Начальное значение больше нуля, чтобы зайти в цикл. Оно будет сразу же изменено внутри цикла.
+            while (length > 0 && received > 0)
             {
-                int n = (int)Math.Min(buffer.Length, length - count);
-                n = source.Read(buffer, 0, n);
-                if (n > 0)
+                received = source.Read(buffer, 0, (int)Math.Min(buffer.Length, length));
+                if (received > 0)
                 {
-                    destination.Write(buffer, 0, n);
-                    count += n;
+                    destination.Write(buffer, 0, received);
+                    length -= received;
                 }
             }
+            if (length > 0)
+                throw new NezaboodkaException(string.Format(
+                    "actual stream length {0} is less than the specified length {1} for file object {2} with file name {3}",
+                    fileObject.FileContent.FileRange.Length - length, fileObject.FileContent.FileRange.Length,
+                    fileObject, fileObject.FileName));
         }
 
-        protected virtual void WriteFromBuffer(byte[] source, long position, long length, Stream destination)
+        protected virtual void WriteFileFromBuffer(FileObject fileObject, byte[] source, Stream destination)
         {
-            destination.Write(source, (int)position, (int)length);
+            if (fileObject.FileContent.FileRange.Length <= source.Length)
+                destination.Write(source, 0, (int)fileObject.FileContent.FileRange.Length);
+            else
+                throw new NezaboodkaException(string.Format(
+                    "actual buffer length {0} is less than the specified length {1} for file object {2} with file name {3}",
+                    source.Length, fileObject.FileContent.FileRange.Length, fileObject, fileObject.FileName));
         }
 
-        // ReadFiles
+        // ReadFile
 
-        protected virtual void ReadFileFromStream(FileObject fileObject, long position, long length, Stream stream)
+        protected virtual void ReadFile(FileObject fileObject, Stream source)
         {
             switch (ReadingDestination)
             {
                 case ReadingToFile:
                     string filePath = Path.Combine(LocalFilesFolder, fileObject.Key.ToString());
                     fileObject.FileContent.FileData = filePath;
-                    ReadToFile(stream, filePath, position, length);
+                    ReadFileToFile(fileObject, source, filePath);
                     break;
                 case ReadingToStream:
-                    Stream destination = CreateStream(fileObject, position, length);
+                    var destination = new MemoryStream((int)fileObject.FileContent.FileRange.Length);
                     fileObject.FileContent.FileData = destination;
-                    ReadToStream(stream, destination, position, length);
+                    ReadFileToStream(fileObject, source, destination);
                     break;
                 case ReadingToBuffer:
                     var buffer = new byte[(int)fileObject.FileContent.FileRange.Length];
                     fileObject.FileContent.FileData = buffer;
-                    ReadToBuffer(stream, buffer, position, length);
+                    ReadFileToBuffer(fileObject, source, buffer);
                     break;
                 default:
                     throw new NezaboodkaException(string.Format("unknown value {0} in FileContentHandler.ReadingDestination",
@@ -140,39 +143,46 @@ namespace Nezaboodka
             }
         }
 
-        protected virtual Stream CreateStream(FileObject fileObject, long position, long length)
+        protected virtual void ReadFileToFile(FileObject fileObject, Stream source, string destination)
         {
-            return new MemoryStream((int)fileObject.FileContent.FileRange.Length);
+            using (var destinationStream = new FileStream(destination, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
+                ReadFileToStream(fileObject, source, destinationStream);
         }
 
-        protected virtual void ReadToFile(Stream source, string filePath, long position, long length)
-        {
-            using (var destination = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
-            {
-                destination.Position = position;
-                ReadToStream(source, destination, position, length);
-            }
-        }
-
-        protected virtual void ReadToStream(Stream source, Stream destination, long position, long length)
+        protected virtual void ReadFileToStream(FileObject fileObject, Stream source, Stream destination)
         {
             var buffer = new byte[Const.DefaultFileBlockSize];
-            int count = 0;
-            while (length - count > 0)
+            long length = fileObject.FileContent.FileRange.Length;
+            int received = 1; // Начальное значение больше нуля, чтобы зайти в цикл. Оно будет сразу же изменено внутри цикла.
+            while (length > 0 && received > 0)
             {
-                int n = source.Read(buffer, 0, (int)Math.Min(buffer.Length, length - count));
-                destination.Write(buffer, 0, n);
-                count += n;
+                received = source.Read(buffer, 0, (int)Math.Min(buffer.Length, length));
+                destination.Write(buffer, 0, received);
+                length -= received;
             }
+            if (length > 0)
+                throw new NezaboodkaException(string.Format(
+                    "actual received data length {0} is less than the specified length {1} for file object {2} with file name {3}",
+                    fileObject.FileContent.FileRange.Length - length, fileObject.FileContent.FileRange.Length,
+                    fileObject, fileObject.FileName));
         }
 
-        protected virtual void ReadToBuffer(Stream source, byte[] destination, long position, long length)
+        protected virtual void ReadFileToBuffer(FileObject fileObject, Stream source, byte[] destination)
         {
-            int count = 0;
-            while (length - count > 0)
+            int offset = 0;
+            int length = destination.Length;
+            int received = 1; // Начальное значение больше нуля, чтобы зайти в цикл. Оно будет сразу же изменено внутри цикла.
+            while (length > 0 && received > 0)
             {
-                count += source.Read(destination, count, (int)length - count);
+                received = source.Read(destination, offset, length);
+                offset += received;
+                length -= received;
             }
+            if (length > 0)
+                throw new NezaboodkaException(string.Format(
+                    "actual received data length {0} is less than the specified length {1} for file object {2} with file name {3}",
+                    fileObject.FileContent.FileRange.Length - length, fileObject.FileContent.FileRange.Length,
+                    fileObject, fileObject.FileName));
         }
     }
 }

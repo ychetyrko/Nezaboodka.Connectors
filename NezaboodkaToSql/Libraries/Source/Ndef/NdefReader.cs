@@ -10,6 +10,7 @@ namespace Nezaboodka.Ndef
         private string fCurrentLine;
         private int fCurrentLineStart;
         private StringBuilder fMemoValueBuffer;
+        private bool fMoveToNextLineIsRequired;
 
         // Public
 
@@ -29,6 +30,11 @@ namespace Nezaboodka.Ndef
 
         private bool TryParseCurrentLine(bool justTry, bool isListItem)
         {
+            if (fMoveToNextLineIsRequired)
+            {
+                ReadNextLineSkipEmpty();
+                fMoveToNextLineIsRequired = false;
+            }
             bool result = fCurrentLineStart >= 0;
             if (result)
             {
@@ -69,7 +75,9 @@ namespace Nezaboodka.Ndef
 
         private void ParseDataSetEnd()
         {
-            PutDataSetEndToBuffer();
+            bool isExtension = fCurrentLineStart + 1 < fCurrentLine.Length &&
+                fCurrentLine[fCurrentLineStart + 1] == NdefConst.DataSetStartMarker;
+            PutDataSetEndOrExtensionToBuffer(isExtension);
             ReadNextLineSkipEmpty();
         }
 
@@ -82,6 +90,11 @@ namespace Nezaboodka.Ndef
             int i = NdefUtils.ParsePrefixedTokenForObjectHeader(fCurrentLine, fCurrentLineStart, out prefix, out type);
             if (i >= 0)
             {
+                if (type[0] == NdefConst.ObjectKeyPrefix || type[0] == NdefConst.ObjectNumberPrefix)
+                {
+                    type = null;
+                    i = fCurrentLineStart + 1;
+                }
                 i = NdefUtils.ParsePrefixedTokenForObjectHeader(fCurrentLine, i, out prefix, out key);
                 if (prefix == NdefConst.ObjectKeyPrefix)
                 {
@@ -155,7 +168,7 @@ namespace Nezaboodka.Ndef
                 if (explicitTypeName == null && value == null && number == null && key == null)
                 {
                     TryParseCurrentLine(false, true);
-                    // TODO: Cosmetics - to get rid of access to BufferObject
+                    // TODO: Cosmetics - get rid of access to BufferObject
                     if (BufferObject.CurrentElement.Value.IsUndefined && BufferObject.CurrentElement.Comment == null)
                     {
                         PutListItemToBuffer(removed);
@@ -209,7 +222,8 @@ namespace Nezaboodka.Ndef
         {
             long length = GetBinaryDataLength();
             var binaryStream = new NdefReadableBinaryStream(fInput, length);
-            PutBinaryDataToBuffer(binaryStream);
+            PutStreamToBuffer(binaryStream);
+            fMoveToNextLineIsRequired = true;
         }
 
         private void ParseComment()

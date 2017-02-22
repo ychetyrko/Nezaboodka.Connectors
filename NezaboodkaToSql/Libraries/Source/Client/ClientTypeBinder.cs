@@ -70,26 +70,29 @@ namespace Nezaboodka
                 new ObjectFormatter<RefreshDatabaseCryptoKeyResponse>(), new ObjectFormatter<RefreshEnvironmentCryptoKeyRequest>(),
                 new ObjectFormatter<RefreshEnvironmentCryptoKeyResponse>(), new ObjectFormatter<CleanupRemovedDatabasesRequest>(),
                 new ObjectFormatter<CleanupRemovedDatabasesResponse>(), new ObjectFormatter<FileContent>(),
-                new ValueFormatter<bool>("b"), new ValueFormatter<sbyte>("sb"),
-                new ValueFormatter<byte>("by"), new ValueFormatter<short>("sh"),
-                new ValueFormatter<ushort>("us"), new ValueFormatter<int>("i"),
-                new ValueFormatter<uint>("u"), new ValueFormatter<long>("l"),
-                new ValueFormatter<ulong>("ul"), new ValueFormatter<float>("f"),
-                new ValueFormatter<double>("d"), new ValueFormatter<decimal>("n"),
-                new ValueFormatter<char>("c"), new StringFormatter(),
-                new NullableValueFormatter<bool>("b?"), new NullableValueFormatter<sbyte>("sb?"),
-                new NullableValueFormatter<byte>("by?"), new NullableValueFormatter<short>("sh?"),
-                new NullableValueFormatter<ushort>("us?"), new NullableValueFormatter<int>("i?"),
-                new NullableValueFormatter<uint>("u?"), new NullableValueFormatter<long>("l?"),
-                new NullableValueFormatter<ulong>("ul?"), new NullableValueFormatter<float>("f?"),
-                new NullableValueFormatter<double>("d?"), new NullableValueFormatter<decimal>("n?"),
-                new NullableValueFormatter<char>("c?"), new DateTimeFormatter("dc"),
-                new DateTimeOffsetFormatter("dt"), new BinaryDataFormatter(),
-                new BinarySegmentFormatter(),
+                new ValueFormatter<bool>("b"),
+                new CharFormatter("c"),
+                new Int8Formatter("i1"), new UInt8Formatter("x1"),
+                new Int16Formatter("i2"), new UInt16Formatter("x2"),
+                new Int32Formatter("i4"), new UInt32Formatter("x4"),
+                new Int64Formatter("i8"), new UInt64Formatter("x8"),
+                new SingleFormatter("r4"), new DoubleFormatter("r8"),
+                new DecimalFormatter("r16"),
+                new StringFormatter(),
+                new NullableValueFormatter<bool>("b?"),
+                new NullableValueFormatter<char>("c?"),
+                new NullableValueFormatter<sbyte>("i1?"), new NullableValueFormatter<byte>("x1?"),
+                new NullableValueFormatter<short>("i2?"), new NullableValueFormatter<ushort>("x2?"),
+                new NullableValueFormatter<int>("i4?"), new NullableValueFormatter<uint>("x4?"),
+                new NullableValueFormatter<long>("i8?"), new NullableValueFormatter<ulong>("x8?"),
+                new NullableValueFormatter<float>("r4?"), new NullableValueFormatter<double>("r8?"),
+                new NullableValueFormatter<decimal>("r16?"),
+                new DateTimeFormatter("dt"), new DateTimeOffsetFormatter("t"),
+                new BinaryDataFormatter(), new BinarySegmentFormatter(),
                 new AnyTypeFormatter(typeof(object)),
                 new AnyTypeFormatter(typeof(DbDynamic)),
                 new DictionaryFormatter(),
-                new ValueFormatter<DbKey>(),
+                new DbKeyFormatter(),
                 new ValueFormatter<DatabaseAccessMode>(),
                 new ValueFormatter<TypeAndFields>(),
                 new ValueFormatter<FileRange>(),
@@ -174,7 +177,7 @@ namespace Nezaboodka
             NdefTypeInfo result;
             if (!fTypeInfoByName.TryGetValue(typeName, out result))
             {
-                if (!typeName.EndsWith(NdefConst.ListTypeBraces))
+                if (typeName[typeName.Length - 1] != NdefConst.ListTypeBraces[1])
                 {
                     Assembly assembly = typeof(object).Assembly;
                     Type systemType = assembly.GetType("System." + typeName);
@@ -271,30 +274,6 @@ namespace Nezaboodka
             return result;
         }
 
-        public virtual bool IsStubObject(object obj)
-        {
-            var t = obj as DbObject;
-            return t != null ? !t.IsObject : false;
-        }
-
-        public virtual void MarkAsStubObject(object obj)
-        {
-            var t = (DbObject)obj;
-            t.Key = ((DbObject)obj).Key.AsReference;
-        }
-
-        public virtual bool IsImplicitObject(object obj)
-        {
-            var t = obj as DbObject;
-            return t != null ? t.IsImplicit : false;
-        }
-
-        public virtual void MarkAsImplicitObject(object obj)
-        {
-            var t = (DbObject)obj;
-            t.Key = t.Key.AsImplicit;
-        }
-
         // Internal
 
         protected static IEnumerable<TypeDefinition> ProduceTypeDefinitionsFromSystemTypes(IEnumerable<Type> types)
@@ -305,7 +284,7 @@ namespace Nezaboodka
                 typeDef.TypeName = t.Name;
                 typeDef.BaseTypeName = t.BaseType != null && t.BaseType != typeof(object) ? t.BaseType.Name : null;
                 typeDef.FieldDefinitions = new List<FieldDefinition>();
-                foreach (FieldInfo f in t.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                foreach (FieldInfo f in t.GetFields(BindingFlags.Instance | BindingFlags.Public))
                 {
                     var fieldDef = new FieldDefinition();
                     fieldDef.FieldName = f.Name;

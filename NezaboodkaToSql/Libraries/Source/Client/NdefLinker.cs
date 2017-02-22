@@ -44,18 +44,18 @@ namespace Nezaboodka
 
         public void RegisterReference(NdefObject ndefObject, NdefField ndefField, NdefValue reference)
         {
-            long objectKey = 0;
+            var objectKey = new DbKey();
             DbObject dbObject = ndefObject.DeserializedInstance as DbObject;
             if (dbObject != null)
-                objectKey = dbObject.Key.SystemId;
+                objectKey = dbObject.Key;
             long objectNumber = long.MaxValue;
             if (!string.IsNullOrEmpty(ndefObject.Header.Number))
                 objectNumber = long.Parse(ndefObject.Header.Number);
             if (fCurrentSource == null ||
-                objectKey != fCurrentSource.ObjectKey ||
+                objectKey.PrimaryId != fCurrentSource.ObjectKey.PrimaryId ||
                 objectNumber != fCurrentSource.ObjectNumber ||
                 ndefField.Name != fCurrentSource.Field.Name ||
-                (objectKey == 0 && ndefObject.DeserializedInstanceIndex != fCurrentSource.ObjectIndex))
+                (objectKey.IsIndefinite && ndefObject.DeserializedInstanceIndex != fCurrentSource.ObjectIndex))
             {
                 fCurrentSource = new NdefRelationParty()
                 {
@@ -68,20 +68,20 @@ namespace Nezaboodka
                 };
             }
             long targetNumber = long.MaxValue;
-            long targetKey = 0;
+            var targetKey = new DbKey();
             if (reference.Kind == NdefValueKind.Reference)
             {
                 if (!string.IsNullOrEmpty(reference.AsObjectNumber))
                     targetNumber = long.Parse(reference.AsObjectNumber);
                 if (!string.IsNullOrEmpty(reference.AsObjectKey))
-                    targetKey = SubstituteDbKeyIfNeeded(DbKey.Parse(reference.AsObjectKey)).SystemId;
+                    targetKey = SubstituteDbKeyIfNeeded(DbKey.Parse(reference.AsObjectKey, isObject: false));
             }
             else if (reference.Kind == NdefValueKind.Object)
             {
                 if (!string.IsNullOrEmpty(reference.AsNestedObjectToDeserialize.Header.Number))
                     targetNumber = long.Parse(reference.AsNestedObjectToDeserialize.Header.Number);
                 if (!string.IsNullOrEmpty(reference.AsNestedObjectToDeserialize.Header.Key))
-                    targetKey = SubstituteDbKeyIfNeeded(DbKey.Parse(reference.AsNestedObjectToDeserialize.Header.Key)).SystemId;
+                    targetKey = SubstituteDbKeyIfNeeded(DbKey.Parse(reference.AsNestedObjectToDeserialize.Header.Key, isObject: true));
             }
             var target = new NdefRelationParty()
             {
@@ -137,17 +137,7 @@ namespace Nezaboodka
         public void LinkObjectsAndReferences()
         {
             //string pairsBeforeSorting = string.Concat((IEnumerable<string>)fLinkPairs.ConvertAll((LinkPair x) => x.DebugHint + "\n"));
-            switch (fLinkingMode)
-            {
-                case NdefLinkingMode.OneWayLinkingAndOriginalOrder:
-                    fRelations.Sort(LinkPairOriginalOrderComparer.Default);
-                    break;
-                case NdefLinkingMode.TwoWayLinkingAndNormalizedOrder:
-                    fRelations.Sort(LinkPairSortedOrderComparer.Default);
-                    break;
-                default:
-                    throw new NotImplementedException(string.Format("{0} is not implemented", fLinkingMode));
-            }
+            fRelations.Sort(GetComparerByLinkingMode(fLinkingMode));
             //string pairsAfterSorting = string.Concat((IEnumerable<string>)fLinkPairs.ConvertAll((LinkPair x) => x.DebugHint + "\n"));
             SetupObjectNumbersAndCreateStubObjects();
             FillReferenceFields();
@@ -155,8 +145,40 @@ namespace Nezaboodka
 
         public void FindObject(NdefObject ndefObject)
         {
-            long objectKey = SubstituteDbKeyIfNeeded(DbKey.Parse(ndefObject.Header.Key)).SystemId;
-            // Здесь должно быть найдено значение для поля ndefObject.DeserializedInstance по значению objectKey.
+            var objectKey = new DbKey();
+            if (!string.IsNullOrEmpty(ndefObject.Header.Key))
+                objectKey = SubstituteDbKeyIfNeeded(DbKey.Parse(ndefObject.Header.Key, isObject: true));
+            long objectNumber = long.MaxValue;
+            if (!string.IsNullOrEmpty(ndefObject.Header.Number))
+                objectNumber = long.Parse(ndefObject.Header.Number);
+            var relation = new NdefRelation()
+            {
+                NaturalOrderNumber = -1,
+                Source = new NdefRelationParty()
+                {
+                    ObjectIndex = -1,
+                    ObjectNumber = objectNumber,
+                    ObjectKey = objectKey
+                }
+            };
+            int index = fRelations.BinarySearch(relation, GetComparerByLinkingMode(fLinkingMode));
+            if (index < 0)
+                index = ~index;
+            if (index < fRelations.Count)
+            {
+                relation = fRelations[index];
+                NdefTypeInfo typeInfo = ndefObject.Header.TypeInfo;
+                if (typeInfo == null || typeInfo.SerializableName == relation.Source.ObjectTypeInfo.SerializableName)
+                    ndefObject.DeserializedInstance = fObjects[relation.Source.ObjectIndex].RuntimeObject;
+                else
+                    throw new FormatException(string.Format(
+                        "the object type {0} specified in the extension data set is not the same as the object type {1} specified in the main data set",
+                        typeInfo.SerializableName, relation.Source.ObjectTypeInfo.SerializableName));
+            }
+            else
+                throw new FormatException(string.Format(
+                    "an object with key {0} and number {1} in the extension data set was not found in the main data set",
+                    ndefObject.Header.Key, ndefObject.Header.Number));
         }
 
         public void Clear()
@@ -171,12 +193,12 @@ namespace Nezaboodka
 
         private void DoRegisterObject(NdefObject ndefObject)
         {
-            long objectKey = 0;
+            var objectKey = new DbKey();
             DbObject dbObject = ndefObject.DeserializedInstance as DbObject;
             if (dbObject != null)
             {
                 dbObject.Key = SubstituteDbKeyIfNeeded(dbObject.Key);
-                objectKey = dbObject.Key.SystemId;
+                objectKey = dbObject.Key;
             }
             long objectNumber = long.MaxValue;
             if (!string.IsNullOrEmpty(ndefObject.Header.Number))
@@ -218,13 +240,13 @@ namespace Nezaboodka
         {
 
             DbKey result = key;
-            // В следующей строке вызывать key.IsNew нельзя, потому что положительный key.SystemId считается уже замененным (сгенерированным) значением.
-            if (key.SystemId < 0 && GenerateObjectKeyDelegate != null)
+            // В следующей строке вызывать key.IsNew нельзя, потому что положительный key.PrimaryId считается уже замененным (сгенерированным) значением.
+            if (key.PrimaryId < 0 && GenerateObjectKeyDelegate != null)
             {
-                if (!fObjectKeySubstitution.TryGetValue(key.SystemId, out result.SystemId))
+                if (!fObjectKeySubstitution.TryGetValue(key.PrimaryId, out result.PrimaryId))
                 {
-                    result.SystemId = GenerateObjectKeyDelegate();
-                    fObjectKeySubstitution.Add(key.SystemId, result.SystemId);
+                    result.PrimaryId = GenerateObjectKeyDelegate();
+                    fObjectKeySubstitution.Add(key.PrimaryId, result.PrimaryId);
                 }
                 if (result.RevisionAndFlags == 0)
                     result.RevisionAndFlags = DbKey.FlagForNew;
@@ -269,12 +291,12 @@ namespace Nezaboodka
             NdefUtils.SetMemberValue(obj, member, value);
         }
 
-        private object CreateNewObject(int objectNumber, Type type, long objectKey)
+        private object CreateNewObject(int objectNumber, Type type, DbKey objectKey)
         {
             NdefTypeInfo ndefTypeInfo = TypeBinder.LookupTypeInfoByType(type);
             var h = new NdefObjectHeader() { TypeInfo = ndefTypeInfo };
             object result = ndefTypeInfo.Formatter.Boxed.CreateObjectInstance(ndefTypeInfo.SystemType, h);
-            ((DbObject)result).Key.SystemId = objectKey;
+            ((DbObject)result).Key = objectKey;
             fObjects[objectNumber] = new NdefInstanceInfo() { RuntimeObject = result };
             return result;
         }
@@ -304,6 +326,74 @@ namespace Nezaboodka
             return result;
         }
 
+        private void SetupObjectNumbersAndCreateStubObjectsEx()
+        {
+            int i = 0;
+            while (i < fRelations.Count)
+            {
+                NdefRelationParty leader = fRelations[i].Source;
+                NdefRelationParty x = leader;
+                Type type = null;
+                if (leader.ObjectIndex < 0) // implicit back reference
+                {
+                    Type t;
+                    if (leader.Field.Name == null)
+                    {
+                        // Infer object type via back reference field
+                        NdefTypeInfo fieldTypeInfo = TypeBinder.LookupTypeInfoByField(
+                            fRelations[i].Target.ObjectTypeInfo, fRelations[i].Target.Field, false, out t);
+                        t = NdefUtils.GetElementType(t, t);
+                    }
+                    else
+                        t = leader.ObjectTypeInfo.SystemType;
+                    if (t.IsSubclassOf(TypeBinder.RootTypeForObjectsWithKey))
+                        type = t;
+                    else
+                        type = TypeBinder.RootTypeForObjectsWithKey;
+                    leader.ObjectIndex = AcquireInstanceIndex();
+                }
+                { // repeat ... while
+                    // Определить тип объекта
+                    if (type != null)
+                    {
+                        if (x.Field.Name != null && x.ObjectIndex < 0)
+                        {
+                            Type t = x.ObjectTypeInfo.SystemType;
+                            if (t.IsSubclassOf(type))
+                                type = t;
+                            else if (t != type && !type.IsSubclassOf(t))
+                                throw new FormatException(string.Format(
+                                    "object with key {0} has ambiguous type: {1} or {2}",
+                                    x.ObjectKey, t.FullName, type.FullName));
+                        }
+                    }
+                    else
+                    {
+                        //if (fRelations[i].Target == null)
+                        //    throw new NotImplementedException("object duplicates within same N*DEF data set are not implemented");
+                        // TODO: Objects[currentObject.ObjectNumber].PatchFrom(Objects[x.ObjectNumber]);
+                    }
+                    // Настроить индекс объекта
+                    x.ObjectIndex = leader.ObjectIndex;
+                    if (x.TwoWayLinkingObjectList != null)
+                    {
+                        NdefInstanceInfo t = fObjects[x.ObjectIndex];
+                        t.TwoWayLinkingObjectList = x.TwoWayLinkingObjectList;
+                        fObjects[x.ObjectIndex] = t;
+                    }
+                    i++;
+                    x = fRelations[i].Source;
+                }
+                while (x.ObjectKey.PrimaryId == leader.ObjectKey.PrimaryId &&
+                    (x.ObjectNumber == leader.ObjectNumber || x.ObjectNumber == long.MaxValue) &&
+                    (!x.ObjectKey.IsIndefinite || x.ObjectNumber != long.MaxValue ||
+                    x.ObjectIndex == leader.ObjectIndex));
+                // Создать экземпляр
+                if (type != null)
+                    CreateNewObject(leader.ObjectIndex, type, leader.ObjectKey.AsPrimaryId.AsReference);
+            }
+        }
+
         private void SetupObjectNumbersAndCreateStubObjects()
         {
             NdefRelationParty current = null;
@@ -311,16 +401,13 @@ namespace Nezaboodka
             for (int i = 0; i < fRelations.Count; ++i)
             {
                 NdefRelation x = fRelations[i];
-                if (current == null || x.Source.ObjectKey != current.ObjectKey ||
+                if (current == null || x.Source.ObjectKey.PrimaryId != current.ObjectKey.PrimaryId ||
                     (x.Source.ObjectNumber != current.ObjectNumber && x.Source.ObjectNumber != long.MaxValue) ||
-                    (x.Source.ObjectKey == 0 && x.Source.ObjectNumber == long.MaxValue &&
+                    (x.Source.ObjectKey.IsIndefinite && x.Source.ObjectNumber == long.MaxValue &&
                     x.Source.ObjectIndex != current.ObjectIndex))
                 {
                     if (typeOfObjectToCreate != null)
-                    {
-                        object t = CreateNewObject(current.ObjectIndex, typeOfObjectToCreate, current.ObjectKey);
-                        TypeBinder.MarkAsStubObject(t);
-                    }
+                        CreateNewObject(current.ObjectIndex, typeOfObjectToCreate, current.ObjectKey.AsPrimaryId.AsReference);
                     // Switch to a new current master
                     current = x.Source;
                     if (current.ObjectIndex < 0) // implicit back reference
@@ -356,8 +443,7 @@ namespace Nezaboodka
                             else if (type != typeOfObjectToCreate && !typeOfObjectToCreate.IsSubclassOf(type))
                                 throw new FormatException(string.Format(
                                     "object with key {0} has ambiguous type: {1} or {2}",
-                                    new DbKey(x.Source.ObjectKey, 0).ToString(),
-                                    type.FullName, typeOfObjectToCreate.FullName));
+                                    x.Source.ObjectKey, type.FullName, typeOfObjectToCreate.FullName));
                         }
                     }
                     else
@@ -376,10 +462,7 @@ namespace Nezaboodka
                 }
             }
             if (typeOfObjectToCreate != null)
-            {
-                object t = CreateNewObject(current.ObjectIndex, typeOfObjectToCreate, current.ObjectKey);
-                TypeBinder.MarkAsStubObject(t);
-            }
+                CreateNewObject(current.ObjectIndex, typeOfObjectToCreate, current.ObjectKey.AsPrimaryId.AsReference);
         }
 
         private void FillReferenceFields()
@@ -389,24 +472,23 @@ namespace Nezaboodka
                 NdefRelation x = fRelations[i];
                 if (x.Target != null)
                 {
-                    if (x.Target.ObjectKey != 0 || x.Target.ObjectNumber != long.MaxValue)
+                    if (!x.Target.ObjectKey.IsIndefinite || x.Target.ObjectNumber != long.MaxValue)
                     {
-                        if (!x.IsImplicitBackRelation || (x.Target.ObjectKey != 0 &&
+                        if (!x.IsImplicitBackRelation || (!x.Target.ObjectKey.IsIndefinite &&
                             fLinkingMode == NdefLinkingMode.TwoWayLinkingAndNormalizedOrder))
                         {
                             NdefInstanceInfo source = fObjects[x.Source.ObjectIndex];
                             object sourceObject = source.RuntimeObject;
                             NdefInstanceInfo target = fObjects[x.Target.ObjectIndex];
                             object targetObject = target.RuntimeObject;
-                            if (x.Source.ObjectKey > 0 && x.Target.ObjectKey > 0 && // TODO: Проверить ObjectKey > 0
+                            if (x.Source.ObjectKey.PrimaryId > 0 && x.Target.ObjectKey.PrimaryId > 0 && // TODO: Проверить ObjectKey > 0
                                 ((source.TwoWayLinkingObjectList != null) != (target.TwoWayLinkingObjectList != null)))
                             {
                                 if (source.TwoWayLinkingObjectList != null)
                                 {
                                     if (target.RuntimeObjectStub == null)
                                     {
-                                        targetObject = CreateNewObject(x.Target.ObjectIndex, targetObject.GetType(), x.Target.ObjectKey);
-                                        TypeBinder.MarkAsImplicitObject(targetObject);
+                                        targetObject = CreateNewObject(x.Target.ObjectIndex, targetObject.GetType(), x.Target.ObjectKey.AsImplicit);
                                         target.RuntimeObjectStub = targetObject;
                                         fObjects[x.Target.ObjectIndex] = target;
                                         source.TwoWayLinkingObjectList.Add(targetObject);
@@ -418,8 +500,7 @@ namespace Nezaboodka
                                 {
                                     if (source.RuntimeObjectStub == null)
                                     {
-                                        sourceObject = CreateNewObject(x.Source.ObjectIndex, sourceObject.GetType(), x.Source.ObjectKey);
-                                        TypeBinder.MarkAsImplicitObject(sourceObject);
+                                        sourceObject = CreateNewObject(x.Source.ObjectIndex, sourceObject.GetType(), x.Source.ObjectKey.AsImplicit);
                                         source.RuntimeObjectStub = sourceObject;
                                         fObjects[x.Source.ObjectIndex] = source;
                                         target.TwoWayLinkingObjectList.Add(sourceObject);
@@ -443,20 +524,30 @@ namespace Nezaboodka
                                         if (x.ValueUpdateMode == NdefFieldKind.Remove)
                                         {
                                             // Create stub copy (db null)
-                                            NdefTypeInfo ndefTypeInfo = TypeBinder.LookupTypeInfo(targetObject);
-                                            var objectHeader = new NdefObjectHeader() { TypeInfo = ndefTypeInfo, Key = "#0" };
-                                            targetObject = ndefTypeInfo.Formatter.Boxed.CreateObjectInstance(
-                                                ndefTypeInfo.SystemType, objectHeader);
-                                            TypeBinder.MarkAsStubObject(targetObject);
+                                            NdefTypeInfo typeInfo = TypeBinder.LookupTypeInfo(targetObject);
+                                            var objectHeader = new NdefObjectHeader() { TypeInfo = typeInfo, Key = "#0" };
+                                            targetObject = typeInfo.Formatter.Boxed.CreateObjectInstance(
+                                                typeInfo.SystemType, objectHeader);
+                                            DbObject dbObject = (DbObject)targetObject;
+                                            dbObject.Key = dbObject.Key.AsReference;
                                             // TODO: to think if static null object can be used
                                         }
                                         SetMemberValue(sourceObject, member, targetObject);
                                     }
                                     else
                                     {
+                                        if (!x.Source.ObjectKey.IsIndefinite && (x.Source.ObjectKey.IsRemoved || x.Target.ObjectKey.IsRemoved || x.ValueUpdateMode == NdefFieldKind.Remove))
+                                        {
+                                            NdefTypeInfo typeInfo = TypeBinder.LookupTypeInfo(targetObject);
+                                            var objectHeader = new NdefObjectHeader() { TypeInfo = typeInfo, Key = x.Target.ObjectKey.AsRemoved.ToString() };
+                                            targetObject = typeInfo.Formatter.Boxed.CreateObjectInstance(
+                                                typeInfo.SystemType, objectHeader);
+                                            DbObject dbObject = (DbObject)targetObject;
+                                            dbObject.Key = dbObject.Key.AsReference;
+                                        }
                                         AddObjectToList(list, targetObject, x.ValueUpdateMode,
                                             fLinkingMode == NdefLinkingMode.TwoWayLinkingAndNormalizedOrder &&
-                                            x.Source.ObjectKey > 0 && x.Target.ObjectKey > 0);
+                                            x.Source.ObjectKey.PrimaryId > 0 && x.Target.ObjectKey.PrimaryId > 0);
                                         if (listCreated)
                                             SetMemberValue(sourceObject, member, list);
                                     }
@@ -466,6 +557,23 @@ namespace Nezaboodka
                     }
                 }
             }
+        }
+
+        private static IComparer<NdefRelation> GetComparerByLinkingMode(NdefLinkingMode mode)
+        {
+            IComparer<NdefRelation> result;
+            switch (mode)
+            {
+                case NdefLinkingMode.OneWayLinkingAndOriginalOrder:
+                    result = LinkPairOriginalOrderComparer.Default;
+                    break;
+                case NdefLinkingMode.TwoWayLinkingAndNormalizedOrder:
+                    result = LinkPairSortedOrderComparer.Default;
+                    break;
+                default:
+                    throw new NotImplementedException(string.Format("{0} is not implemented", mode));
+            }
+            return result;
         }
 
         private void AddObjectToList(IList list, object value,
@@ -511,7 +619,7 @@ namespace Nezaboodka
     {
         public int ObjectIndex;
         public long ObjectNumber;
-        public long ObjectKey;
+        public DbKey ObjectKey;
         public NdefField Field;
         public NdefTypeInfo ObjectTypeInfo;
         public bool IsListInMemberInfo; // избавиться?
@@ -578,10 +686,10 @@ namespace Nezaboodka
 
         public int Compare(NdefRelation x, NdefRelation y)
         {
-            int result = x.Source.ObjectKey.CompareTo(y.Source.ObjectKey);
+            int result = x.Source.ObjectKey.PrimaryId.CompareTo(y.Source.ObjectKey.PrimaryId);
             if (result == 0)
             {
-                if (x.Source.ObjectKey == 0 || (x.Source.ObjectNumber != long.MaxValue &&
+                if (x.Source.ObjectKey.IsIndefinite || (x.Source.ObjectNumber != long.MaxValue &&
                     y.Source.ObjectNumber != long.MaxValue))
                     result = x.Source.ObjectNumber.CompareTo(y.Source.ObjectNumber);
                 if (result == 0)
@@ -598,7 +706,7 @@ namespace Nezaboodka
                             {
                                 // Ссылки внутри DbObject'а упорядочиваются по логическому ключу.
                                 // В остальных объектах ссылки упорядочиваются в очередности появления в N*DEF тексте.
-                                if (x.Source.ObjectKey != 0)
+                                if (!x.Source.ObjectKey.IsIndefinite)
                                     result = x.Target.ObjectKey.CompareTo(y.Target.ObjectKey);
                                 else
                                     result = x.NaturalOrderNumber.CompareTo(y.NaturalOrderNumber);
@@ -623,7 +731,7 @@ namespace Nezaboodka
 
         public int Compare(NdefRelation x, NdefRelation y)
         {
-            int result = x.Source.ObjectKey.CompareTo(y.Source.ObjectKey);
+            int result = x.Source.ObjectKey.PrimaryId.CompareTo(y.Source.ObjectKey.PrimaryId);
             if (result == 0)
             {
                 result = x.Source.ObjectNumber.CompareTo(y.Source.ObjectNumber);

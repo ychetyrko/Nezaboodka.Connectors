@@ -176,9 +176,9 @@ namespace Nezaboodka.Ndef
             return result;
         }
 
-        public static Type GetElementType(Type type, Type defaultValue)
+        public static Type GetElementType(Type type, Type defaultType)
         {
-            Type result = TryGetElementType(type) ?? defaultValue;
+            Type result = TryGetElementType(type) ?? defaultType;
             if (result == null)
                 throw new ArgumentException("type is not a list or an array ({0})", type.FullName);
             return result;

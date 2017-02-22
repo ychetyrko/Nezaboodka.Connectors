@@ -40,7 +40,7 @@ namespace Nezaboodka.Ndef
         {
             if (!fIsDisposed)
             {
-                if (count >= 0)
+                if (count > 0)
                 {
                     if (fPosition + count <= fLength)
                     {
@@ -50,7 +50,7 @@ namespace Nezaboodka.Ndef
                     else
                         throw new InvalidOperationException("The end of the stream is reached.");
                 }
-                else
+                else if (count < 0)
                     throw new ArgumentOutOfRangeException("parameter " + nameof(count) + " must be non-negative");
             }
             else

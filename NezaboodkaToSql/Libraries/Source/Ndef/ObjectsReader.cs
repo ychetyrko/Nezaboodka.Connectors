@@ -1,11 +1,23 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Nezaboodka.Ndef
 {
     public class ObjectsReader : AbstractNdefReader
     {
+        private enum ReaderState
+        {
+            DataSetStart = 1,
+            DataSetEnd = 2,
+            Objects = 3,
+            Finished = 4
+        };
+
+        private ReaderState fState;
         private IEnumerator fWalker;
         private Queue<NdefValue> fQueuedObjects;
         private INdefFormatter<object> fRootFormatter;
@@ -15,8 +27,10 @@ namespace Nezaboodka.Ndef
         public INdefTypeBinder TypeBinder { get; private set; }
         public bool StepIntoNestedDbObjects { get; private set; }
         public Dictionary<object, long> VisitedObjects { get; private set; }
+        public string DataSetHeader { get; private set; }
 
-        public ObjectsReader(INdefTypeBinder typeBinder, bool stepIntoNestedDbObjects, IEnumerable objects)
+        public ObjectsReader(INdefTypeBinder typeBinder, bool stepIntoNestedDbObjects, string dataSetHeader,
+            IEnumerable objects)
             : base()
         {
             TypeBinder = typeBinder;
@@ -24,12 +38,52 @@ namespace Nezaboodka.Ndef
             VisitedObjects = new Dictionary<object, long>();
             fQueuedObjects = new Queue<NdefValue>();
             fRootFormatter = TypeBinder.LookupFormatter<INdefFormatter<object>>(typeof(object));
+            DataSetHeader = dataSetHeader;
+            if (dataSetHeader != null)
+                fState = ReaderState.DataSetStart;
+            else
+                fState = ReaderState.Objects;
             fWalker = WalkObjects(objects.GetEnumerator()).GetEnumerator();
         }
 
         protected override bool MoveToNextLine()
         {
-            return fWalker.MoveNext();
+            bool result;
+            switch (fState)
+            {
+                case ReaderState.DataSetStart:
+                    PutDataSetStartToBuffer(DataSetHeader);
+                    result = true;
+                    fState = ReaderState.Objects;
+                    break;
+                case ReaderState.DataSetEnd:
+                    PutDataSetEndOrExtensionToBuffer(false);
+                    result = true;
+                    fState = ReaderState.Finished;
+                    break;
+                case ReaderState.Objects:
+                    if (fWalker.MoveNext())
+                        result = true;
+                    else
+                    {
+                        if (DataSetHeader != null)
+                        {
+                            result = true;
+                            fState = ReaderState.DataSetEnd;
+                        }
+                        else
+                        {
+                            result = false;
+                            fState = ReaderState.Finished;
+                        }
+                    }
+                    break;
+                case ReaderState.Finished:
+                default:
+                    result = false;
+                    break;
+            }
+            return result;
         }
 
         // Internal

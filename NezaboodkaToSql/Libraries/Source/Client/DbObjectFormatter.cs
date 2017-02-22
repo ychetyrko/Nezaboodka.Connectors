@@ -35,7 +35,7 @@ namespace Nezaboodka
                 {
                     var h = new NdefObjectHeader() { Key = value.AsObjectKey };
                     result = Activator.CreateInstance<T>();
-                    result.Key = DbKey.Parse(value.AsObjectKey).AsReference;
+                    result.Key = DbKey.Parse(value.AsObjectKey, isObject: false);
                 }
                 else
                     result = null;
@@ -49,7 +49,7 @@ namespace Nezaboodka
         {
             T result = base.CreateObjectInstance(formalType, objectHeader);
             if (!string.IsNullOrEmpty(objectHeader.Key))
-                result.Key = DbKey.Parse(objectHeader.Key);
+                result.Key = DbKey.Parse(objectHeader.Key, isObject: true);
             return result;
         }
     }

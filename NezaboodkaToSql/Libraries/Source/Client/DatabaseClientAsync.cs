@@ -111,35 +111,35 @@ namespace Nezaboodka
             return (DbObject)result?[0];
         }
 
-        public async Task<DbObject> SaveObjectAsync(DbObject anObject, TypeAndFields typeAndFieldsToSave)
+        public async Task<DbObject> SaveObjectAsync(DbObject anObject, TypeAndFields patchFields)
         {
             IList result = await SaveObjectsAsync(new SaveQuery(new DbObject[] { anObject }, 
-                new TypeAndFields[] { typeAndFieldsToSave }, null, false)).ConfigureAwait(false);
+                new TypeAndFields[] { patchFields }, null, false)).ConfigureAwait(false);
             return (DbObject)result?[0];
         }
 
-        public async Task<DbObject> SaveObjectAsync(DbObject anObject, TypeAndFields typeAndFieldsToSave,
+        public async Task<DbObject> SaveObjectAsync(DbObject anObject, TypeAndFields patchFields,
             bool errorOnRevisionMismatch)
         {
             IList result = await SaveObjectsAsync(new SaveQuery(new DbObject[] { anObject }, 
-                new TypeAndFields[] { typeAndFieldsToSave }, null, errorOnRevisionMismatch)).ConfigureAwait(false);
+                new TypeAndFields[] { patchFields }, null, errorOnRevisionMismatch)).ConfigureAwait(false);
             return (DbObject)result?[0];
         }
 
-        public async Task<DbObject> SaveObjectAsync(DbObject anObject, TypeAndFields typeAndFieldsToSave,
-            TypeAndFields typeAndFieldsToReturn)
+        public async Task<DbObject> SaveObjectAsync(DbObject anObject, TypeAndFields patchFields,
+            TypeAndFields returnFields)
         {
             IList result = await SaveObjectsAsync(new SaveQuery(new DbObject[] { anObject }, 
-                new TypeAndFields[] { typeAndFieldsToSave }, new TypeAndFields[] { typeAndFieldsToReturn }, false))
+                new TypeAndFields[] { patchFields }, new TypeAndFields[] { returnFields }, false))
                 .ConfigureAwait(false);
             return (DbObject)result?[0];
         }
 
-        public async Task<DbObject> SaveObjectAsync(DbObject anObject, TypeAndFields typeAndFieldsToSave,
-            TypeAndFields typeAndFieldsToReturn, bool errorOnRevisionMismatch)
+        public async Task<DbObject> SaveObjectAsync(DbObject anObject, TypeAndFields patchFields,
+            TypeAndFields returnFields, bool errorOnRevisionMismatch)
         {
             IList result = await SaveObjectsAsync(new SaveQuery(new DbObject[] { anObject }, 
-                new TypeAndFields[] { typeAndFieldsToSave }, new TypeAndFields[] { typeAndFieldsToReturn }, 
+                new TypeAndFields[] { patchFields }, new TypeAndFields[] { returnFields }, 
                 errorOnRevisionMismatch)).ConfigureAwait(false);
             return (DbObject)result?[0];
         }
@@ -157,64 +157,64 @@ namespace Nezaboodka
             return result;
         }
 
-        public async Task<IList> SaveObjectsAsync(TypeAndFields typeAndFieldsToSave, IList objects)
+        public async Task<IList> SaveObjectsAsync(TypeAndFields patchFields, IList objects)
         {
-            IList result = await SaveObjectsAsync(new SaveQuery(objects, new TypeAndFields[] { typeAndFieldsToSave },
+            IList result = await SaveObjectsAsync(new SaveQuery(objects, new TypeAndFields[] { patchFields },
                 null, false)).ConfigureAwait(false);
             return result;
         }
 
-        public async Task<IList> SaveObjectsAsync(TypeAndFields typeAndFieldsToSave, IList objects,
+        public async Task<IList> SaveObjectsAsync(TypeAndFields patchFields, IList objects,
             bool errorOnRevisionMismatch)
         {
-            IList result = await SaveObjectsAsync(new SaveQuery(objects, new TypeAndFields[] { typeAndFieldsToSave },
+            IList result = await SaveObjectsAsync(new SaveQuery(objects, new TypeAndFields[] { patchFields },
                 null, errorOnRevisionMismatch)).ConfigureAwait(false);
             return result;
         }
 
-        public async Task<IList> SaveObjectsAsync(TypeAndFields typeAndFieldsToSave, TypeAndFields typeAndFieldsToReturn,
+        public async Task<IList> SaveObjectsAsync(TypeAndFields patchFields, TypeAndFields returnFields,
             IList objects)
         {
-            IList result = await SaveObjectsAsync(new SaveQuery(objects, new TypeAndFields[] { typeAndFieldsToSave },
-                new TypeAndFields[] { typeAndFieldsToReturn }, false)).ConfigureAwait(false);
+            IList result = await SaveObjectsAsync(new SaveQuery(objects, new TypeAndFields[] { patchFields },
+                new TypeAndFields[] { returnFields }, false)).ConfigureAwait(false);
             return result;
         }
 
-        public async Task<IList> SaveObjectsAsync(TypeAndFields typeAndFieldsToSave, TypeAndFields typeAndFieldsToReturn, 
+        public async Task<IList> SaveObjectsAsync(TypeAndFields patchFields, TypeAndFields returnFields, 
             IList objects, bool errorOnRevisionMismatch)
         {
-            IList result = await SaveObjectsAsync(new SaveQuery(objects, new TypeAndFields[] { typeAndFieldsToSave },
-                new TypeAndFields[] { typeAndFieldsToReturn }, errorOnRevisionMismatch)).ConfigureAwait(false);
+            IList result = await SaveObjectsAsync(new SaveQuery(objects, new TypeAndFields[] { patchFields },
+                new TypeAndFields[] { returnFields }, errorOnRevisionMismatch)).ConfigureAwait(false);
             return result;
         }
 
-        public async Task<IList> SaveObjectsAsync(IList<TypeAndFields> typesAndFieldsToSave, IList objects)
+        public async Task<IList> SaveObjectsAsync(IList<TypeAndFields> patchFields, IList objects)
         {
-            IList result = await SaveObjectsAsync(new SaveQuery(objects, typesAndFieldsToSave, null, false))
+            IList result = await SaveObjectsAsync(new SaveQuery(objects, patchFields, null, false))
                 .ConfigureAwait(false);
             return result;
         }
 
-        public async Task<IList> SaveObjectsAsync(IList<TypeAndFields> typesAndFieldsToSave, IList objects,
+        public async Task<IList> SaveObjectsAsync(IList<TypeAndFields> patchFields, IList objects,
             bool errorOnRevisionMismatch)
         {
-            IList result = await SaveObjectsAsync(new SaveQuery(objects, typesAndFieldsToSave, null, 
+            IList result = await SaveObjectsAsync(new SaveQuery(objects, patchFields, null, 
                 errorOnRevisionMismatch)).ConfigureAwait(false);
             return result;
         }
 
-        public async Task<IList> SaveObjectsAsync(IList<TypeAndFields> typesAndFieldsToSave, 
-            IList<TypeAndFields> typesAndFieldsToReturn, IList objects)
+        public async Task<IList> SaveObjectsAsync(IList<TypeAndFields> patchFields, 
+            IList<TypeAndFields> returnFields, IList objects)
         {
-            IList result = await SaveObjectsAsync(new SaveQuery(objects, typesAndFieldsToSave, typesAndFieldsToReturn,
+            IList result = await SaveObjectsAsync(new SaveQuery(objects, patchFields, returnFields,
                 false)).ConfigureAwait(false);
             return result;
         }
 
-        public async Task<IList> SaveObjectsAsync(IList<TypeAndFields> typesAndFieldsToSave,
-            IList<TypeAndFields> typesAndFieldsToReturn, IList objects, bool errorOnRevisionMismatch)
+        public async Task<IList> SaveObjectsAsync(IList<TypeAndFields> patchFields,
+            IList<TypeAndFields> returnFields, IList objects, bool errorOnRevisionMismatch)
         {
-            IList result = await SaveObjectsAsync(new SaveQuery(objects, typesAndFieldsToSave, typesAndFieldsToReturn,
+            IList result = await SaveObjectsAsync(new SaveQuery(objects, patchFields, returnFields,
                 errorOnRevisionMismatch)).ConfigureAwait(false);
             return result;
         }
@@ -244,14 +244,6 @@ namespace Nezaboodka
                 errorOnObjectNotFound)).ConfigureAwait(false);
         }
 
-        public async Task<long> DeleteObjectAsync(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
-            bool errorOnObjectNotFound)
-        {
-            return await DeleteObjectsAsync(new DeleteQuery(new DbKey[] { objectKey }, 
-                new List<TypeAndFields>() { typeAndFieldsWithObjectsToDelete }, 
-                errorOnObjectNotFound)).ConfigureAwait(false);
-        }
-
         public async Task<long> DeleteObjectsAsync(List<DbKey> objectKeys)
         {
             return await DeleteObjectsAsync(new DeleteQuery(objectKeys, false)).ConfigureAwait(false);
@@ -262,32 +254,14 @@ namespace Nezaboodka
             return await DeleteObjectsAsync(new DeleteQuery(objectKeys, false)).ConfigureAwait(false);
         }
 
-        public async Task<long> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
-            List<DbKey> objectKeys)
+        public async Task<long> DeleteObjectsAsync(List<DbKey> objectKeys, bool errorOnObjectNotFound)
         {
-            return await DeleteObjectsAsync(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, 
-                false)).ConfigureAwait(false);
+            return await DeleteObjectsAsync(new DeleteQuery(objectKeys, errorOnObjectNotFound)).ConfigureAwait(false);
         }
 
-        public async Task<long> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
-            DbKey[] objectKeys)
+        public async Task<long> DeleteObjectsAsync(DbKey[] objectKeys, bool errorOnObjectNotFound)
         {
-            return await DeleteObjectsAsync(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
-                false)).ConfigureAwait(false);
-        }
-
-        public async Task<long> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
-            List<DbKey> objectKeys, bool errorOnObjectNotFound)
-        {
-            return await DeleteObjectsAsync(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
-                errorOnObjectNotFound)).ConfigureAwait(false); ;
-        }
-
-        public async Task<long> DeleteObjectsAsync(IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete,
-            DbKey[] objectKeys, bool errorOnObjectNotFound)
-        {
-            return await DeleteObjectsAsync(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
-                errorOnObjectNotFound)).ConfigureAwait(false); ;
+            return await DeleteObjectsAsync(new DeleteQuery(objectKeys, errorOnObjectNotFound)).ConfigureAwait(false);
         }
 
         public async Task<long> DeleteObjectsAsync(DeleteQuery query)
@@ -316,18 +290,18 @@ namespace Nezaboodka
             return result?[0];
         }
 
-        public async Task<object> GetObjectAsync(DbKey objectKey, TypeAndFields typeAndFieldsToReturn)
+        public async Task<object> GetObjectAsync(DbKey objectKey, TypeAndFields returnFields)
         {
             IList result = await GetObjectsAsync(new GetQuery(null, new DbKey[] { objectKey },
-                new TypeAndFields[] { typeAndFieldsToReturn }, null, false, null)).ConfigureAwait(false);
+                new TypeAndFields[] { returnFields }, null, false, null)).ConfigureAwait(false);
             return result?[0];
         }
 
-        public async Task<object> GetObjectAsync(DbKey objectKey, TypeAndFields typeAndFieldsToReturn,
+        public async Task<object> GetObjectAsync(DbKey objectKey, TypeAndFields returnFields,
             bool errorOnObjectNotFound)
         {
             IList result = await GetObjectsAsync(new GetQuery(null, new DbKey[] { objectKey }, 
-                new TypeAndFields[] { typeAndFieldsToReturn }, null, errorOnObjectNotFound, null)).ConfigureAwait(false);
+                new TypeAndFields[] { returnFields }, null, errorOnObjectNotFound, null)).ConfigureAwait(false);
             return result?[0];
         }
 
@@ -345,17 +319,17 @@ namespace Nezaboodka
             return result;
         }
 
-        public async Task<IList> GetObjectsAsync(IList<DbKey> objectKeys, IList<TypeAndFields> typesAndFieldsToReturn)
+        public async Task<IList> GetObjectsAsync(IList<DbKey> objectKeys, IList<TypeAndFields> returnFields)
         {
-            IList result = await GetObjectsAsync(new GetQuery(null, objectKeys, typesAndFieldsToReturn, null,
+            IList result = await GetObjectsAsync(new GetQuery(null, objectKeys, returnFields, null,
                 false, null)).ConfigureAwait(false);
             return result;
         }
 
-        public async Task<IList> GetObjectsAsync(IList<DbKey> objectKeys, IList<TypeAndFields> typesAndFieldsToReturn, 
+        public async Task<IList> GetObjectsAsync(IList<DbKey> objectKeys, IList<TypeAndFields> returnFields, 
             bool errorOnObjectNotFound)
         {
-            IList result = await GetObjectsAsync(new GetQuery(null, objectKeys, typesAndFieldsToReturn, null, 
+            IList result = await GetObjectsAsync(new GetQuery(null, objectKeys, returnFields, null, 
                 errorOnObjectNotFound, null)).ConfigureAwait(false);
             return result;
         }
@@ -388,18 +362,18 @@ namespace Nezaboodka
         }
 
         public async Task<DbObject> LookupObjectAsync(DbObject anObject, string indexToUse, 
-            TypeAndFields typeAndFieldsToReturn)
+            TypeAndFields returnFields)
         {
             IList result = await LookupObjectsAsync(new LookupQuery(new DbObject[] { anObject }, indexToUse,
-                new TypeAndFields[] { typeAndFieldsToReturn }, false)).ConfigureAwait(false);
+                new TypeAndFields[] { returnFields }, false)).ConfigureAwait(false);
             return (DbObject)result?[0];
         }
 
         public async Task<DbObject> LookupObjectAsync(DbObject anObject, string indexToUse, 
-            TypeAndFields typeAndFieldsToReturn, bool errorOnObjectNotFound)
+            TypeAndFields returnFields, bool errorOnObjectNotFound)
         {
             IList result = await LookupObjectsAsync(new LookupQuery(new DbObject[] { anObject }, indexToUse,
-                new TypeAndFields[] { typeAndFieldsToReturn }, errorOnObjectNotFound)).ConfigureAwait(false);
+                new TypeAndFields[] { returnFields }, errorOnObjectNotFound)).ConfigureAwait(false);
             return (DbObject)result?[0];
         }
 
@@ -418,17 +392,17 @@ namespace Nezaboodka
         }
 
         public async Task<IList> LookupObjectsAsync(IList objectsToLookup, string indexToUse, 
-            IList<TypeAndFields> typesAndFieldsToReturn)
+            IList<TypeAndFields> returnFields)
         {
-            IList result = await LookupObjectsAsync(new LookupQuery(objectsToLookup, indexToUse, typesAndFieldsToReturn,
+            IList result = await LookupObjectsAsync(new LookupQuery(objectsToLookup, indexToUse, returnFields,
                 false)).ConfigureAwait(false);
             return result;
         }
 
         public async Task<IList> LookupObjectsAsync(IList objectsToLookup, string indexToUse, 
-            IList<TypeAndFields> typesAndFieldsToReturn, bool errorOnObjectNotFound)
+            IList<TypeAndFields> returnFields, bool errorOnObjectNotFound)
         {
-            IList result = await LookupObjectsAsync(new LookupQuery(objectsToLookup, indexToUse, typesAndFieldsToReturn,
+            IList result = await LookupObjectsAsync(new LookupQuery(objectsToLookup, indexToUse, returnFields,
                 errorOnObjectNotFound)).ConfigureAwait(false);
             return result;
         }
@@ -471,19 +445,19 @@ namespace Nezaboodka
         }
 
         public Task<IList> SearchFilesAsync(string fileMaskToMatch, int searchLimit, FileObject startAfter,
-            TypeAndFields typeAndFieldsToReturn)
+            TypeAndFields returnFields)
         {
             return SearchFilesAsync(fileMaskToMatch, null, searchLimit, null, startAfter, null, null, null,
-                new TypeAndFields[] { typeAndFieldsToReturn });
+                new TypeAndFields[] { returnFields });
         }
 
         public async Task<IList> SearchFilesAsync(string fileMaskToMatch, string fileMaskToNotMatch, int searchLimit,
-            string forEachVar, FileObject after, string where, string having,
-            IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn)
+            string forEachVar, FileObject afterObject, string where, string having,
+            IList<Parameter> parameters, IList<TypeAndFields> returnFields)
         {
             var fileRange = new FileRange();
             SearchQuery query = CreateSearchFilesQuery(fileMaskToMatch, fileMaskToNotMatch, searchLimit,
-                forEachVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
+                forEachVar, afterObject, where, having, parameters, returnFields, fileRange);
             var queries = new SearchQuery[] { query };
             var request = new SearchObjectsRequest(queries);
             var response = (SearchObjectsResponse)await ExecuteRequestAsync(request).ConfigureAwait(false);
@@ -572,13 +546,11 @@ namespace Nezaboodka
             using (Stream requestStream = webRequest.GetRequestStream())
             using (var ndefWriter = new NdefWriter(requestStream))
             {
-                ndefWriter.WriteDataSetStart(false, null);
                 var saveObjectsRequest = request as SaveObjectsRequest;
-                var objectsReader = new ObjectsReader(TypeBinder, saveObjectsRequest == null, new object[] { request });
-                NdefSerializer.WriteObjects(objectsReader, ndefWriter);
-                ndefWriter.WriteDataSetEnd();
+                var objectsReader = new ObjectsReader(TypeBinder, saveObjectsRequest == null, null, new object[] { request });
+                NdefSerializer.WriteDataSets(objectsReader, ndefWriter);
                 if (saveObjectsRequest != null)
-                    await FileContentHandler.WriteFilesAsync(saveObjectsRequest, objectsReader.VisitedObjects, ndefWriter)
+                    await FileContentHandler.WriteFilesAsync(ndefWriter, saveObjectsRequest, objectsReader.VisitedObjects)
                         .ConfigureAwait(false);
             }
             DatabaseClientContext newContext = new DatabaseClientContext(fContext);

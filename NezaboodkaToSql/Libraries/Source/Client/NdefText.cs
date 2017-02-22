@@ -30,8 +30,8 @@ namespace Nezaboodka
             {
                 using (var ndefWriter = new NdefWriter(stream))
                 {
-                    var objectsReader = new ObjectsReader(typeBinder, stepIntoNestedDbObjects, roots);
-                    NdefSerializer.WriteObjects(objectsReader, ndefWriter);
+                    var objectsReader = new ObjectsReader(typeBinder, stepIntoNestedDbObjects, null, roots);
+                    NdefSerializer.WriteDataSets(objectsReader, ndefWriter);
                 }
                 stream.Position = 0;
                 var reader = new TextAndBinaryReader(stream);
@@ -53,8 +53,8 @@ namespace Nezaboodka
         {
             using (var ndefWriter = new NdefWriter(stream))
             {
-                var objectsReader = new ObjectsReader(typeBinder, true, roots);
-                NdefSerializer.WriteObjects(objectsReader, ndefWriter);
+                var objectsReader = new ObjectsReader(typeBinder, true, null, roots);
+                NdefSerializer.WriteDataSets(objectsReader, ndefWriter);
             }
         }
 

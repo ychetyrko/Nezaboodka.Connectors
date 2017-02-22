@@ -6,50 +6,6 @@ namespace Nezaboodka
 {
     public static class DbUtils
     {
-        public static T ToBeDeleted<T>(this T obj) where T : DbObject, new()
-        {
-            if (obj.IsObject)
-            {
-                if (obj.IsExisting)
-                    return new T() { Key = obj.Key.AsRemoved };
-                else if (obj.Key.IsRemoved)
-                    return obj; // не создавать новую заглушку, а вернуть уже имеющуюся
-                else
-                    throw new ArgumentException(string.Format(
-                        "given object cannot be used to create an object to be deleted ({0})", obj.Key));
-            }
-            else
-            {
-                if (obj.IsExisting)
-                    return new T() { Key = obj.Key.AsObject.AsRemoved };
-                else
-                    throw new ArgumentException(string.Format(
-                        "given reference cannot be used to create an object to be deleted ({0})", obj.Key));
-            }
-        }
-
-        public static T ToBeExcluded<T>(this T obj) where T : DbObject, new()
-        {
-            if (obj.IsReference)
-            {
-                if (obj.IsExisting)
-                    return new T() { Key = obj.Key.AsRemoved };
-                else if (obj.Key.IsRemoved)
-                    return obj; // не создавать новую заглушку, а вернуть уже имеющуюся
-                else
-                    throw new ArgumentException(string.Format(
-                        "given reference cannot be used to create a reference to be excluded ({0})", obj.Key));
-            }
-            else
-            {
-                if (obj.IsExisting)
-                    return new T() { Key = obj.Key.AsReference.AsRemoved };
-                else
-                    throw new ArgumentException(string.Format(
-                        "given object cannot be used to create a reference as to be excluded ({0})", obj.Key));
-            }
-        }
-
         public static List<string> SplitWithSeparatorsIncluded(this string line, char[] separators)
         {
             List<string> result = new List<string>();
