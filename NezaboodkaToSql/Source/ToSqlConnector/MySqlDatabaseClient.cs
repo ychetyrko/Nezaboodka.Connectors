@@ -14,11 +14,14 @@ namespace Nezaboodka.ToSqlConnector
     {
         private static readonly Random RandomAddressGenerator = new Random();
         private static readonly Random RandomDelayGenerator = new Random();
+        private static readonly char[] DelimiterBetweenIdentifierAndTypeName = new char[] { ':' };
 
-        private readonly Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>> _requestExec =
+        // Fields
+
+        private readonly Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>> fRequestExec =
             new Dictionary<System.Type, Func<DatabaseRequest, MySqlCommand, DatabaseResponse>>();
 
-        private DatabaseConfiguration _currentConfiguration = null;
+        private DatabaseConfiguration fCurrentConfiguration = null;
 
         // Public
 
@@ -30,12 +33,9 @@ namespace Nezaboodka.ToSqlConnector
         {
             get { return ServerAddresses[CurrentServerAddressNumber]; }
         }
-
         public ServerAddressSelectionMode ServerAddressSelectionMode { get; set; }
         public string DatabaseName { get; set; }
-
         public ClientTypeBinder TypeBinder { get; private set; }
-
         public int TimeoutInMilliseconds { get; set; } // Timeout.Infinite (-1) is set by default
         public int RetryLimit { get; set; } // number of attempts, 0 is unlimited by default
         public int MaxDelayBeforeRetryInMilliseconds { get; set; }
@@ -72,7 +72,6 @@ namespace Nezaboodka.ToSqlConnector
             TimeoutInMilliseconds = timeoutInMilliseconds;
             RetryLimit = retryLimit;
             MaxDelayBeforeRetryInMilliseconds = maxDelayBeforeRetryInMilliseconds;
-            //fContext = new DatabaseClientContext();
         }
 
         public MySqlDatabaseClient(MySqlDatabaseClient existing)
@@ -100,14 +99,13 @@ namespace Nezaboodka.ToSqlConnector
             TimeoutInMilliseconds = existing.TimeoutInMilliseconds;
             RetryLimit = existing.RetryLimit;
             MaxDelayBeforeRetryInMilliseconds = existing.MaxDelayBeforeRetryInMilliseconds;
-            //fContext = new DatabaseClientContext(existing.fContext);
         }
 
         // Administration
 
         public EnvironmentConfiguration GetEnvironmentConfiguration()
         {
-            return null; // null <= not an N*.Server
+            return null; // null <= not N*.Server
         }
 
         public IList<string> GetDatabaseList()
@@ -199,31 +197,31 @@ namespace Nezaboodka.ToSqlConnector
                 errorOnRevisionMismatch))?[0];
         }
 
-        public DbObject SaveObject(DbObject anObject, TypeAndFields typeAndFieldsToSave)
+        public DbObject SaveObject(DbObject anObject, TypeAndFields patchFields)
         {
             return (DbObject) SaveObjects(new SaveQuery(new DbObject[] {anObject},
-                new TypeAndFields[] {typeAndFieldsToSave}, null, false))?[0];
+                new TypeAndFields[] {patchFields}, null, false))?[0];
         }
 
-        public DbObject SaveObject(DbObject anObject, TypeAndFields typeAndFieldsToSave, bool errorOnRevisionMismatch)
+        public DbObject SaveObject(DbObject anObject, TypeAndFields patchFields, bool errorOnRevisionMismatch)
         {
             return (DbObject) SaveObjects(new SaveQuery(new DbObject[] {anObject},
-                new TypeAndFields[] {typeAndFieldsToSave}, null, errorOnRevisionMismatch))?[0];
+                new TypeAndFields[] {patchFields}, null, errorOnRevisionMismatch))?[0];
         }
 
-        public DbObject SaveObject(DbObject anObject, TypeAndFields typeAndFieldsToSave,
-            TypeAndFields typeAndFieldsToReturn)
+        public DbObject SaveObject(DbObject anObject, TypeAndFields patchFields,
+            TypeAndFields returnFields)
         {
             return (DbObject) SaveObjects(new SaveQuery(new DbObject[] {anObject},
-                new TypeAndFields[] {typeAndFieldsToSave}, new TypeAndFields[] {typeAndFieldsToReturn},
+                new TypeAndFields[] {patchFields}, new TypeAndFields[] {returnFields},
                 false))?[0];
         }
 
-        public DbObject SaveObject(DbObject anObject, TypeAndFields typeAndFieldsToSave,
-            TypeAndFields typeAndFieldsToReturn, bool errorOnRevisionMismatch)
+        public DbObject SaveObject(DbObject anObject, TypeAndFields patchFields,
+            TypeAndFields returnFields, bool errorOnRevisionMismatch)
         {
             return (DbObject) SaveObjects(new SaveQuery(new DbObject[] {anObject},
-                new TypeAndFields[] {typeAndFieldsToSave}, new TypeAndFields[] {typeAndFieldsToReturn},
+                new TypeAndFields[] {patchFields}, new TypeAndFields[] {returnFields},
                 errorOnRevisionMismatch))?[0];
         }
 
@@ -237,50 +235,50 @@ namespace Nezaboodka.ToSqlConnector
             return SaveObjects(new SaveQuery(objects, null, null, errorOnRevisionMismatch));
         }
 
-        public IList SaveObjects(TypeAndFields typeAndFieldsToSave, IList objects)
+        public IList SaveObjects(TypeAndFields patchFields, IList objects)
         {
-            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] {typeAndFieldsToSave}, null, false));
+            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] {patchFields}, null, false));
         }
 
-        public IList SaveObjects(TypeAndFields typeAndFieldsToSave, IList objects, bool errorOnRevisionMismatch)
+        public IList SaveObjects(TypeAndFields patchFields, IList objects, bool errorOnRevisionMismatch)
         {
-            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] {typeAndFieldsToSave},
+            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] {patchFields},
                 null, errorOnRevisionMismatch));
         }
 
-        public IList SaveObjects(TypeAndFields typeAndFieldsToSave, TypeAndFields typeAndFieldsToReturn, IList objects)
+        public IList SaveObjects(TypeAndFields patchFields, TypeAndFields returnFields, IList objects)
         {
-            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] {typeAndFieldsToSave},
-                new TypeAndFields[] {typeAndFieldsToReturn}, false));
+            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] {patchFields},
+                new TypeAndFields[] {returnFields}, false));
         }
 
-        public IList SaveObjects(TypeAndFields typeAndFieldsToSave, TypeAndFields typeAndFieldsToReturn, IList objects,
+        public IList SaveObjects(TypeAndFields patchFields, TypeAndFields returnFields, IList objects,
             bool errorOnRevisionMismatch)
         {
-            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] {typeAndFieldsToSave},
-                new TypeAndFields[] {typeAndFieldsToReturn}, errorOnRevisionMismatch));
+            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] {patchFields},
+                new TypeAndFields[] {returnFields}, errorOnRevisionMismatch));
         }
 
-        public IList SaveObjects(IList<TypeAndFields> typesAndFieldsToSave, IList objects)
+        public IList SaveObjects(IList<TypeAndFields> patchFields, IList objects)
         {
-            return SaveObjects(new SaveQuery(objects, typesAndFieldsToSave, null, false));
+            return SaveObjects(new SaveQuery(objects, patchFields, null, false));
         }
 
-        public IList SaveObjects(IList<TypeAndFields> typesAndFieldsToSave, IList objects, bool errorOnRevisionMismatch)
+        public IList SaveObjects(IList<TypeAndFields> patchFields, IList objects, bool errorOnRevisionMismatch)
         {
-            return SaveObjects(new SaveQuery(objects, typesAndFieldsToSave, null, errorOnRevisionMismatch));
+            return SaveObjects(new SaveQuery(objects, patchFields, null, errorOnRevisionMismatch));
         }
 
-        public IList SaveObjects(IList<TypeAndFields> typesAndFieldsToSave, IList<TypeAndFields> typesAndFieldsToReturn,
+        public IList SaveObjects(IList<TypeAndFields> patchFields, IList<TypeAndFields> returnFields,
             IList objects)
         {
-            return SaveObjects(new SaveQuery(objects, typesAndFieldsToSave, typesAndFieldsToReturn, false));
+            return SaveObjects(new SaveQuery(objects, patchFields, returnFields, false));
         }
 
-        public IList SaveObjects(IList<TypeAndFields> typesAndFieldsToSave, IList<TypeAndFields> typesAndFieldsToReturn,
+        public IList SaveObjects(IList<TypeAndFields> patchFields, IList<TypeAndFields> returnFields,
             IList objects, bool errorOnRevisionMismatch)
         {
-            return SaveObjects(new SaveQuery(objects, typesAndFieldsToSave, typesAndFieldsToReturn,
+            return SaveObjects(new SaveQuery(objects, patchFields, returnFields,
                 errorOnRevisionMismatch));
         }
 
@@ -307,13 +305,6 @@ namespace Nezaboodka.ToSqlConnector
             return DeleteObjects(new DeleteQuery(new DbKey[] {objectKey}, errorOnObjectNotFound));
         }
 
-        public long DeleteObject(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
-            bool errorOnObjectNotFound)
-        {
-            return DeleteObjects(new DeleteQuery(new DbKey[] {objectKey},
-                new List<TypeAndFields>() {typeAndFieldsWithObjectsToDelete}, errorOnObjectNotFound));
-        }
-
         public long DeleteObjects(List<DbKey> objectKeys)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, false));
@@ -324,30 +315,14 @@ namespace Nezaboodka.ToSqlConnector
             return DeleteObjects(new DeleteQuery(objectKeys, false));
         }
 
-        public long DeleteObjects(List<DbKey> objectKeys,
-            IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete)
+        public long DeleteObjects(List<DbKey> objectKeys, bool errorOnObjectNotFound)
         {
-            return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, false));
+            return DeleteObjects(new DeleteQuery(objectKeys, errorOnObjectNotFound));
         }
 
-        public long DeleteObjects(DbKey[] objectKeys,
-            IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete)
+        public long DeleteObjects(DbKey[] objectKeys, bool errorOnObjectNotFound)
         {
-            return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, false));
-        }
-
-        public long DeleteObjects(List<DbKey> objectKeys,
-            IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, bool errorOnObjectNotFound)
-        {
-            return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
-                errorOnObjectNotFound));
-        }
-
-        public long DeleteObjects(DbKey[] objectKeys,
-            IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, bool errorOnObjectNotFound)
-        {
-            return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
-                errorOnObjectNotFound));
+            return DeleteObjects(new DeleteQuery(objectKeys, errorOnObjectNotFound));
         }
 
         public long DeleteObjects(DeleteQuery query)
@@ -373,15 +348,15 @@ namespace Nezaboodka.ToSqlConnector
             return GetObjects(new GetQuery(null, new DbKey[] {objectKey}, null, null, errorOnObjectNotFound, null))[0];
         }
 
-        public object GetObject(DbKey objectKey, TypeAndFields typeAndFieldsToReturn)
+        public object GetObject(DbKey objectKey, TypeAndFields returnFields)
         {
-            return GetObjects(new GetQuery(null, new DbKey[] {objectKey}, new TypeAndFields[] {typeAndFieldsToReturn},
+            return GetObjects(new GetQuery(null, new DbKey[] {objectKey}, new TypeAndFields[] {returnFields},
                 null, false, null))[0];
         }
 
-        public object GetObject(DbKey objectKey, TypeAndFields typeAndFieldsToReturn, bool errorOnObjectNotFound)
+        public object GetObject(DbKey objectKey, TypeAndFields returnFields, bool errorOnObjectNotFound)
         {
-            return GetObjects(new GetQuery(null, new DbKey[] {objectKey}, new TypeAndFields[] {typeAndFieldsToReturn},
+            return GetObjects(new GetQuery(null, new DbKey[] {objectKey}, new TypeAndFields[] {returnFields},
                 null, errorOnObjectNotFound, null))[0];
         }
 
@@ -395,15 +370,15 @@ namespace Nezaboodka.ToSqlConnector
             return GetObjects(new GetQuery(null, objectKeys, null, null, errorOnObjectNotFound, null));
         }
 
-        public IList GetObjects(IList<DbKey> objectKeys, IList<TypeAndFields> typesAndFieldsToReturn)
+        public IList GetObjects(IList<DbKey> objectKeys, IList<TypeAndFields> returnFields)
         {
-            return GetObjects(new GetQuery(null, objectKeys, typesAndFieldsToReturn, null, false, null));
+            return GetObjects(new GetQuery(null, objectKeys, returnFields, null, false, null));
         }
 
-        public IList GetObjects(IList<DbKey> objectKeys, IList<TypeAndFields> typesAndFieldsToReturn,
+        public IList GetObjects(IList<DbKey> objectKeys, IList<TypeAndFields> returnFields,
             bool errorOnObjectNotFound)
         {
-            return GetObjects(new GetQuery(null, objectKeys, typesAndFieldsToReturn, null, errorOnObjectNotFound, null));
+            return GetObjects(new GetQuery(null, objectKeys, returnFields, null, errorOnObjectNotFound, null));
         }
 
         public IList GetObjects(GetQuery query)
@@ -430,17 +405,17 @@ namespace Nezaboodka.ToSqlConnector
                 errorOnObjectNotFound))[0];
         }
 
-        public DbObject LookupObject(DbObject anObject, string indexToUse, TypeAndFields typeAndFieldsToReturn)
+        public DbObject LookupObject(DbObject anObject, string indexToUse, TypeAndFields returnFields)
         {
             return (DbObject) LookupObjects(new LookupQuery(new DbObject[] {anObject}, indexToUse,
-                new TypeAndFields[] {typeAndFieldsToReturn}, false))[0];
+                new TypeAndFields[] {returnFields}, false))[0];
         }
 
-        public DbObject LookupObject(DbObject anObject, string indexToUse, TypeAndFields typeAndFieldsToReturn,
+        public DbObject LookupObject(DbObject anObject, string indexToUse, TypeAndFields returnFields,
             bool errorOnObjectNotFound)
         {
             return (DbObject) LookupObjects(new LookupQuery(new DbObject[] {anObject}, indexToUse,
-                new TypeAndFields[] {typeAndFieldsToReturn}, errorOnObjectNotFound))[0];
+                new TypeAndFields[] {returnFields}, errorOnObjectNotFound))[0];
         }
 
         public IList LookupObjects(IList objectsToLookup, string indexToUse)
@@ -453,15 +428,15 @@ namespace Nezaboodka.ToSqlConnector
             return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, null, errorOnObjectNotFound));
         }
 
-        public IList LookupObjects(IList objectsToLookup, string indexToUse, IList<TypeAndFields> typesAndFieldsToReturn)
+        public IList LookupObjects(IList objectsToLookup, string indexToUse, IList<TypeAndFields> returnFields)
         {
-            return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, typesAndFieldsToReturn, false));
+            return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, returnFields, false));
         }
 
-        public IList LookupObjects(IList objectsToLookup, string indexToUse, IList<TypeAndFields> typesAndFieldsToReturn,
+        public IList LookupObjects(IList objectsToLookup, string indexToUse, IList<TypeAndFields> returnFields,
             bool errorOnObjectNotFound)
         {
-            return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, typesAndFieldsToReturn,
+            return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, returnFields,
                 errorOnObjectNotFound));
         }
 
@@ -505,30 +480,22 @@ namespace Nezaboodka.ToSqlConnector
         }
 
         public IList SearchFiles(string fileMaskToMatch, int searchLimit, FileObject startAfter,
-            TypeAndFields typeAndFieldsToReturn)
+            TypeAndFields returnFields)
         {
             return SearchFiles(fileMaskToMatch, null, searchLimit, null, startAfter, null, null, null,
-                new TypeAndFields[] {typeAndFieldsToReturn});
+                new TypeAndFields[] { returnFields });
         }
 
         public IList SearchFiles(string fileMaskToMatch, string fileMaskToNotMatch, int searchLimit,
-            string forEachVar, FileObject after, string where, string having,
-            IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn)
+            string forEachVar, FileObject afterObject, string where, string having,
+            IList<Parameter> parameters, IList<TypeAndFields> returnFields)
         {
             throw new NotImplementedException();
-
-            //var fileRange = new FileRange();
-            //SearchQuery query = CreateSearchFilesQuery(fileMaskToMatch, fileMaskToNotMatch, searchLimit,
-            //    forEachVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
-            //var queries = new SearchQuery[] { query };
-            //var request = new SearchObjectsRequest(queries);
-            //var response = (SearchObjectsResponse)ExecuteRequest(request);
-            //return response.Results[0].Objects;
         }
 
         public SearchQuery CreateSearchFilesQuery(string fileMaskToMatch, string fileMaskToNotMatch,
-            int searchLimit, string forEachVar, FileObject after, string where, string having,
-            IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn, FileRange fileRange)
+            int limit, string forEachVar, FileObject afterObject, string where, string having,
+            IList<Parameter> parameters, IList<TypeAndFields> returnFields, FileRange fileRange)
         {
             throw new NotImplementedException();
         }
@@ -637,7 +604,7 @@ namespace Nezaboodka.ToSqlConnector
             try
             {
                 con.Open();
-                result = _requestExec[request.GetType()].Invoke(request, cmd);
+                result = fRequestExec[request.GetType()].Invoke(request, cmd);
             }
             catch (KeyNotFoundException ex)
             {
@@ -660,18 +627,29 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
-        // Internal
+
+        private static string GetObjectVariableName(string objectDefinition)
+        {
+            string result = null;
+            string[] s = objectDefinition.Split(DelimiterBetweenIdentifierAndTypeName, StringSplitOptions.RemoveEmptyEntries);
+            if (s.Length == 2)
+                result = s[0].Trim();
+            else
+                throw new NezaboodkaException(string.Format("object identifier definition '{0}' is wrong, " +
+                    "the valid format is 'identifier : type-name'", objectDefinition));
+            return result;
+        }
 
         private void RegisterRequests()
         {
-            _requestExec.Add(typeof(GetDatabaseListRequest), GetDatabaseListExec);
-            _requestExec.Add(typeof(AlterDatabaseListRequest), AlterDatabaseListExec);
-            _requestExec.Add(typeof(CleanupRemovedDatabasesRequest), CleanupRemovedDatabasesExec);
+            fRequestExec.Add(typeof(GetDatabaseListRequest), GetDatabaseListExec);
+            fRequestExec.Add(typeof(AlterDatabaseListRequest), AlterDatabaseListExec);
+            fRequestExec.Add(typeof(CleanupRemovedDatabasesRequest), CleanupRemovedDatabasesExec);
 
-            _requestExec.Add(typeof(GetDatabaseAccessModeRequest), GetDatabaseAccessModeExec);
+            fRequestExec.Add(typeof(GetDatabaseAccessModeRequest), GetDatabaseAccessModeExec);
 
-            _requestExec.Add(typeof(GetDatabaseConfigurationRequest), GetDatabaseConfigurationExec);
-            _requestExec.Add(typeof(AlterDatabaseConfigurationRequest), AlterDatabaseConfigurationExec);
+            fRequestExec.Add(typeof(GetDatabaseConfigurationRequest), GetDatabaseConfigurationExec);
+            fRequestExec.Add(typeof(AlterDatabaseConfigurationRequest), AlterDatabaseConfigurationExec);
         }
 
         private DatabaseResponse GetDatabaseListExec(DatabaseRequest request, MySqlCommand cmd)
@@ -755,7 +733,7 @@ namespace Nezaboodka.ToSqlConnector
 
             cmd.CommandType = CommandType.Text;
 
-            if (_currentConfiguration == null)
+            if (fCurrentConfiguration == null)
             {
                 cmd.CommandText = DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
                 CachingReadDatabaseConfigurationCmd(cmd);
@@ -806,7 +784,7 @@ namespace Nezaboodka.ToSqlConnector
             DatabaseConfiguration result = ReadDatabaseConfiguration(reader);
             reader.Close();
 
-            _currentConfiguration = DatabaseConfiguration.CreateFromNdefText(result.ToNdefText());
+            fCurrentConfiguration = DatabaseConfiguration.CreateFromNdefText(result.ToNdefText());
 
             return result;
         }
