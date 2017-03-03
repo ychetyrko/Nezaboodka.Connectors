@@ -35,27 +35,35 @@ namespace Nezaboodka.Ndef
             fOutput = null;
         }
 
-        public void WriteDataSetStart(bool isExtensionOfPreviousDataSet, string header)
+        public void WriteDataSetStart(string header, bool isExtension, bool noBraces)
         {
-            if (!isExtensionOfPreviousDataSet)
-                WriteLineFeedIfNeeded();
-            Write(true, NdefConst.DataSetStartMarker);
-            if (!isExtensionOfPreviousDataSet && !string.IsNullOrEmpty(header))
+            if (!noBraces)
             {
-                Write(false, " ");
-                Write(false, header);
+                if (!isExtension)
+                    WriteLineFeedIfNeeded();
+                else
+                    fIsLineFeedNeeded = false;
+                Write(true, NdefConst.DataSetStartMarker);
+                if (!isExtension && !string.IsNullOrEmpty(header))
+                {
+                    Write(false, " ");
+                    Write(false, header);
+                }
+                WriteLineFeed();
             }
-            WriteLineFeed();
         }
 
-        public void WriteDataSetEnd()
+        public void WriteDataSetEnd(bool noBraces)
         {
-            WriteLineFeedIfNeeded();
-            Write(false, NdefConst.DataSetEndMarker);
-            fIsLineFeedNeeded = true;
+            if (!noBraces)
+            {
+                WriteLineFeedIfNeeded();
+                Write(false, NdefConst.DataSetEndMarker);
+                fIsLineFeedNeeded = true;
+            }
         }
 
-        public void WriteObjectStart(bool noBraces, string type, string number, string key)
+        public void WriteObjectStart(string type, string number, string key, bool noBraces)
         {
             WriteLineFeedIfNeeded();
             if (!noBraces)

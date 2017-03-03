@@ -29,6 +29,12 @@ namespace Nezaboodka
         public long Position; // Запись: 0 - Save, не 0 - Append. Чтение: отрицательные значения превращаются в 0.
         public long Length; // 0 - IsNull
 
+        public FileRange(long position, long length)
+        {
+            Position = position;
+            Length = length;
+        }
+
         public bool IsNull()
         {
             return Length == 0;

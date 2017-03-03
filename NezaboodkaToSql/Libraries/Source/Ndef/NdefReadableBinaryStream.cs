@@ -33,21 +33,22 @@ namespace Nezaboodka.Ndef
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            int result;
+            int result = 0;
             if (!fIsDisposed)
             {
-                if (count >= 0)
+                if (count > 0)
                 {
                     if (fPosition + count <= fLength)
                         result = fInput.Read(buffer, offset, count);
                     else
                     {
                         int n = (int)(fLength - fPosition);
-                        result = fInput.Read(buffer, offset, n);
+                        if (n > 0)
+                            result = fInput.Read(buffer, offset, n);
                     }
                     fPosition += result;
                 }
-                else
+                else if (count < 0)
                     throw new ArgumentOutOfRangeException("parameter " + nameof(count) + " must be non-negative");
             }
             else
@@ -64,7 +65,7 @@ namespace Nezaboodka.Ndef
         {
             fIsDisposed = true;
             if (fPosition != fLength)
-                throw new InvalidOperationException("The end of the stream isn't reached.");
+                throw new InvalidOperationException("the stream of binary data was not read till the end");
         }
 
         public override void Close()

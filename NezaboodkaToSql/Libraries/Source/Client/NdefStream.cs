@@ -21,21 +21,21 @@ namespace Nezaboodka
             fReader = reader;
         }
 
+        public override void Flush()
+        {
+            throw new NotSupportedException();
+        }
+
         public override int Read(byte[] buffer, int offset, int count)
         {
             int resultCount = 0;
             if (fReader.CurrentElement.Value.AsStream != null)
             {
                 resultCount = fReader.CurrentElement.Value.AsStream.Read(buffer, offset, count);
-                while (resultCount == 0 && fReader.MoveToNextElement())
+                while (resultCount == 0 && fReader.MoveToNextElement() && fReader.CurrentElement.Value.AsStream != null)
                     resultCount = fReader.CurrentElement.Value.AsStream.Read(buffer, offset, count);
             }
             return resultCount;
-        }
-
-        public override void Flush()
-        {
-            throw new NotSupportedException();
         }
 
         public override long Seek(long offset, SeekOrigin origin)

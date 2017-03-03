@@ -327,7 +327,7 @@ namespace Nezaboodka
         public string LookupIn;                   // "Group[+Title]"
         public string Where;                      // "X.Title.StartsWith(T)"
         public string Having;                     // "X.Participants.Count > 0"
-        public IList<TypeAndFields> SaveFields;   // new List<TypeAndFields> { TypeAndFields.Parse("Group{Title, Participants}") }
+        public IList<TypeAndFields> PatchFields;  // new List<TypeAndFields> { TypeAndFields.Parse("Group{Title, Participants}") }
         public IList<TypeAndFields> ReturnFields; // new List<TypeAndFields> { TypeAndFields.Parse("Group{Id, Title, Participants}") }
         public bool ErrorOnRevisionMismatch;
 
@@ -335,16 +335,16 @@ namespace Nezaboodka
         {
         }
 
-        public SaveQuery(IList objects, IList<TypeAndFields> save, IList<TypeAndFields> returnFields, bool errorOnRevisionMismatch)
+        public SaveQuery(IList objects, IList<TypeAndFields> patchFields, IList<TypeAndFields> returnFields, bool errorOnRevisionMismatch)
         {
-            SaveFields = save;
+            PatchFields = patchFields;
             ReturnFields = returnFields;
             ForEachIn = objects;
             ErrorOnRevisionMismatch = errorOnRevisionMismatch;
         }
 
         public SaveQuery(string name, IList<Parameter> parameters, string forEachVar, IList forEachIn, string lookupVar, 
-            string lookupIn, string where, string having, IList<TypeAndFields> saveFields, IList<TypeAndFields> returnFields, 
+            string lookupIn, string where, string having, IList<TypeAndFields> patchFields, IList<TypeAndFields> returnFields, 
             bool errorOnRevisionMismatch)
         {
             Name = name;
@@ -355,7 +355,7 @@ namespace Nezaboodka
             LookupIn = lookupIn;
             Where = where;
             Having = having;
-            SaveFields = saveFields;
+            PatchFields = patchFields;
             ReturnFields = returnFields;
             ErrorOnRevisionMismatch = errorOnRevisionMismatch;
         }
@@ -459,13 +459,6 @@ namespace Nezaboodka
         }
 
         public DeleteQuery(IList objects, bool errorOnObjectNotFound)
-        {
-            ForEachIn = objects;
-            ErrorOnObjectNotFound = errorOnObjectNotFound;
-        }
-
-        public DeleteQuery(IList objects, IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, 
-            bool errorOnObjectNotFound)
         {
             ForEachIn = objects;
             ErrorOnObjectNotFound = errorOnObjectNotFound;
@@ -644,7 +637,7 @@ namespace Nezaboodka
         public int SkipCount;                     // Not supported in detail queries!
         public IList<TextFilter> TextLike;        // Or(X1, ..., Xn)
         public string Where;                      // "X.Title.StartsWith(T)"
-        public string Having;                     // "X.Participants.Count > 0"
+        public string Having;                     //TODO: "X.Participants.Count > 0"
         public FileRange FileRange;               // Length is a maximum range, the actual range may be less
         public IList<TypeAndFields> ReturnFields; // new List<TypeAndFields> { TypeAndFields.Parse("Group{Id, Title, Participants}") }
         public IList<SearchQuery> DetailQueries;
@@ -706,16 +699,16 @@ namespace Nezaboodka
     public class TextCondition
     {
         public string TextPattern; // "Software Engineer; Scientist Physics/Biology ~Mathematics"
-        public TypeAndFields InTypeAndFields;
+        public TypeAndFields SearchFields;
 
         public TextCondition()
         {
         }
 
-        public TextCondition(string textPattern, TypeAndFields inTypeAndFields)
+        public TextCondition(string textPattern, TypeAndFields searchFields)
         {
             TextPattern = textPattern;
-            InTypeAndFields = inTypeAndFields;
+            SearchFields = searchFields;
         }
     }
 

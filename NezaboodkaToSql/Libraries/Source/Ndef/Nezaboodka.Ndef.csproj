@@ -78,6 +78,7 @@
     <Compile Include="ValueFormatters\AbstractFormatter.cs" />
     <Compile Include="ValueFormatters\BinarySegmentFormatter.cs" />
     <Compile Include="ValueFormatters\BitArrayFormatter.cs" />
+    <Compile Include="ValueFormatters\CharFormatter.cs" />
     <Compile Include="ValueFormatters\DateTimeOffsetFormatter.cs" />
     <Compile Include="ValueFormatters\AbstractValueFormatter.cs" />
     <Compile Include="ValueFormatters\NullableValueFormatter.cs" />
@@ -86,7 +87,10 @@
     <Compile Include="ObjectFormatters\AbstractObjectFormatter.cs" />
     <Compile Include="ValueFormatters\AnyTypeFormatter.cs" />
     <Compile Include="ValueFormatters\BinaryDataFormatter.cs" />
+    <Compile Include="ValueFormatters\RealFormatters.cs" />
+    <Compile Include="ValueFormatters\SignedFormatters.cs" />
     <Compile Include="ValueFormatters\StringFormatter.cs" />
+    <Compile Include="ValueFormatters\UnsignedFormatters.cs" />
     <Compile Include="ValueFormatters\ValueFormatter.cs" />
     <Compile Include="ValueFormatters\DateTimeFormatter.cs" />
     <Compile Include="DataTypes.cs" />

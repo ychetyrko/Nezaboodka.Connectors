@@ -10,11 +10,12 @@ namespace Nezaboodka
         private NdefReader fReader;
         private NdefLinker fLinker;
         private NdefStream fStream;
+        private byte[] fDummyBuffer = new byte[1024];
 
         // Public
 
-        public string DataSetHeader { get { return fReader.CurrentDataSet.Header; } }
         public ClientTypeBinder TypeBinder { get { return fLinker.TypeBinder; } }
+        public NdefDataSet CurrentDataSet { get { return fReader.CurrentDataSet; } }
         public object CurrentObject { get { return fReader.CurrentObject.DeserializedInstance; } }
         public NdefStream CurrentStream { get { return fStream; } }
         public GenerateObjectKeyDelegate GenerateObjectKeyDelegate
@@ -33,7 +34,7 @@ namespace Nezaboodka
         {
             fStream = null;
             bool result = fReader.MoveToNextDataSet();
-            if (!string.IsNullOrEmpty(fReader.CurrentDataSet.Header))
+            if (fReader.CurrentDataSet.IsStartOfDataSet)
                 fLinker.Clear();
             return result;
         }
@@ -57,8 +58,7 @@ namespace Nezaboodka
         {
             if (fStream != null)
             {
-                var buffer = new byte[4096];
-                while (fStream.Read(buffer, 0, buffer.Length) > 0) { }
+                while (fStream.Read(fDummyBuffer, 0, fDummyBuffer.Length) > 0) { }
                 fStream.Close();
             }
             fStream = null;

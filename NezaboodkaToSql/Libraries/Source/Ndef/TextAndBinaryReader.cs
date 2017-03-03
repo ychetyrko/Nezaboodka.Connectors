@@ -67,41 +67,19 @@ namespace Nezaboodka.Ndef
                 result = GetStringFromBuffers(startIndexInFirstBuffer, processedBytesCountInAllBuffers);
                 CleanBuffers();
             }
-            return result;
-        }
-
-        public byte[] ReadBytes(int count)
-        {
-            byte[] result;
-            if (count >= 0)
+            else if ((startIndexInFirstBuffer != fCurrentByteIndexInLastBuffer && fProcessedBytesCounts.Count == 1) ||
+                     fProcessedBytesCounts.Count > 1)
             {
-                int availableBytesCount = fLastBufferLength - fCurrentByteIndexInLastBuffer;
-                if (count <= availableBytesCount)
-                {
-                    result = new byte[count];
-                    Array.Copy(fBuffers.Last.Value, fCurrentByteIndexInLastBuffer, result, 0, count);
-                    fCurrentByteIndexInLastBuffer += count;
-                }
-                else
-                {
-                    int extraBytesCount = count - availableBytesCount;
-                    var buffer = new byte[extraBytesCount];
-                    var readBytesCount = fInput.Read(buffer, 0, buffer.Length);
-                    result = new byte[availableBytesCount + readBytesCount];
-                    Array.Copy(fBuffers.Last.Value, fCurrentByteIndexInLastBuffer, result, 0, availableBytesCount);
-                    Array.Copy(buffer, 0, result, availableBytesCount, readBytesCount);
-                    fCurrentByteIndexInLastBuffer += availableBytesCount;
-                }
+                result = string.Empty;
+                CleanBuffers();
             }
-            else
-                throw new ArgumentOutOfRangeException("parameter " + nameof(count) + " must be non-negative");
             return result;
         }
 
         public int Read(byte[] buffer, int offset, int count)
         {
-            int result;
-            if (count >= 0)
+            int result = 0;
+            if (count > 0)
             {
                 int availableBytesCount = fLastBufferLength - fCurrentByteIndexInLastBuffer;
                 if (count <= availableBytesCount)
@@ -114,14 +92,21 @@ namespace Nezaboodka.Ndef
                 {
                     int extraBytesCount = count - availableBytesCount;
                     var bufferEx = new byte[extraBytesCount];
-                    var readedBytesCount = fInput.Read(bufferEx, 0, buffer.Length);
-                    Array.Copy(fBuffers.Last.Value, fCurrentByteIndexInLastBuffer, buffer, offset, availableBytesCount);
-                    Array.Copy(bufferEx, 0, buffer, offset + availableBytesCount, readedBytesCount);
-                    fCurrentByteIndexInLastBuffer += availableBytesCount;
-                    result = count;
+                    int haveReadBytesCount = fInput.Read(bufferEx, 0, bufferEx.Length);
+                    if (availableBytesCount > 0)
+                    {
+                        Array.Copy(fBuffers.Last.Value, fCurrentByteIndexInLastBuffer, buffer, offset, availableBytesCount);
+                        fCurrentByteIndexInLastBuffer += availableBytesCount;
+                        result += availableBytesCount;
+                    }
+                    if (haveReadBytesCount > 0)
+                    {
+                        Array.Copy(bufferEx, 0, buffer, offset + availableBytesCount, haveReadBytesCount);
+                        result += haveReadBytesCount;
+                    }
                 }
             }
-            else
+            else if (count < 0)
                 throw new ArgumentOutOfRangeException("parameter " + nameof(count) + " must be non-negative");
             return result;
         }

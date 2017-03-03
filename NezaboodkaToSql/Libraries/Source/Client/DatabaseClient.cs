@@ -189,31 +189,31 @@ namespace Nezaboodka
                 errorOnRevisionMismatch))?[0];
         }
 
-        public DbObject SaveObject(DbObject anObject, TypeAndFields typeAndFieldsToSave)
+        public DbObject SaveObject(DbObject anObject, TypeAndFields patchFields)
         {
             return (DbObject)SaveObjects(new SaveQuery(new DbObject[] { anObject },
-                new TypeAndFields[] { typeAndFieldsToSave }, null, false))?[0];
+                new TypeAndFields[] { patchFields }, null, false))?[0];
         }
 
-        public DbObject SaveObject(DbObject anObject, TypeAndFields typeAndFieldsToSave, bool errorOnRevisionMismatch)
+        public DbObject SaveObject(DbObject anObject, TypeAndFields patchFields, bool errorOnRevisionMismatch)
         {
             return (DbObject)SaveObjects(new SaveQuery(new DbObject[] { anObject },
-                new TypeAndFields[] { typeAndFieldsToSave }, null, errorOnRevisionMismatch))?[0];
+                new TypeAndFields[] { patchFields }, null, errorOnRevisionMismatch))?[0];
         }
 
-        public DbObject SaveObject(DbObject anObject, TypeAndFields typeAndFieldsToSave,
-            TypeAndFields typeAndFieldsToReturn)
+        public DbObject SaveObject(DbObject anObject, TypeAndFields patchFields,
+            TypeAndFields returnFields)
         {
             return (DbObject)SaveObjects(new SaveQuery(new DbObject[] { anObject },
-                new TypeAndFields[] { typeAndFieldsToSave }, new TypeAndFields[] { typeAndFieldsToReturn }, 
+                new TypeAndFields[] { patchFields }, new TypeAndFields[] { returnFields }, 
                 false))?[0];
         }
 
-        public DbObject SaveObject(DbObject anObject, TypeAndFields typeAndFieldsToSave,
-            TypeAndFields typeAndFieldsToReturn, bool errorOnRevisionMismatch)
+        public DbObject SaveObject(DbObject anObject, TypeAndFields patchFields,
+            TypeAndFields returnFields, bool errorOnRevisionMismatch)
         {
             return (DbObject)SaveObjects(new SaveQuery(new DbObject[] { anObject }, 
-                new TypeAndFields[] { typeAndFieldsToSave }, new TypeAndFields[] { typeAndFieldsToReturn }, 
+                new TypeAndFields[] { patchFields }, new TypeAndFields[] { returnFields }, 
                 errorOnRevisionMismatch))?[0];
         }
 
@@ -227,50 +227,50 @@ namespace Nezaboodka
             return SaveObjects(new SaveQuery(objects, null, null, errorOnRevisionMismatch));
         }
 
-        public IList SaveObjects(TypeAndFields typeAndFieldsToSave, IList objects)
+        public IList SaveObjects(TypeAndFields patchFields, IList objects)
         {
-            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] { typeAndFieldsToSave }, null, false));
+            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] { patchFields }, null, false));
         }
 
-        public IList SaveObjects(TypeAndFields typeAndFieldsToSave, IList objects, bool errorOnRevisionMismatch)
+        public IList SaveObjects(TypeAndFields patchFields, IList objects, bool errorOnRevisionMismatch)
         {
-            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] { typeAndFieldsToSave },
+            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] { patchFields },
                 null, errorOnRevisionMismatch));
         }
 
-        public IList SaveObjects(TypeAndFields typeAndFieldsToSave, TypeAndFields typeAndFieldsToReturn, IList objects)
+        public IList SaveObjects(TypeAndFields patchFields, TypeAndFields returnFields, IList objects)
         {
-            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] { typeAndFieldsToSave },
-                new TypeAndFields[] { typeAndFieldsToReturn }, false));
+            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] { patchFields },
+                new TypeAndFields[] { returnFields }, false));
         }
 
-        public IList SaveObjects(TypeAndFields typeAndFieldsToSave, TypeAndFields typeAndFieldsToReturn, IList objects, 
+        public IList SaveObjects(TypeAndFields patchFields, TypeAndFields returnFields, IList objects, 
             bool errorOnRevisionMismatch)
         {
-            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] { typeAndFieldsToSave },
-                new TypeAndFields[] { typeAndFieldsToReturn }, errorOnRevisionMismatch));
+            return SaveObjects(new SaveQuery(objects, new TypeAndFields[] { patchFields },
+                new TypeAndFields[] { returnFields }, errorOnRevisionMismatch));
         }
 
-        public IList SaveObjects(IList<TypeAndFields> typesAndFieldsToSave, IList objects)
+        public IList SaveObjects(IList<TypeAndFields> patchFields, IList objects)
         {
-            return SaveObjects(new SaveQuery(objects, typesAndFieldsToSave, null, false));
+            return SaveObjects(new SaveQuery(objects, patchFields, null, false));
         }
 
-        public IList SaveObjects(IList<TypeAndFields> typesAndFieldsToSave, IList objects, bool errorOnRevisionMismatch)
+        public IList SaveObjects(IList<TypeAndFields> patchFields, IList objects, bool errorOnRevisionMismatch)
         {
-            return SaveObjects(new SaveQuery(objects, typesAndFieldsToSave, null, errorOnRevisionMismatch));
+            return SaveObjects(new SaveQuery(objects, patchFields, null, errorOnRevisionMismatch));
         }
 
-        public IList SaveObjects(IList<TypeAndFields> typesAndFieldsToSave, IList<TypeAndFields> typesAndFieldsToReturn, 
+        public IList SaveObjects(IList<TypeAndFields> patchFields, IList<TypeAndFields> returnFields, 
             IList objects)
         {
-            return SaveObjects(new SaveQuery(objects, typesAndFieldsToSave, typesAndFieldsToReturn, false));
+            return SaveObjects(new SaveQuery(objects, patchFields, returnFields, false));
         }
 
-        public IList SaveObjects(IList<TypeAndFields> typesAndFieldsToSave, IList<TypeAndFields> typesAndFieldsToReturn,
+        public IList SaveObjects(IList<TypeAndFields> patchFields, IList<TypeAndFields> returnFields,
             IList objects, bool errorOnRevisionMismatch)
         {
-            return SaveObjects(new SaveQuery(objects, typesAndFieldsToSave, typesAndFieldsToReturn, 
+            return SaveObjects(new SaveQuery(objects, patchFields, returnFields, 
                 errorOnRevisionMismatch));
         }
 
@@ -296,13 +296,6 @@ namespace Nezaboodka
             return DeleteObjects(new DeleteQuery(new DbKey[] { objectKey }, errorOnObjectNotFound));
         }
 
-        public long DeleteObject(DbKey objectKey, TypeAndFields typeAndFieldsWithObjectsToDelete,
-            bool errorOnObjectNotFound)
-        {
-            return DeleteObjects(new DeleteQuery(new DbKey[] { objectKey }, 
-                new List<TypeAndFields>() { typeAndFieldsWithObjectsToDelete }, errorOnObjectNotFound));
-        }
-
         public long DeleteObjects(List<DbKey> objectKeys)
         {
             return DeleteObjects(new DeleteQuery(objectKeys, false));
@@ -313,30 +306,14 @@ namespace Nezaboodka
             return DeleteObjects(new DeleteQuery(objectKeys, false));
         }
 
-        public long DeleteObjects(List<DbKey> objectKeys, 
-            IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete)
+        public long DeleteObjects(List<DbKey> objectKeys, bool errorOnObjectNotFound)
         {
-            return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, false));
+            return DeleteObjects(new DeleteQuery(objectKeys, errorOnObjectNotFound));
         }
 
-        public long DeleteObjects(DbKey[] objectKeys,
-            IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete)
+        public long DeleteObjects(DbKey[] objectKeys, bool errorOnObjectNotFound)
         {
-            return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, false));
-        }
-
-        public long DeleteObjects(List<DbKey> objectKeys, 
-            IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, bool errorOnObjectNotFound)
-        {
-            return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete, 
-                errorOnObjectNotFound));
-        }
-
-        public long DeleteObjects(DbKey[] objectKeys,
-            IList<TypeAndFields> typesAndFieldsWithDetailObjectsToDelete, bool errorOnObjectNotFound)
-        {
-            return DeleteObjects(new DeleteQuery(objectKeys, typesAndFieldsWithDetailObjectsToDelete,
-                errorOnObjectNotFound));
+            return DeleteObjects(new DeleteQuery(objectKeys, errorOnObjectNotFound));
         }
 
         public long DeleteObjects(DeleteQuery query)
@@ -361,15 +338,15 @@ namespace Nezaboodka
             return GetObjects(new GetQuery(null, new DbKey[] { objectKey }, null, null, errorOnObjectNotFound, null))[0];
         }
 
-        public object GetObject(DbKey objectKey, TypeAndFields typeAndFieldsToReturn)
+        public object GetObject(DbKey objectKey, TypeAndFields returnFields)
         {
-            return GetObjects(new GetQuery(null, new DbKey[] { objectKey }, new TypeAndFields[] { typeAndFieldsToReturn },
+            return GetObjects(new GetQuery(null, new DbKey[] { objectKey }, new TypeAndFields[] { returnFields },
                 null, false, null))[0];
         }
 
-        public object GetObject(DbKey objectKey, TypeAndFields typeAndFieldsToReturn, bool errorOnObjectNotFound)
+        public object GetObject(DbKey objectKey, TypeAndFields returnFields, bool errorOnObjectNotFound)
         {
-            return GetObjects(new GetQuery(null, new DbKey[] { objectKey }, new TypeAndFields[] { typeAndFieldsToReturn }, 
+            return GetObjects(new GetQuery(null, new DbKey[] { objectKey }, new TypeAndFields[] { returnFields }, 
                 null, errorOnObjectNotFound, null))[0];
         }
 
@@ -383,15 +360,15 @@ namespace Nezaboodka
             return GetObjects(new GetQuery(null, objectKeys, null, null, errorOnObjectNotFound, null));
         }
 
-        public IList GetObjects(IList<DbKey> objectKeys, IList<TypeAndFields> typesAndFieldsToReturn)
+        public IList GetObjects(IList<DbKey> objectKeys, IList<TypeAndFields> returnFields)
         {
-            return GetObjects(new GetQuery(null, objectKeys, typesAndFieldsToReturn, null, false, null));
+            return GetObjects(new GetQuery(null, objectKeys, returnFields, null, false, null));
         }
 
-        public IList GetObjects(IList<DbKey> objectKeys, IList<TypeAndFields> typesAndFieldsToReturn, 
+        public IList GetObjects(IList<DbKey> objectKeys, IList<TypeAndFields> returnFields, 
             bool errorOnObjectNotFound)
         {
-            return GetObjects(new GetQuery(null, objectKeys, typesAndFieldsToReturn, null, errorOnObjectNotFound, null));
+            return GetObjects(new GetQuery(null, objectKeys, returnFields, null, errorOnObjectNotFound, null));
         }
 
         public IList GetObjects(GetQuery query)
@@ -417,17 +394,17 @@ namespace Nezaboodka
                 errorOnObjectNotFound))[0];
         }
 
-        public DbObject LookupObject(DbObject anObject, string indexToUse, TypeAndFields typeAndFieldsToReturn)
+        public DbObject LookupObject(DbObject anObject, string indexToUse, TypeAndFields returnFields)
         {
             return (DbObject)LookupObjects(new LookupQuery(new DbObject[] { anObject }, indexToUse, 
-                new TypeAndFields[] { typeAndFieldsToReturn }, false))[0];
+                new TypeAndFields[] { returnFields }, false))[0];
         }
 
-        public DbObject LookupObject(DbObject anObject, string indexToUse, TypeAndFields typeAndFieldsToReturn, 
+        public DbObject LookupObject(DbObject anObject, string indexToUse, TypeAndFields returnFields, 
             bool errorOnObjectNotFound)
         {
             return (DbObject)LookupObjects(new LookupQuery(new DbObject[] { anObject }, indexToUse,
-                new TypeAndFields[] { typeAndFieldsToReturn }, errorOnObjectNotFound))[0];
+                new TypeAndFields[] { returnFields }, errorOnObjectNotFound))[0];
         }
 
         public IList LookupObjects(IList objectsToLookup, string indexToUse)
@@ -440,15 +417,15 @@ namespace Nezaboodka
             return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, null, errorOnObjectNotFound));
         }
 
-        public IList LookupObjects(IList objectsToLookup, string indexToUse, IList<TypeAndFields> typesAndFieldsToReturn)
+        public IList LookupObjects(IList objectsToLookup, string indexToUse, IList<TypeAndFields> returnFields)
         {
-            return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, typesAndFieldsToReturn, false));
+            return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, returnFields, false));
         }
 
-        public IList LookupObjects(IList objectsToLookup, string indexToUse, IList<TypeAndFields> typesAndFieldsToReturn, 
+        public IList LookupObjects(IList objectsToLookup, string indexToUse, IList<TypeAndFields> returnFields, 
             bool errorOnObjectNotFound)
         {
-            return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, typesAndFieldsToReturn, 
+            return LookupObjects(new LookupQuery(objectsToLookup, indexToUse, returnFields, 
                 errorOnObjectNotFound));
         }
 
@@ -488,19 +465,19 @@ namespace Nezaboodka
         }
 
         public IList SearchFiles(string fileMaskToMatch, int searchLimit, FileObject startAfter, 
-            TypeAndFields typeAndFieldsToReturn)
+            TypeAndFields returnFields)
         {
             return SearchFiles(fileMaskToMatch, null, searchLimit, null, startAfter, null, null, null,
-                new TypeAndFields[] { typeAndFieldsToReturn });
+                new TypeAndFields[] { returnFields });
         }
 
         public IList SearchFiles(string fileMaskToMatch, string fileMaskToNotMatch, int searchLimit, 
-            string forEachVar, FileObject after, string where, string having,
-            IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn)
+            string forEachVar, FileObject afterObject, string where, string having,
+            IList<Parameter> parameters, IList<TypeAndFields> returnFields)
         {
             var fileRange = new FileRange();
             SearchQuery query = CreateSearchFilesQuery(fileMaskToMatch, fileMaskToNotMatch, searchLimit,
-                forEachVar, after, where, having, parameters, typesAndFieldsToReturn, fileRange);
+                forEachVar, afterObject, where, having, parameters, returnFields, fileRange);
             var queries = new SearchQuery[] { query };
             var request = new SearchObjectsRequest(queries);
             var response = (SearchObjectsResponse)ExecuteRequest(request);
@@ -508,8 +485,8 @@ namespace Nezaboodka
         }
 
         public SearchQuery CreateSearchFilesQuery(string fileMaskToMatch, string fileMaskToNotMatch,
-            int searchLimit, string forEachVar, FileObject after, string where, string having,
-            IList<Parameter> parameters, IList<TypeAndFields> typesAndFieldsToReturn, FileRange fileRange)
+            int limit, string forEachVar, FileObject afterObject, string where, string having,
+            IList<Parameter> parameters, IList<TypeAndFields> returnFields, FileRange fileRange)
         {
             if (string.IsNullOrEmpty(forEachVar))
                 forEachVar = "X: FileObject";
@@ -529,22 +506,22 @@ namespace Nezaboodka
                 string currentVarName = GetObjectVariableName(forEachVar);
                 if (!string.IsNullOrEmpty(where))
                     where = string.Format("IsFileNameMatch({0}.FileName, {1}, {2}) and ({3})",
-                        currentVarName, "{FileMaskToMatch}", "{FileMaskToNotMatch}", where);
+                        currentVarName, "FileMaskToMatch", "FileMaskToNotMatch", where);
                 else
                     where = string.Format("IsFileNameMatch({0}.FileName, {1}, {2})",
-                        currentVarName, "{FileMaskToMatch}", "{FileMaskToNotMatch}");
+                        currentVarName, "FileMaskToMatch", "FileMaskToNotMatch");
             }
             var result = new SearchQuery()
             {
                 Parameters = parameters,
                 LookupVar = forEachVar,
                 LookupIn = "FileObject[+FileName]!",
-                AfterObject = after,
+                AfterObject = afterObject,
                 Where = where,
                 Having = having,
-                ReturnFields = typesAndFieldsToReturn,
+                ReturnFields = returnFields,
                 FileRange = fileRange,
-                Limit = searchLimit,
+                Limit = limit,
             };
             return result;
         }
@@ -640,13 +617,11 @@ namespace Nezaboodka
             using (Stream requestStream = webRequest.GetRequestStream())
             using (var ndefWriter = new NdefWriter(requestStream))
             {
-                ndefWriter.WriteDataSetStart(false, null);
                 var saveObjectsRequest = request as SaveObjectsRequest;
-                var objectsReader = new ObjectsReader(TypeBinder, saveObjectsRequest == null, new object[] { request });
-                NdefSerializer.WriteObjects(objectsReader, ndefWriter);
-                ndefWriter.WriteDataSetEnd();
+                var objectsReader = new ObjectsReader(TypeBinder, saveObjectsRequest == null, null, new object[] { request });
+                NdefSerializer.WriteDataSets(objectsReader, ndefWriter);
                 if (saveObjectsRequest != null)
-                    FileContentHandler.WriteFiles(saveObjectsRequest, objectsReader.VisitedObjects, ndefWriter);
+                    FileContentHandler.WriteFiles(ndefWriter, saveObjectsRequest, objectsReader.VisitedObjects);
             }
             DatabaseClientContext newContext = new DatabaseClientContext(fContext);
             DatabaseResponse response = null;

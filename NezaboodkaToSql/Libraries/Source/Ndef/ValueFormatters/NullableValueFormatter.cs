@@ -22,11 +22,10 @@ namespace Nezaboodka.Ndef
 
         public override NdefValue ToNdefValue(Type formalType, T? value)
         {
-            return new NdefValue()
-            {
-                AsScalar = value.ToString(),
-                HasNoLineFeeds = true
-            };
+            if (value != null)
+                return new NdefValue() { AsScalar = value.ToString(), HasNoLineFeeds = true };
+            else
+                return NdefValue.NullValue;
         }
 
         public override T? FromNdefValue(Type formalType, NdefValue value)

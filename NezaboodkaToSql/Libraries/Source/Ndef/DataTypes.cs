@@ -7,6 +7,7 @@ namespace Nezaboodka.Ndef
     public class NdefDataSet
     {
         public string Header;
+        public bool IsImplicit;
         public bool IsStartOfDataSet;
         public bool IsEndOfDataSet;
 
@@ -15,6 +16,7 @@ namespace Nezaboodka.Ndef
             Header = default(string);
             IsStartOfDataSet = default(bool);
             IsEndOfDataSet = default(bool);
+            IsImplicit = default(bool);
         }
 
         public override string ToString()

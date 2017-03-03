@@ -6,17 +6,14 @@
         {
             while (reader.MoveToNextDataSet())
             {
-                NdefDataSet dataSet = reader.CurrentDataSet;
-                if (dataSet.IsStartOfDataSet)
-                    writer.WriteDataSetStart(dataSet.IsEndOfDataSet, dataSet.Header);
+                NdefDataSet ds = reader.CurrentDataSet;
+                writer.WriteDataSetStart(ds.Header, !ds.IsStartOfDataSet, ds.IsImplicit);
                 WriteObjects(reader, writer);
-                if (dataSet.IsEndOfDataSet)
-                    writer.WriteDataSetEnd();
+                writer.WriteDataSetEnd(ds.IsImplicit);
             }
-            writer.Flush();
         }
 
-        public static void WriteObjects(INdefReader reader, INdefWriter writer)
+        private static void WriteObjects(INdefReader reader, INdefWriter writer)
         {
             while (reader.MoveToNextObject())
             {
@@ -24,42 +21,41 @@
                 bool noBraces = o.Header.Kind == NdefObjectKind.List &&
                     o.Header.TypeName == NdefConst.ListTypeBraces;
                 if (o.IsStartOfObject)
-                    writer.WriteObjectStart(noBraces, o.Header.TypeName, o.Header.Number, o.Header.Key);
+                    writer.WriteObjectStart(o.Header.TypeName, o.Header.Number, o.Header.Key, noBraces);
                 while (reader.MoveToNextElement())
                 {
-                    NdefElement x = o.CurrentElement;
-                    if (x.Field.Name != null)
+                    if (o.CurrentElement.Field.Name != null)
                     {
-                        if (x.Value.Kind == NdefValueKind.Object)
+                        if (o.CurrentElement.Value.Kind == NdefValueKind.Object)
                         {
-                            if (!x.Value.AsNestedObjectToDeserialize.IsEndOfObject)
-                                writer.WriteFieldName(x.Field.Name);
+                            if (!o.CurrentElement.Value.AsNestedObjectToDeserialize.IsEndOfObject)
+                                writer.WriteFieldName(o.CurrentElement.Field.Name);
                         }
                         else
                         {
-                            writer.WriteFieldName(x.Field.Name);
-                            if (x.Value.AsObjectKey != null || x.Value.AsObjectNumber != null)
-                                writer.WriteReference(x.Value.AsObjectKey, x.Value.AsObjectNumber);
+                            writer.WriteFieldName(o.CurrentElement.Field.Name);
+                            if (o.CurrentElement.Value.AsObjectKey != null || o.CurrentElement.Value.AsObjectNumber != null)
+                                writer.WriteReference(o.CurrentElement.Value.AsObjectKey, o.CurrentElement.Value.AsObjectNumber);
                             else
-                                writer.WriteValue(x.Value.ActualSerializableTypeName, x.Value.AsScalar,
-                                    x.Value.HasNoLineFeeds);
+                                writer.WriteValue(o.CurrentElement.Value.ActualSerializableTypeName,
+                                    o.CurrentElement.Value.AsScalar, o.CurrentElement.Value.HasNoLineFeeds);
                         }
                     }
                     else
                     {
-                        if (x.Value.Kind == NdefValueKind.Object)
+                        if (o.CurrentElement.Value.Kind == NdefValueKind.Object)
                         {
-                            if (!x.Value.AsNestedObjectToDeserialize.IsEndOfObject)
-                                writer.WriteListItem(x.Field.Kind == NdefFieldKind.Remove);
+                            if (!o.CurrentElement.Value.AsNestedObjectToDeserialize.IsEndOfObject)
+                                writer.WriteListItem(o.CurrentElement.Field.Kind == NdefFieldKind.Remove);
                         }
                         else
                         {
-                            writer.WriteListItem(x.Field.Kind == NdefFieldKind.Remove);
-                            if (x.Value.AsObjectKey != null || x.Value.AsObjectNumber != null)
-                                writer.WriteReference(x.Value.AsObjectKey, x.Value.AsObjectNumber);
+                            writer.WriteListItem(o.CurrentElement.Field.Kind == NdefFieldKind.Remove);
+                            if (o.CurrentElement.Value.AsObjectKey != null || o.CurrentElement.Value.AsObjectNumber != null)
+                                writer.WriteReference(o.CurrentElement.Value.AsObjectKey, o.CurrentElement.Value.AsObjectNumber);
                             else
-                                writer.WriteValue(x.Value.ActualSerializableTypeName, x.Value.AsScalar,
-                                    x.Value.HasNoLineFeeds);
+                                writer.WriteValue(o.CurrentElement.Value.ActualSerializableTypeName,
+                                    o.CurrentElement.Value.AsScalar, o.CurrentElement.Value.HasNoLineFeeds);
                         }
                     }
                 }
