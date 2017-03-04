@@ -42,8 +42,8 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
             userTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Group", "Group", CompareOptions.None, "Participants"));
             groupTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Participants", "User", CompareOptions.None, "Group", true));
 
-            groupTypeDef.FieldDefinitions.Add(CreateFieldDefinition("ManagedGroup", "Admin", CompareOptions.None, "Admin"));
-            adminTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Admin", "Group", CompareOptions.None, "ManagedGroup"));
+            adminTypeDef.FieldDefinitions.Add(CreateFieldDefinition("ManagedGroup", "Group", CompareOptions.None, "Admin"));
+            groupTypeDef.FieldDefinitions.Add(CreateFieldDefinition("Admin", "Admin", CompareOptions.None, "ManagedGroup"));
 
             var result = new DatabaseSchema();
 
@@ -79,7 +79,7 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
                 BaseTypeName = "User"
             };
 
-            result.FieldDefinitions.Add(CreateFieldDefinition("ManagedGroup", "Group", CompareOptions.None, "Admin"));
+            result.FieldDefinitions.Add(CreateFieldDefinition("Status", "String"));
 
             return result;
         }

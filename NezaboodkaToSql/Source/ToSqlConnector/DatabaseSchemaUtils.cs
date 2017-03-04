@@ -91,7 +91,7 @@ namespace Nezaboodka.ToSqlConnector
                             if (fieldNumber == -1)
                             {
                                 FieldDefinition fieldDefinition = newTypeSystem.GetFieldDefinition(typeNumber,
-                                    fieldNumber);
+                                    newFieldNumber);
                                 string fieldAddString = GetAddFieldString(typeName, fieldDefinition);
                                 fieldsToAdd.Add(fieldAddString);
                             }
