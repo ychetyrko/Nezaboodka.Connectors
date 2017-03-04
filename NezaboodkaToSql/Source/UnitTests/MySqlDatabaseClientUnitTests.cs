@@ -105,7 +105,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
                 DatabaseSchema = DatabaseConfigTestUtils.GetSingleClassDbSchema()
             };
 
-            CheckAlterDatabaseConfiguration(configuration);
+            CheckNewAlterDatabaseConfiguration(configuration);
         }
 
         [TestMethod]
@@ -116,7 +116,7 @@ namespace Nezaboodka.MySqlClient.UnitTests
                 DatabaseSchema = DatabaseConfigTestUtils.GetMultipleClassDbSchema()
             };
 
-            CheckAlterDatabaseConfiguration(configuration);
+            CheckNewAlterDatabaseConfiguration(configuration);
         }
 
         [TestMethod]
@@ -152,9 +152,58 @@ namespace Nezaboodka.MySqlClient.UnitTests
             }
         }
 
+        [TestMethod]
+        public void AlterDatabaseConfigurationTest_UpdateSchema_Complex()
+        {
+            var adminClient = new MySqlDatabaseClient(TestServerAddress, null, null);
+
+            string dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
+            var dbList = new List<string> { dbName };
+            adminClient.AlterDatabaseList(dbList, null);
+
+            DatabaseConfiguration configuration = new DatabaseConfiguration
+            {
+                DatabaseSchema = DatabaseConfigTestUtils.GetSingleClassDbSchema()
+            };
+
+            try
+            {
+                var client = new MySqlDatabaseClient(TestServerAddress, dbName, null);
+                client.AlterDatabaseConfiguration(configuration);
+
+                configuration = new DatabaseConfiguration
+                {
+                    DatabaseSchema = DatabaseConfigTestUtils.GetMultipleClassDbSchema()
+                };
+
+                DatabaseConfiguration expectedResult = configuration;
+
+                DatabaseConfiguration actualResult = client.AlterDatabaseConfiguration(configuration);
+                bool result = DatabaseConfigTestUtils.AreEqualDbConfigurations(expectedResult, actualResult);
+                Assert.IsTrue(result);
+
+                configuration = new DatabaseConfiguration
+                {
+                    DatabaseSchema = DatabaseConfigTestUtils.GetSingleClassDbSchema()
+                };
+
+                DatabaseConfigTestUtils.AddClasses(configuration.DatabaseSchema);
+                expectedResult = configuration;
+
+                actualResult = client.AlterDatabaseConfiguration(configuration);
+                result = DatabaseConfigTestUtils.AreEqualDbConfigurations(expectedResult, actualResult);
+                Assert.IsTrue(result);
+            }
+            finally
+            {
+                adminClient.AlterDatabaseList(null, dbList);
+                adminClient.CleanupRemovedDatabases();
+            }
+        }
+
         // Internal
 
-        private static void CheckAlterDatabaseConfiguration(DatabaseConfiguration expectedResult)
+        private static void CheckNewAlterDatabaseConfiguration(DatabaseConfiguration expectedResult)
         {
             var adminClient = new MySqlDatabaseClient(TestServerAddress, null, null);
 
