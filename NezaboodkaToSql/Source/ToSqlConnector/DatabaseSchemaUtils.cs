@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text;
 
 namespace Nezaboodka.ToSqlConnector
@@ -10,41 +9,71 @@ namespace Nezaboodka.ToSqlConnector
 
         public static DatabaseSchemaDiff GetDiff(DatabaseSchema oldDatabaseSchema, DatabaseSchema newDatabaseSchema)
         {
-            throw new NotImplementedException();
+            var result = new DatabaseSchemaDiff();
+
+            ClientTypeSystem oldTypeSystem = new ClientTypeSystem(oldDatabaseSchema.TypeDefinitions);
+            ClientTypeSystem newTypeSystem = new ClientTypeSystem(newDatabaseSchema.TypeDefinitions);
+            
+            List<string> newTypes, newFields;
+            GetNewTypesFields(oldTypeSystem, newTypeSystem, out newTypes, out newFields);
+
+            result.typesToAdd.AddRange(newTypes);
+            result.fieldsToAdd.AddRange(newFields);
+
+            return result;
         }
 
         // Internal
 
-        private static void GetTypeDefinitionsStringList(DatabaseSchema schema)
+        private static void GetNewTypesFields(ClientTypeSystem oldTypeSystem, ClientTypeSystem newTypeSystem,
+            out List<string> newTypes, out List<string> newFields)
         {
-            IEnumerable<TypeDefinition> typeDefinitionsList = schema.TypeDefinitions;
-            List<string> typesAddList = new List<string>();
-            List<string> fieldsAddList = new List<string>();
-            foreach (var typeDefinition in typeDefinitionsList)
+            newTypes = new List<string>();
+            newFields = new List<string>();
+            for (int i = 0; i < newTypeSystem.GetTypeCount(); ++i)
             {
-                string currentTypeName = typeDefinition.TypeName;
-                string tableName = GenerateLowerName(currentTypeName);
-                string typeRec = $"'{currentTypeName}', '{tableName}', '{typeDefinition.BaseTypeName}'";
-                typesAddList.Add(typeRec);
-                var currentTypeFieldsList = GetFieldDefinitionsStringList(typeDefinition.FieldDefinitions,
-                    currentTypeName);
-                fieldsAddList.AddRange(currentTypeFieldsList);
+                string typeName = newTypeSystem.GetTypeName(i);
+                int typeNumber = oldTypeSystem.GetTypeNumberByName(typeName);
+                if (typeNumber == -1)
+                {
+                    TypeDefinition typeDefinition = newTypeSystem.TypeDefinitions[i];
+                    string typeAddString = GetAddTypeString(typeDefinition);
+                    newTypes.Add(typeAddString);
+
+                    foreach (var fieldDefinition in typeDefinition.FieldDefinitions)
+                    {
+                        string fieldAddString = GetAddFieldString(typeDefinition.TypeName, fieldDefinition);
+                        newFields.Add(fieldAddString);
+                    }
+                }
             }
         }
 
-        private static List<string> GetFieldDefinitionsStringList(List<FieldDefinition> fieldDefinitions, string ownerTypeName)
+        private static string GetAddTypeString(TypeDefinition typeDefinition)
         {
-            var result = new List<string>();
-            foreach (var fieldDefinition in fieldDefinitions)
-            {
-                string columnName = GenerateLowerName(fieldDefinition.FieldName);
-                string fieldTypeName = fieldDefinition.FieldTypeName;
-                fieldTypeName = NezaboodkaSqlTypeMapper.SqlTypeNameByNezaboodkaTypeName(fieldTypeName);
-                string fieldRec =
-                    $"'{fieldDefinition.FieldName}', '{columnName}', '{ownerTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
-                result.Add(fieldRec);
-            }
+            string currentTypeName = typeDefinition.TypeName;
+            string tableName = GenerateLowerName(currentTypeName);
+            return $"'{currentTypeName}', '{tableName}', '{typeDefinition.BaseTypeName}'";
+        }
+
+        private static string GetRemoveTypeString(TypeDefinition typeDefinition)
+        {
+            return $"'{typeDefinition.TypeName}'";
+        }
+
+        private static string GetAddFieldString(string ownerTypeName, FieldDefinition fieldDefinition)
+        {
+            string columnName = GenerateLowerName(fieldDefinition.FieldName);
+            string fieldTypeName = fieldDefinition.FieldTypeName;
+            fieldTypeName = NezaboodkaSqlTypeMapper.SqlTypeNameByNezaboodkaTypeName(fieldTypeName);
+            string result =
+                $"'{fieldDefinition.FieldName}', '{columnName}', '{ownerTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
             return result;
+        }
+
+        private static string GetRemoveFieldString(string ownerTypeName, FieldDefinition fieldDefinition)
+        {
+            return $"'{ownerTypeName}', '{fieldDefinition.FieldName}'";
         }
 
         private static string GenerateLowerName(string typeName)
