@@ -119,6 +119,39 @@ namespace Nezaboodka.MySqlClient.UnitTests
             CheckAlterDatabaseConfiguration(configuration);
         }
 
+        [TestMethod]
+        public void AlterDatabaseConfigurationTest_UpdateSchema_AddTypes()
+        {
+            var adminClient = new MySqlDatabaseClient(TestServerAddress, null, null);
+
+            string dbName = RandomDatabaseNamesGenerator.GetRandomDatabaseName(15, "nz_");
+            var dbList = new List<string> { dbName };
+            adminClient.AlterDatabaseList(dbList, null);
+
+            DatabaseConfiguration configuration = new DatabaseConfiguration
+            {
+                DatabaseSchema = DatabaseConfigTestUtils.GetSingleClassDbSchema()
+            };
+
+            try
+            {
+                var client = new MySqlDatabaseClient(TestServerAddress, dbName, null);
+                client.AlterDatabaseConfiguration(configuration);
+
+                DatabaseConfigTestUtils.AddClasses(configuration.DatabaseSchema);
+                DatabaseConfiguration expectedResult = configuration;
+
+                DatabaseConfiguration actualResult = client.AlterDatabaseConfiguration(configuration);
+                bool result = DatabaseConfigTestUtils.AreEqualDbConfigurations(expectedResult, actualResult);
+                Assert.IsTrue(result);
+            }
+            finally
+            {
+                adminClient.AlterDatabaseList(null, dbList);
+                adminClient.CleanupRemovedDatabases();
+            }
+        }
+
         // Internal
 
         private static void CheckAlterDatabaseConfiguration(DatabaseConfiguration expectedResult)

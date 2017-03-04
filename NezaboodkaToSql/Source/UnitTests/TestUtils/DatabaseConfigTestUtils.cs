@@ -24,6 +24,15 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
             return result;
         }
 
+        public static void AddClasses(DatabaseSchema schema)
+        {
+            var groupTypeDef = GetTestGroupType();
+            var adminTypeDef = GetTestAdminType();
+
+            schema.TypeDefinitions.Add(groupTypeDef);
+            schema.TypeDefinitions.Add(adminTypeDef);
+        }
+
         public static DatabaseSchema GetMultipleClassDbSchema()
         {
             var userTypeDef = GetTestUserType();
@@ -44,7 +53,7 @@ namespace Nezaboodka.MySqlClient.UnitTests.TestUtils
 
             return result;
         }
-
+        
         // Internal
 
         private static TypeDefinition GetTestUserType()
