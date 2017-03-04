@@ -67,31 +67,69 @@ namespace Nezaboodka.ToSqlConnector
         {
             DatabaseSchemaDiff diff = DatabaseSchemaUtils.GetDiff(oldSchema, newSchema);
 
-            string typesRemoveListStr = FormatValuesList(diff.typesToRemove);
-            string typesAddListStr = FormatValuesList(diff.typesToAdd);
-            string fieldsRemoveListStr = FormatValuesList(diff.fieldsToRemove);
-            string fieldsAddListStr = FormatValuesList(diff.fieldsToAdd);
+            string typesRemoveListStr = FormatValuesList(diff.TypesToRemove);
+            string typesAddListStr = FormatValuesList(diff.TypesToAdd);
+            string fieldsRemoveListStr = FormatValuesList(diff.FieldsToRemove);
+            string fieldsAddListStr = FormatValuesList(diff.FieldsToAdd);
+
+            string removeTypesPart = string.Empty;
+            string addTypesPart = string.Empty;
+            string removeFieldsPart = string.Empty;
+            string addFieldsPart = string.Empty;
+
+            if (!string.IsNullOrEmpty(typesRemoveListStr))
+            {
+                removeTypesPart =
+                    "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.RemoveTypeList + "` " +
+                    "(" +
+                        "`" + SchemaFieldConst.TypeName + "`" +
+                    ") " +
+                    $"VALUES {typesRemoveListStr};";
+            }
+
+            if (!string.IsNullOrEmpty(typesAddListStr))
+            {
+                addTypesPart =
+                    "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddTypeList + "` " +
+                    "(" +
+                        "`" + SchemaFieldConst.TypeName + "`, " +
+                        "`" + SchemaFieldConst.TableName + "`, " +
+                        "`" + SchemaFieldConst.BaseTypeName + "`" +
+                    ") " +
+                    $"VALUES {typesAddListStr};";
+            }
+
+            if (!string.IsNullOrEmpty(fieldsRemoveListStr))
+            {
+                removeFieldsPart =
+                    "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.RemoveFieldList + "` " +
+                    "(" +
+                        "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
+                        "`" + SchemaFieldConst.FieldName + "`" +
+                    ") " +
+                    $"VALUES {fieldsRemoveListStr};";
+            }
+
+            if (!string.IsNullOrEmpty(fieldsAddListStr))
+            {
+                addFieldsPart =
+                    "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddFieldList + "` " +
+                    "(" +
+                        "`" + SchemaFieldConst.FieldName + "`, " +
+                        "`" + SchemaFieldConst.FieldColumnName + "`, " +
+                        "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
+                        "`" + SchemaFieldConst.FieldTypeName + "`, " +
+                        "`" + SchemaFieldConst.FieldIsList + "`, " +
+                        "`" + SchemaFieldConst.FieldCompareOptions + "`, " +
+                        "`" + SchemaFieldConst.FieldBackRefName + "`" +
+                    ") " +
+                    $"VALUES {fieldsAddListStr};";
+            }
 
             var result =
                 "CALL before_alter_database_schema(); " +
-                "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddTypeList + "` " +
-                "(" +
-                    "`" + SchemaFieldConst.TypeName + "`, " +
-                    "`" + SchemaFieldConst.TableName + "`, " +
-                    "`" + SchemaFieldConst.BaseTypeName + "`" +
-                ") " +
-                $"VALUES {typesAddListStr}; " +
-                "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddFieldList + "` " +
-                "(" +
-                    "`" + SchemaFieldConst.FieldName + "`, " +
-                    "`" + SchemaFieldConst.FieldColumnName + "`, " +
-                    "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
-                    "`" + SchemaFieldConst.FieldTypeName + "`, " +
-                    "`" + SchemaFieldConst.FieldIsList + "`, " +
-                    "`" + SchemaFieldConst.FieldCompareOptions + "`, " +
-                    "`" + SchemaFieldConst.FieldBackRefName + "`" +
-                ") " +
-                $"VALUES {fieldsAddListStr}; " +
+                removeTypesPart + " " + addTypesPart + " " +
+                removeFieldsPart + " " + addFieldsPart + " " +
                 $"CALL alter_database_Schema('{dbName}');";
             return result;
         }

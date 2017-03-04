@@ -13,12 +13,12 @@ namespace Nezaboodka.ToSqlConnector
 
             ClientTypeSystem oldTypeSystem = new ClientTypeSystem(oldDatabaseSchema.TypeDefinitions);
             ClientTypeSystem newTypeSystem = new ClientTypeSystem(newDatabaseSchema.TypeDefinitions);
-            
+
             List<string> newTypes, newFields;
             GetNewTypesFields(oldTypeSystem, newTypeSystem, out newTypes, out newFields);
 
-            result.typesToAdd.AddRange(newTypes);
-            result.fieldsToAdd.AddRange(newFields);
+            result.TypesToAdd.AddRange(newTypes);
+            result.FieldsToAdd.AddRange(newFields);
 
             return result;
         }
@@ -93,9 +93,9 @@ namespace Nezaboodka.ToSqlConnector
 
     class DatabaseSchemaDiff
     {
-        public List<string> typesToRemove = new List<string>();
-        public List<string> typesToAdd = new List<string>();
-        public List<string> fieldsToRemove = new List<string>();
-        public List<string> fieldsToAdd = new List<string>();
+        public List<string> TypesToRemove = new List<string>();
+        public List<string> TypesToAdd = new List<string>();
+        public List<string> FieldsToRemove = new List<string>();
+        public List<string> FieldsToAdd = new List<string>();
     }
 }
