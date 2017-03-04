@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Consts\SqlNezaboodkaConsts.cs" />
+    <Compile Include="DatabaseSchemaUtils.cs" />
     <Compile Include="MySqlDatabaseClient.cs" />
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="DbQueryBuilder.cs" />

@@ -38,7 +38,7 @@ namespace Nezaboodka.ToSqlConnector
         public static string GetDatabaseConfigurationQuery(string dbName)
         {
             var result = "SELECT `" + SchemaFieldConst.TypeName + "`, " +
-                                "`" + SchemaFieldConst.BaseTypeName + "` " +
+                         "`" + SchemaFieldConst.BaseTypeName + "` " +
                          $"FROM `{dbName}`.`" + SchemaTableConst.TypeTableName + "`; " +
                          "SELECT `" + SchemaFieldConst.FieldName + "`, " +
                                 "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
@@ -51,39 +51,27 @@ namespace Nezaboodka.ToSqlConnector
             return result;
         }
 
-        public static string AlterDatabaseConfigurationQuery(string dbName, DatabaseConfiguration config)
+        public static string AlterDatabaseConfigurationQuery(string dbName, DatabaseConfiguration oldConfig,
+            DatabaseConfiguration newConfig)
         {
             string result = string.Empty;
-            result += AlterDatabaseTypesFieldsQuery(dbName, config.DatabaseSchema);
+            result += AlterDatabaseTypesFieldsQuery(dbName, oldConfig.DatabaseSchema, newConfig.DatabaseSchema);
             // TODO: process SecondaryIndexDefinitions & ReferentialIntexDefinitions
             return result;
         }
 
         // Internal
 
-        private static string AlterDatabaseTypesFieldsQuery(string dbName, DatabaseSchema schema)
+        private static string AlterDatabaseTypesFieldsQuery(string dbName, DatabaseSchema oldSchema,
+            DatabaseSchema newSchema)
         {
-            IEnumerable<TypeDefinition> typeDefinitionsList = schema.TypeDefinitions;
-            List<string> typesList = new List<string>();
-            List<string> fieldsList = new List<string>();
-            foreach (var typeDefinition in typeDefinitionsList)
-            {
-                string currentTypeName = typeDefinition.TypeName;
-                string tableName = GenerateLowerName(currentTypeName);
-                string typeRec = $"'{currentTypeName}', '{tableName}', '{typeDefinition.BaseTypeName}'";
-                typesList.Add(typeRec);
-                foreach (var fieldDefinition in typeDefinition.FieldDefinitions)
-                {
-                    string columnName = GenerateLowerName(fieldDefinition.FieldName);
-                    string fieldTypeName = fieldDefinition.FieldTypeName;
-                    fieldTypeName = NezaboodkaSqlTypeMapper.SqlTypeNameByNezaboodkaTypeName(fieldTypeName);
-                    string fieldRec =
-                        $"'{fieldDefinition.FieldName}', '{columnName}', '{currentTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
-                    fieldsList.Add(fieldRec);
-                }
-            }
-            string typesListStr = FormatValuesList(typesList);
-            string fieldsListStr = FormatValuesList(fieldsList);
+            DatabaseSchemaDiff diff = DatabaseSchemaUtils.GetDiff(oldSchema, newSchema);
+
+            string typesRemoveListStr = FormatValuesList(diff.typesToRemove);
+            string typesAddListStr = FormatValuesList(diff.typesToAdd);
+            string fieldsRemoveListStr = FormatValuesList(diff.fieldsToRemove);
+            string fieldsAddListStr = FormatValuesList(diff.fieldsToAdd);
+
             var result =
                 "CALL before_alter_database_schema(); " +
                 "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddTypeList + "` " +
@@ -92,7 +80,7 @@ namespace Nezaboodka.ToSqlConnector
                     "`" + SchemaFieldConst.TableName + "`, " +
                     "`" + SchemaFieldConst.BaseTypeName + "`" +
                 ") " +
-                $"VALUES {typesListStr}; " +
+                $"VALUES {typesAddListStr}; " +
                 "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddFieldList + "` " +
                 "(" +
                     "`" + SchemaFieldConst.FieldName + "`, " +
@@ -103,7 +91,7 @@ namespace Nezaboodka.ToSqlConnector
                     "`" + SchemaFieldConst.FieldCompareOptions + "`, " +
                     "`" + SchemaFieldConst.FieldBackRefName + "`" +
                 ") " +
-                $"VALUES {fieldsListStr}; " +
+                $"VALUES {fieldsAddListStr}; " +
                 $"CALL alter_database_Schema('{dbName}');";
             return result;
         }
@@ -144,20 +132,6 @@ namespace Nezaboodka.ToSqlConnector
         private static string FormatListExt(IEnumerable<string> strList, string pre, string post, string separator = ",")
         {
             return string.Join(separator, strList.Select(s => pre + s + post));
-        }
-
-        private static string GenerateLowerName(string typeName)
-        {
-            var result = new StringBuilder();
-
-            // TODO: limit result length to 64 symbols (+ unique part for alike results)
-            foreach (char c in typeName)
-            {
-                if (char.IsUpper(c))
-                    result.Append('_');
-                result.Append(char.ToLower(c));
-            }
-            return result.ToString();
         }
 
         // Constants

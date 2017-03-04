@@ -730,7 +730,6 @@ namespace Nezaboodka.ToSqlConnector
         {
             AlterDatabaseConfigurationRequest realRequest = request as AlterDatabaseConfigurationRequest;
             var newConfig = realRequest.DatabaseConfiguration;
-
             cmd.CommandType = CommandType.Text;
 
             if (fCurrentConfiguration == null)
@@ -739,18 +738,14 @@ namespace Nezaboodka.ToSqlConnector
                 CachingReadDatabaseConfigurationCmd(cmd);
             }
 
-            // !!! only writes schema --> NO MERGE
-            // TODO: merge existing schema with new
-            cmd.CommandText = DbQueryBuilder.AlterDatabaseConfigurationQuery(DatabaseName, newConfig)
+            cmd.CommandText = DbQueryBuilder.AlterDatabaseConfigurationQuery(DatabaseName, fCurrentConfiguration, newConfig)
                 + DbQueryBuilder.GetDatabaseConfigurationQuery(DatabaseName);
 
             newConfig = CachingReadDatabaseConfigurationCmd(cmd);
-
             var result = new AlterDatabaseConfigurationResponse()
             {
                 DatabaseConfiguration = newConfig
             };
-            
             return result;
         }
 
