@@ -49,8 +49,8 @@ CALL before_alter_database_schema();
 INSERT INTO `field_add_list`
 (`owner_type_name`, `name`, `col_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
-('Parent', 'Age', '_age', 'INT', FALSE, 'None', NULL),
-('Parent', 'Name', '_name', 'IncorrectType123~', FALSE, 'IgnoreCase', NULL);	-- incorrect
+('Parent', 'Age', '_age', 'INT', FALSE, 'None', ''),
+('Parent', 'Name', '_name', 'IncorrectType123~', FALSE, 'IgnoreCase', '');	-- incorrect
 CALL alter_database_schema('nz_test_closure');
 
 /*---------------------------------------/
@@ -114,5 +114,5 @@ CALL before_alter_database_schema();
 INSERT INTO `field_add_list`
 (`owner_type_name`, `name`, `col_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
-('Child1', 'NewChild', '_right_child', 'Child3', FALSE, 'IgnoreCase', NULL);
+('Child1', 'NewChild', '_right_child', 'Child3', FALSE, 'IgnoreCase', '');
 CALL alter_database_schema('nz_test_closure');
