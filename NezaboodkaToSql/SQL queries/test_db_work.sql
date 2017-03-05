@@ -40,6 +40,7 @@ VALUES
 ('Age', '_age', 'User', 'INT UNSIGNED?', FALSE, 'None', ''),
 #Admin
 ('ControlGroup', '_control_group', 'Admin', 'Group', FALSE, 'None', 'Admin'),
+-- ('Email', '_email', 'Admin', 'VARCHAR(120)', FALSE, 'IgnoreCase', ''),	-- TODO: HANDLE DUPLICATED FIELDS
 #Group
 ('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', ''),
 ('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', 'ControlGroup'),

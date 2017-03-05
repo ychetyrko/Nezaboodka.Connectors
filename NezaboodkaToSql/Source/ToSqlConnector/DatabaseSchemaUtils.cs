@@ -56,11 +56,11 @@ namespace Nezaboodka.ToSqlConnector
                         {
                             int fieldNumber = newTypeSystem.GetFieldNumberByName(typeNumber,
                                 oldTypeSystem.GetFieldName(oldTypeNumber, oldFieldNumber));
-                            if (fieldNumber >= 0)
+                            bool isInherited = IsInheritedField(oldTypeSystem, oldTypeNumber, oldFieldNumber);
+                            if (fieldNumber >= 0 && !isInherited)
                             {
                                 if (oldTypeSystem.GetFieldTypeName(oldTypeNumber, oldFieldNumber) ==
-                                    newTypeSystem.GetFieldTypeName(typeNumber,
-                                        fieldNumber))
+                                    newTypeSystem.GetFieldTypeName(typeNumber, fieldNumber))
                                 {
                                     // TODO: update BackReferences if needed
                                 }
@@ -73,10 +73,10 @@ namespace Nezaboodka.ToSqlConnector
                                     fieldNumber = -1;
                                 }
                             }
-                            if (fieldNumber == -1)
+                            if (fieldNumber == -1 && !isInherited)
                             {
                                 FieldDefinition fieldDefinition = oldTypeSystem.GetFieldDefinition(oldTypeNumber,
-                                    oldFieldNumber);
+                                oldFieldNumber);
                                 string fieldRemoveString = GetRemoveFieldString(typeName, fieldDefinition);
                                 fieldsToRemove.Add(fieldRemoveString);
                             }
@@ -113,6 +113,22 @@ namespace Nezaboodka.ToSqlConnector
                     typesToRemove.Add(typeRemoveString);
                 }
             }
+        }
+
+        private static bool IsInheritedField(ClientTypeSystem typeSystem, int typeNumber, int fieldNumber)
+        {
+            bool result = false;
+            int baseTypeNumber = typeSystem.GetBaseTypeNumber(typeNumber);
+            if (baseTypeNumber >= 0)
+            {
+                int baseFieldNumber = typeSystem.GetFieldNumberByName(baseTypeNumber,
+                    typeSystem.GetFieldName(typeNumber, fieldNumber));
+                if (baseFieldNumber >= 0)
+                {
+                    result = true;
+                }
+            }
+            return result;
         }
 
         private static void GetNewTypesFields(ClientTypeSystem oldTypeSystem, ClientTypeSystem newTypeSystem,
