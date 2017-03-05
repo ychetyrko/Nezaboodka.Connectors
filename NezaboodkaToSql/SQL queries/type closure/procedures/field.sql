@@ -64,8 +64,13 @@ DROP PROCEDURE IF EXISTS _temp_before_add_fields //
 CREATE PROCEDURE _temp_before_add_fields()
 BEGIN
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_field`;
-	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_test_closure`.`new_field`(
+	CREATE TEMPORARY TABLE `nz_test_closure`.`new_field`(
 		`id` INT NOT NULL
+	) ENGINE=`MEMORY`;
+    
+    DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`fields_check_list`;
+    CREATE TEMPORARY TABLE `nz_test_closure`.`fields_check_list`(
+		`name` VARCHAR(128) NOT NULL UNIQUE
 	) ENGINE=`MEMORY`;
 END //
 
@@ -74,6 +79,7 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_after_add_fields //
 CREATE PROCEDURE _temp_after_add_fields()
 BEGIN
+	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`fields_check_list`;
 	DROP TEMPORARY TABLE IF EXISTS `nz_test_closure`.`new_field`;
 END //
 
@@ -122,9 +128,58 @@ BEGIN
 	));
 
 	CALL _init_type_shadow(@db_name);
+	CALL _check_types_duplicate_fields();
 	CALL _update_types_add_fields();
 
 	DELETE FROM `nz_test_closure`.`field_add_list`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _check_types_duplicate_fields //
+CREATE PROCEDURE _check_types_duplicate_fields()
+BEGIN
+	DECLARE t_type_id VARCHAR(128) DEFAULT NULL;
+
+	DECLARE types_done BOOLEAN DEFAULT FALSE;
+	DECLARE type_cur CURSOR FOR
+		SELECT t.`id`
+		FROM `nz_test_closure`.`type_shadow` AS t;
+	DECLARE CONTINUE HANDLER FOR NOT FOUND
+		SET types_done = TRUE;
+	
+	OPEN type_cur;
+
+	FETCH type_cur	
+	INTO t_type_id;
+	WHILE NOT types_done DO
+		CALL _check_type_fields(t_type_id);
+		FETCH type_cur	
+		INTO t_type_id;
+	END WHILE;
+
+	DELETE FROM `nz_test_closure`.`fields_check_list`;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _check_type_fields //
+CREATE PROCEDURE _check_type_fields(
+	IN t_type_id INT UNSIGNED
+)
+BEGIN
+	DELETE FROM `nz_test_closure`.`fields_check_list`;
+	CALL QEXEC(CONCAT(
+		"INSERT INTO `", @db_name, "`.`fields_check_list`
+		(`name`)
+		SELECT `name`
+		FROM `", @db_name, "`.`field`
+		WHERE `owner_type_id` IN (
+			SELECT `ancestor`	-- get all super classes
+			FROM `", @db_name, "`.`type_closure`
+			WHERE `descendant` = ", t_type_id, "
+		);"
+    ));
 END //
 
 
