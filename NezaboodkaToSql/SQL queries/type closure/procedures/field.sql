@@ -22,6 +22,7 @@ BEGIN
 			CHECK(`col_name` != ''),
 		`type_name` VARCHAR(64) NOT NULL
 			CHECK(`type_name` != ''),
+		`is_nullable` BOOLEAN NOT NULL DEFAULT FALSE,
 		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 		`compare_options` ENUM (
 			'None',
@@ -97,8 +98,8 @@ BEGIN
 
 	CALL QEXEC(CONCAT(
 		"INSERT INTO `", @db_name, "`.`field`
-		(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
-		SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
+		(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
+		SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_nullable`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
 		FROM `nz_test_closure`.`field_add_list` AS newf
 		JOIN `", @db_name, "`.`type` AS ownt
 		ON ownt.`name` = newf.`owner_type_name`

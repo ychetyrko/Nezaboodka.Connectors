@@ -51,6 +51,7 @@ CREATE TABLE `nz_test_closure`.`field` (
 		CHECK(`col_name` != ''),
 	`type_name` VARCHAR(64) NOT NULL
 		CHECK(`type_name` != ''),
+	`is_nullable` BOOLEAN NOT NULL DEFAULT FALSE,
 	`ref_type_id` INT DEFAULT NULL,
 	`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 	`compare_options` ENUM (
