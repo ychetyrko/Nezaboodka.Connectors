@@ -43,6 +43,7 @@ namespace Nezaboodka.ToSqlConnector
                          "SELECT `" + SchemaFieldConst.FieldName + "`, " +
                                 "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
                                 "`" + SchemaFieldConst.FieldTypeName + "`, " +
+                                "`" + SchemaFieldConst.FieldTypeIsNullable + "`, " +
                                 "`" + SchemaFieldConst.FieldIsList + "`, " +
                                 "`" + SchemaFieldConst.FieldBackRefName + "`, " +
                                 "`" + SchemaFieldConst.FieldCompareOptions + "` " +
@@ -119,6 +120,7 @@ namespace Nezaboodka.ToSqlConnector
                         "`" + SchemaFieldConst.FieldColumnName + "`, " +
                         "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
                         "`" + SchemaFieldConst.FieldTypeName + "`, " +
+                        "`" + SchemaFieldConst.FieldTypeIsNullable + "`, " +
                         "`" + SchemaFieldConst.FieldIsList + "`, " +
                         "`" + SchemaFieldConst.FieldCompareOptions + "`, " +
                         "`" + SchemaFieldConst.FieldBackRefName + "`" +

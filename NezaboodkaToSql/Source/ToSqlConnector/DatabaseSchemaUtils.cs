@@ -175,9 +175,9 @@ namespace Nezaboodka.ToSqlConnector
         {
             string columnName = GenerateLowerName(fieldDefinition.FieldName);
             string fieldTypeName = fieldDefinition.FieldTypeName;
-            fieldTypeName = NezaboodkaSqlTypeMapper.SqlTypeNameByNezaboodkaTypeName(fieldTypeName);
+            var fieldInfo = NezaboodkaSqlTypeMapper.SqlTypeByNezaboodkaTypeName(fieldTypeName);
             string result =
-                $"'{fieldDefinition.FieldName}', '{columnName}', '{ownerTypeName}', '{fieldTypeName}', {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
+                $"'{fieldDefinition.FieldName}', '{columnName}', '{ownerTypeName}', '{fieldInfo.Name}', {fieldInfo.IsNullable.ToString().ToUpper()}, {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
             return result;
         }
 

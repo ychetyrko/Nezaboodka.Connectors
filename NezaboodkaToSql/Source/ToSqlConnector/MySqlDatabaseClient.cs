@@ -824,7 +824,9 @@ namespace Nezaboodka.ToSqlConnector
                     while (reader.Read())
                     {
                         string fieldTypeName = reader.GetString(SchemaFieldConst.FieldTypeName);
-                        fieldTypeName = NezaboodkaSqlTypeMapper.NezaboodkaTypeNameBySqlTypeName(fieldTypeName);
+                        bool nullable = reader.GetBoolean(SchemaFieldConst.FieldTypeIsNullable);
+                        var fieldInfo = new SqlType(fieldTypeName, nullable);
+                        fieldTypeName = NezaboodkaSqlTypeMapper.NezaboodkaTypeNameBySqlType(fieldInfo);
 
                         string backRefName = reader.GetString(SchemaFieldConst.FieldBackRefName);
                         if (string.IsNullOrEmpty(backRefName))

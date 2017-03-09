@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Nezaboodka.ToSqlConnector
 {
@@ -6,34 +7,35 @@ namespace Nezaboodka.ToSqlConnector
     {
         // Public
 
-        public static string SqlTypeNameByNezaboodkaTypeName(string nezaboodkaTypeName, int capacity = 0)
+        public static SqlType SqlTypeByNezaboodkaTypeName(string nezaboodkaTypeName, int capacity = 0)
         {
-            string result;
+            string typeName;
+            bool nullable = false;
             if (nezaboodkaTypeName == "String")
             {
                 if ((capacity > 0) && (capacity < 256))
-                    result = $"VARCHAR({capacity})";
+                    typeName = $"VARCHAR({capacity})";
                 else
-                    result = "TEXT";
+                    typeName = "TEXT";
             }
             else
             {
-                bool nullable = nezaboodkaTypeName.EndsWith("?");
-                result = nezaboodkaTypeName.TrimEnd('?');
-                if (SqlTypeByNezaboodkaTypeNameMap.ContainsKey(result))
-                    result = SqlTypeByNezaboodkaTypeNameMap[result] + (nullable ? "?" : string.Empty);
+                nullable = nezaboodkaTypeName.EndsWith("?");
+                typeName = nezaboodkaTypeName.TrimEnd('?');
+                if (SqlTypeByNezaboodkaTypeNameMap.ContainsKey(typeName))
+                    typeName = SqlTypeByNezaboodkaTypeNameMap[typeName];
             }
+            SqlType result = new SqlType(typeName, nullable);
             return result;
         }
 
-        public static string NezaboodkaTypeNameBySqlTypeName(string sqlTypeName)
+        public static string NezaboodkaTypeNameBySqlType(SqlType sqlType)
         {
-            bool nullable = sqlTypeName.EndsWith("?");
-            string result = sqlTypeName.TrimEnd('?');
+            string result = sqlType.Name;
             if (result.StartsWith("VARCHAR") || result.StartsWith("TEXT"))
-                result = "String";
+                result = "String";  // TODO: extract VARCHAR length to Capacity
             else if (NezaboodkaTypeNameBySqlTypeMap.ContainsKey(result))
-                result = NezaboodkaTypeNameBySqlTypeMap[result] + (nullable ? "?" : string.Empty);
+                result = NezaboodkaTypeNameBySqlTypeMap[result] + (sqlType.IsNullable ? "?" : string.Empty);
             return result;
         }
 
@@ -74,5 +76,17 @@ namespace Nezaboodka.ToSqlConnector
             {"CHAR(1)", "Char"},
             {"DATETIMEOFFSET", "DateTime"},
         };
+    }
+
+    public struct SqlType
+    {
+        public string Name;
+        public bool IsNullable;
+
+        public SqlType(string name, bool isNullable = false)
+        {
+            Name = name;
+            IsNullable = isNullable;
+        }
     }
 }

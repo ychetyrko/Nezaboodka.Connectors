@@ -41,6 +41,7 @@ namespace Nezaboodka.ToSqlConnector
         public const string FieldColumnName = "col_name";
         public const string FieldOwnerTypeName = "owner_type_name";
         public const string FieldTypeName = "type_name";
+        public const string FieldTypeIsNullable = "is_nullable";
         public const string FieldIsList = "is_list";
         public const string FieldCompareOptions = "compare_options";
         public const string FieldBackRefName = "back_ref_name";
