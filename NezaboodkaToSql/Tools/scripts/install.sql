@@ -111,6 +111,7 @@ BEGIN
 				CHECK(`col_name` != ''),
 			`type_name` VARCHAR(64) NOT NULL
 				CHECK(`type_name` != ''),
+			`is_nullable` BOOLEAN NOT NULL DEFAULT FALSE,
 			`ref_type_id` INT DEFAULT NULL,
 			`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 			`compare_options` ENUM (
@@ -457,6 +458,7 @@ BEGIN
 			CHECK(`col_name` != ''),
 		`type_name` VARCHAR(64) NOT NULL
 			CHECK(`type_name` != ''),
+		`is_nullable` BOOLEAN NOT NULL DEFAULT FALSE,
 		`ref_type_id` INT DEFAULT NULL,
 		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 		`compare_options` ENUM (
@@ -500,6 +502,7 @@ BEGIN
 		`name` VARCHAR(128) NOT NULL,
 		`col_name` VARCHAR(64) NOT NULL COLLATE `UTF8_GENERAL_CI`,
 		`type_name` VARCHAR(64) NOT NULL,
+		`is_nullable` BOOLEAN NOT NULL DEFAULT FALSE,
 		`ref_type_id` INT DEFAULT NULL,
 		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 		`compare_options` ENUM (
@@ -576,8 +579,8 @@ BEGIN
 	DELETE FROM `nz_admin_db`.`field_shadow`;
 	CALL QEXEC(CONCAT(
 		"INSERT INTO `nz_admin_db`.`field_shadow`
-		(`id`, `owner_type_name`, `owner_type_id`, `name`, `col_name`, `type_name`, `ref_type_id`, `is_list`, `compare_options`, `back_ref_name`, `back_ref_id`)
-		SELECT `id`, `owner_type_name`, `owner_type_id`, `name`, `col_name`, `type_name`, `ref_type_id`, `is_list`, `compare_options`, `back_ref_name`, `back_ref_id`
+		(`id`, `owner_type_name`, `owner_type_id`, `name`, `col_name`, `type_name`, `is_nullable`, `ref_type_id`, `is_list`, `compare_options`, `back_ref_name`, `back_ref_id`)
+		SELECT `id`, `owner_type_name`, `owner_type_id`, `name`, `col_name`, `type_name`, `is_nullable`, `ref_type_id`, `is_list`, `compare_options`, `back_ref_name`, `back_ref_id`
 		FROM `", source_db_name, "`.`field`;"
 	));
 END //
@@ -608,6 +611,7 @@ BEGIN
 	DECLARE cf_col_name VARCHAR(64) DEFAULT NULL;
 	DECLARE cf_type_name VARCHAR(128) DEFAULT NULL;
 	DECLARE cf_ref_type_id INT DEFAULT NULL;
+	DECLARE cf_is_nullable BOOLEAN DEFAULT FALSE;
 	DECLARE cf_is_list BOOLEAN DEFAULT FALSE;
 	DECLARE cf_compare_options VARCHAR(64);
 
@@ -618,9 +622,9 @@ BEGIN
 	IF inheriting THEN	-- get all parents' fields
 		CALL QEXEC(CONCAT(
 			"INSERT INTO `nz_admin_db`.`temp_type_fields`
-			(`id`, `col_name`, `type_name`, `ref_type_id`,
+			(`id`, `col_name`, `type_name`, `is_nullable`, `ref_type_id`,
 				`is_list`, `compare_options`)
-			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
+			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`is_nullable`, f.`ref_type_id`,
 				f.`is_list`, f.`compare_options`
 			FROM `", @db_name, "`.`field` AS f
 			WHERE f.`owner_type_id` IN (
@@ -632,9 +636,9 @@ BEGIN
 	ELSE	-- get only NEW fields
 		CALL QEXEC(CONCAT(
 			"INSERT INTO `nz_admin_db`.`temp_type_fields`
-			(`id`, `col_name`, `type_name`, `ref_type_id`,
+			(`id`, `col_name`, `type_name`, `is_nullable`, `ref_type_id`,
 				`is_list`, `compare_options`)
-			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`ref_type_id`,
+			SELECT f.`id`, f.`col_name`, f.`type_name`, f.`is_nullable`, f.`ref_type_id`,
 				f.`is_list`, f.`compare_options`
 			FROM `nz_admin_db`.`new_field` AS newf	-- only new fields
 			LEFT JOIN `", @db_name, "`.`field` AS f
@@ -650,7 +654,7 @@ BEGIN
 	BEGIN	
 		DECLARE fields_done BOOLEAN DEFAULT FALSE;
 		DECLARE fields_cur CURSOR FOR
-			SELECT `id`, `col_name`, `type_name`, `ref_type_id`,
+			SELECT `id`, `col_name`, `type_name`, `is_nullable`, `ref_type_id`,
 				`is_list`, `compare_options`
 			FROM `nz_admin_db`.`temp_type_fields`;
 		DECLARE CONTINUE HANDLER FOR NOT FOUND
@@ -659,16 +663,16 @@ BEGIN
 		OPEN fields_cur;
 
 		FETCH fields_cur
-		INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+		INTO cf_id, cf_col_name, cf_type_name, cf_is_nullable, cf_ref_type_id,
 			cf_is_list, cf_compare_options;
 		WHILE NOT fields_done DO
 			CALL _update_type_fields_def_constr(
 				fields_defs, fields_constraints, inheriting,
-				c_type_id, cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+				c_type_id, cf_id, cf_col_name, cf_type_name, cf_is_nullable, cf_ref_type_id,
 				cf_is_list, cf_compare_options
 			);
 			FETCH fields_cur
-			INTO cf_id, cf_col_name, cf_type_name, cf_ref_type_id,
+			INTO cf_id, cf_col_name, cf_type_name, cf_is_nullable, cf_ref_type_id,
 				cf_is_list, cf_compare_options;
 		END WHILE;
 	END;
@@ -693,6 +697,7 @@ CREATE PROCEDURE _update_type_fields_def_constr(
 	IN cf_id INT,
 	IN cf_col_name VARCHAR(64),
 	IN cf_type_name VARCHAR(128),
+	IN cf_is_nullable BOOLEAN,
 	IN cf_ref_type_id INT,
 	IN cf_is_list BOOLEAN,
 	IN cf_compare_options VARCHAR(128)
@@ -714,10 +719,7 @@ BEGIN
 					SET field_type = CONCAT(field_type, ' COLLATE `utf8_general_ci`');
 				END IF;
 			ELSE	-- not string
-				IF (RIGHT(field_type, 1) = '?') THEN
-					SET field_type =
-						SUBSTRING(field_type FROM 1 FOR CHAR_LENGTH(field_type)-1);
-				ELSE
+				IF (NOT cf_is_nullable) THEN
 					SET field_type = CONCAT(field_type, ' NOT NULL');
 				END IF;
 			END IF;
@@ -792,6 +794,7 @@ BEGIN
 			CHECK(`col_name` != ''),
 		`type_name` VARCHAR(64) NOT NULL
 			CHECK(`type_name` != ''),
+		`is_nullable` BOOLEAN NOT NULL DEFAULT FALSE,
 		`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
 		`compare_options` ENUM (
 			'None',
@@ -866,8 +869,8 @@ BEGIN
 
 	CALL QEXEC(CONCAT(
 		"INSERT INTO `", @db_name, "`.`field`
-		(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
-		SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
+		(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
+		SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_nullable`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
 		FROM `nz_admin_db`.`field_add_list` AS newf
 		JOIN `", @db_name, "`.`type` AS ownt
 		ON ownt.`name` = newf.`owner_type_name`
@@ -1036,6 +1039,7 @@ BEGIN
 
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION
 	BEGIN
+		RESIGNAL;
 		SIGNAL SQLSTATE 'HY000'
 			SET MESSAGE_TEXT = "Some fields can't be removed";
 	END;
