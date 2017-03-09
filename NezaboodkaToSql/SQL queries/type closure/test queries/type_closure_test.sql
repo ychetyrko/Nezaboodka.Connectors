@@ -15,15 +15,15 @@ VALUES
 ('Group', '_group', '');
 
 INSERT INTO `field_add_list`
-(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
+(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
 -- User
-('Login', '_login', 'User', 'VARCHAR(60)', FALSE, 'IgnoreCase', ''),
-('Group', '_group', 'User', 'Group', FALSE, 'None', 'Participants'),
+('Login', '_login', 'User', 'VARCHAR(60)', FALSE, FALSE, 'IgnoreCase', ''),
+('Group', '_group', 'User', 'Group', TRUE, FALSE, 'None', 'Participants'),
 -- Group
-('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', ''),
-('Participants', '_participants', 'Group', 'User', TRUE, 'None', ''),	-- auto-updated back reference
-('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', '');
+('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, FALSE, 'None', ''),
+('Participants', '_participants', 'Group', 'User', FALSE, TRUE, 'None', ''),	-- auto-updated back reference
+('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, FALSE, 'IgnoreCase', '');
 CALL alter_database_schema('nz_test_closure');
 
 /*---------------------------------------/
@@ -37,15 +37,15 @@ VALUES
 ('Moderator', '_moderator', 'User');
 
 INSERT INTO `field_add_list`
-(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
+(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
 -- Admin
-('ControlGroup', '_control_group', 'Admin', 'Group', FALSE, 'None', 'Admin'),
+('ControlGroup', '_control_group', 'Admin', 'Group', FALSE, FALSE, 'None', 'Admin'),
 -- Moderator
-('ModeratedGroup', '_moderated_group', 'Moderator', 'Group', FALSE, 'None', 'Moderators'),
+('ModeratedGroup', '_moderated_group', 'Moderator', 'Group', FALSE, FALSE, 'None', 'Moderators'),
 -- Group
-('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', NULL),	-- auto-updated back reference
-('Moderators', '_moderators', 'Group', 'Moderator', TRUE, 'None', '');	-- auto-updated back reference
+('Admin', '_admin', 'Group', 'Admin', FALSE, FALSE, 'None', NULL),	-- auto-updated back reference
+('Moderators', '_moderators', 'Group', 'Moderator', FALSE, TRUE, 'None', '');	-- auto-updated back reference
 CALL alter_database_schema('nz_test_closure');
 
 /*---------------------------------------/
@@ -58,7 +58,7 @@ VALUE
 ('UberAdmin', '_uber_admin', 'Admin');
 
 INSERT INTO `field_add_list`
-(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
+(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
-('UberRating', '_uber_rating', 'UberAdmin', 'INT', FALSE, 'None', '');
+('UberRating', '_uber_rating', 'UberAdmin', 'INT', TRUE, FALSE, 'None', '');
 CALL alter_database_schema('nz_test_closure');
