@@ -16,5 +16,23 @@ USE `nz_admin_db`;
 */
 
 #include "procedures/qexec.sql"
-#include "procedures/alter database list.sql"
 #include "procedures/prepare new database.sql"
+#include "procedures/alter database list.sql"
+
+#include "procedures/type closure.ptrn.sql"
+
+/* ********************************************
+
+		Create Nezaboodka users
+			and grant rights for databases
+
+********************************************* */
+
+CREATE USER `nz_admin`@'%' IDENTIFIED BY  'nezaboodka';
+GRANT ALL ON *.* TO `nz_admin`@'%';
+
+-- Localhost user
+CREATE USER `nz_admin`@'localhost' IDENTIFIED BY  'nezaboodka';
+GRANT ALL ON *.* TO `nz_admin`@'localhost';
+
+FLUSH PRIVILEGES;
