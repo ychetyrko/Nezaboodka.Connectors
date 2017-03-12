@@ -1,8 +1,3 @@
-/* ********************************************
-
-		Administrative database tables
-*/
-
 /*	Databases list to store user rights:
 		0 - ReadWrite
 		1 - ReadOnly

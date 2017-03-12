@@ -1,13 +1,3 @@
-/*********************************************
-	Effectively alter database list
-*/
-/*	Protocol for altering database list:
-
-	1. call `before_alter_database_list` to create temporary tables if not created;
-	2. fill `db_rem_list` and `db_add_list` tables with database names;
-	3. call `alter_database_list`.
-*/
-
 DELIMITER //
 DROP PROCEDURE IF EXISTS before_alter_database_list //
 CREATE PROCEDURE before_alter_database_list()
