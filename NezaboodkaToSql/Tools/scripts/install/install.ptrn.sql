@@ -24,7 +24,7 @@ USE `nz_admin_db`;
 
 #include "procedures/qexec.sql"
 
-#include "procedures/prepare new database.sql"
+#include "procedures/prepare new database.ptrn.sql"
 
 /*********************************************
 		Alter database list
