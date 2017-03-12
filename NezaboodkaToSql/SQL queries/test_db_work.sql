@@ -30,23 +30,23 @@ VALUES
 ('Group', '_group', '');
 
 INSERT INTO `field_add_list`
-(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
+(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`)
 VALUES
 # User
-('Login', '_login', 'User', 'VARCHAR(60)', FALSE, 'IgnoreCase', ''),
-('Email', '_email', 'User', 'VARCHAR(120)', FALSE, 'IgnoreCase', ''),
-('PassHash', '_pass_hash', 'User', 'VARCHAR(128)', FALSE, 'None', ''),
-('Group', '_group', 'User', 'Group', FALSE, 'None', 'Participants'),
-('Age', '_age', 'User', 'INT UNSIGNED?', FALSE, 'None', ''),
+('Login', '_login', 'User', 'VARCHAR(60)', FALSE, FALSE, 'IgnoreCase', ''),
+('Email', '_email', 'User', 'VARCHAR(120)', FALSE, FALSE, 'IgnoreCase', ''),
+('PassHash', '_pass_hash', 'User', 'VARCHAR(128)',FALSE,  FALSE, 'None', ''),
+('Group', '_group', 'User', 'Group', TRUE, FALSE, 'None', 'Participants'),
+('Age', '_age', 'User', 'INT UNSIGNED', FALSE, FALSE, 'None', ''),
 #Admin
-('ControlGroup', '_control_group', 'Admin', 'Group', FALSE, 'None', 'Admin'),
+('ControlGroup', '_control_group', 'Admin', 'Group', TRUE, FALSE, 'None', 'Admin'),
 -- ('Email', '_email', 'Admin', 'VARCHAR(120)', FALSE, 'IgnoreCase', ''),	-- TODO: HANDLE DUPLICATED FIELDS
 #Group
-('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, 'None', ''),
-('Admin', '_admin', 'Group', 'Admin', FALSE, 'None', 'ControlGroup'),
-('Participants', '_participants', 'Group', 'User', TRUE, 'None', 'Group'),
-('Rating', '_rating', 'Group', 'INT UNSIGNED', FALSE, 'None', ''),
-('DescriptionText', '_description_text', 'Group', 'TEXT', FALSE, 'IgnoreCase', '');
+('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, FALSE, 'None', ''),
+('Admin', '_admin', 'Group', 'Admin', TRUE, FALSE, 'None', 'ControlGroup'),
+('Participants', '_participants', 'Group', 'User', TRUE,  TRUE, 'None', 'Group'),
+('Rating', '_rating', 'Group', 'INT UNSIGNED', TRUE, FALSE, 'None', ''),
+('DescriptionText', '_description_text', 'Group', 'TEXT', TRUE, FALSE, 'IgnoreCase', '');
 
 CALL alter_database_schema('nz_test_db');
 
@@ -57,5 +57,5 @@ USE `nz_test_db`;
 SELECT `name`, `base_type_name`
 FROM `type`;
 
-SELECT `name`, `owner_type_name`, `type_name`, `is_list`, `back_ref_name`, `compare_options`
+SELECT `name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `back_ref_name`, `compare_options`
 FROM `field`;
