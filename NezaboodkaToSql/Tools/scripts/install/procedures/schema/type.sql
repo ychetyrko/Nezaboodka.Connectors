@@ -80,11 +80,7 @@ BEGIN
 
 	DELETE FROM `nz_admin_db`.`type_add_list`;
 
-	CALL _init_type_shadow(@db_name);
-	CALL _init_type_shadow_base(@db_name);
 	CALL _add_new_types_to_closure();
-
-	CALL _init_type_shadow(@db_name);
 	CALL _process_new_types();
 END //
 
@@ -102,7 +98,6 @@ BEGIN
 	ORDER_LOOP: LOOP
 		SET current_ord = current_ord + 1;
 
-		CALL _init_type_shadow(@db_name);	-- reinit shadow
 		CALL _ord_insert_existing_children(current_ord, last_insert_count);
 
 		IF last_insert_count = 0 THEN
@@ -186,6 +181,7 @@ BEGIN
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET done = TRUE;
 
+	CALL _init_type_shadow(@db_name);
 	SET insert_count = 0;
 
 	OPEN cur;
@@ -244,6 +240,9 @@ BEGIN
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET done = TRUE;
 
+	CALL _init_type_shadow(@db_name);
+	CALL _init_type_shadow_base(@db_name);
+
 	OPEN cur;
 	FETCH cur
 	INTO type_id, base_id;
@@ -283,7 +282,9 @@ BEGIN
 		WHERE t.`id` = n.`id`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
-	
+
+	CALL _init_type_shadow(@db_name);
+
 	OPEN new_type_cur;
 
 	FETCH new_type_cur	
@@ -383,9 +384,6 @@ BEGIN
 			SET MESSAGE_TEXT = "Some types can't be removed";
 	END;
 
-	CALL _init_type_shadow(@db_name);
-	CALL _init_type_closure_shadow(@db_name);
-	CALL _init_field_shadow(@db_name);
 	CALL _get_removing_types_constr();
 
 	CALL _remove_types_fields_from_table();
@@ -418,7 +416,11 @@ BEGIN
 		WHERE t.`name` = remt.`name`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
-	
+
+	CALL _init_type_shadow(@db_name);
+	CALL _init_type_closure_shadow(@db_name);
+	CALL _init_field_shadow(@db_name);
+
 	OPEN type_cur;
 
 	FETCH type_cur	

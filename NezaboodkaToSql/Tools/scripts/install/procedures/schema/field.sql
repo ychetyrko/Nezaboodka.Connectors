@@ -121,7 +121,6 @@ BEGIN
 			AND f.`owner_type_name` = newf.`owner_type_name`;"
 	));
 
-	CALL _init_type_shadow(@db_name);
 	CALL _check_types_duplicate_fields();
 	CALL _update_types_add_fields();
 
@@ -141,7 +140,9 @@ BEGIN
 		FROM `nz_admin_db`.`type_shadow` AS t;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
-	
+
+	CALL _init_type_shadow(@db_name);
+
 	OPEN type_cur;
 
 	FETCH type_cur	
@@ -287,9 +288,6 @@ BEGIN
 		SIGNAL SQLSTATE 'HY000';
 	END IF;
 
-	CALL _init_type_shadow(@db_name);
-	CALL _init_type_closure_shadow(@db_name);
-	CALL _init_field_shadow(@db_name);
 	CALL _update_types_remove_fields();
 
 	CALL _remove_deleted_fields_from_table();
@@ -311,7 +309,11 @@ BEGIN
 		FROM `nz_admin_db`.`type_shadow` AS t;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
-	
+
+	CALL _init_type_shadow(@db_name);
+	CALL _init_type_closure_shadow(@db_name);
+	CALL _init_field_shadow(@db_name);
+
 	OPEN type_cur;
 
 	FETCH type_cur	
