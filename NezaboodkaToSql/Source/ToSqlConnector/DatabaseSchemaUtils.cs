@@ -68,7 +68,7 @@ namespace Nezaboodka.ToSqlConnector
                                 {
                                     FieldDefinition fieldDefinition = newTypeSystem.GetFieldDefinition(typeNumber,
                                         fieldNumber);
-                                    string fieldAddString = GetAddFieldString(typeName, fieldDefinition);
+                                    string fieldAddString = QueryFormatter.GetAddFieldString(typeName, fieldDefinition);
                                     fieldsToAdd.Add(fieldAddString);
                                     fieldNumber = -1;
                                 }
@@ -76,8 +76,8 @@ namespace Nezaboodka.ToSqlConnector
                             if (fieldNumber == -1 && !isInherited)
                             {
                                 FieldDefinition fieldDefinition = oldTypeSystem.GetFieldDefinition(oldTypeNumber,
-                                oldFieldNumber);
-                                string fieldRemoveString = GetRemoveFieldString(typeName, fieldDefinition);
+                                    oldFieldNumber);
+                                string fieldRemoveString = QueryFormatter.GetRemoveFieldString(typeName, fieldDefinition);
                                 fieldsToRemove.Add(fieldRemoveString);
                             }
                         }
@@ -92,7 +92,7 @@ namespace Nezaboodka.ToSqlConnector
                             {
                                 FieldDefinition fieldDefinition = newTypeSystem.GetFieldDefinition(typeNumber,
                                     newFieldNumber);
-                                string fieldAddString = GetAddFieldString(typeName, fieldDefinition);
+                                string fieldAddString = QueryFormatter.GetAddFieldString(typeName, fieldDefinition);
                                 fieldsToAdd.Add(fieldAddString);
                             }
                         }
@@ -100,7 +100,7 @@ namespace Nezaboodka.ToSqlConnector
                     else
                     {
                         TypeDefinition typeDefinition = newTypeSystem.TypeDefinitions[typeNumber];
-                        string typeAddString = GetAddTypeString(typeDefinition);
+                        string typeAddString = QueryFormatter.GetAddTypeString(typeDefinition);
                         typesToAdd.Add(typeAddString);
                         AddAllTypeFields(fieldsToAdd, typeDefinition);
                         typeNumber = -1;
@@ -109,7 +109,7 @@ namespace Nezaboodka.ToSqlConnector
                 if (typeNumber == -1)
                 {
                     TypeDefinition typeDefinition = oldTypeSystem.TypeDefinitions[oldTypeNumber];
-                    string typeRemoveString = GetRemoveTypeString(typeDefinition);
+                    string typeRemoveString = QueryFormatter.GetRemoveTypeString(typeDefinition);
                     typesToRemove.Add(typeRemoveString);
                 }
             }
@@ -143,7 +143,7 @@ namespace Nezaboodka.ToSqlConnector
                 if (typeNumber == -1)
                 {
                     TypeDefinition typeDefinition = newTypeSystem.TypeDefinitions[i];
-                    string typeAddString = GetAddTypeString(typeDefinition);
+                    string typeAddString = QueryFormatter.GetAddTypeString(typeDefinition);
                     newTypes.Add(typeAddString);
                     AddAllTypeFields(newFields, typeDefinition);
                 }
@@ -154,50 +154,9 @@ namespace Nezaboodka.ToSqlConnector
         {
             foreach (var fieldDefinition in typeDefinition.FieldDefinitions)
             {
-                string fieldAddString = GetAddFieldString(typeDefinition.TypeName, fieldDefinition);
+                string fieldAddString = QueryFormatter.GetAddFieldString(typeDefinition.TypeName, fieldDefinition);
                 fieldsList.Add(fieldAddString);
             }
-        }
-
-        private static string GetAddTypeString(TypeDefinition typeDefinition)
-        {
-            string currentTypeName = typeDefinition.TypeName;
-            string tableName = GenerateLowerName(currentTypeName);
-            return $"'{currentTypeName}', '{tableName}', '{typeDefinition.BaseTypeName}'";
-        }
-
-        private static string GetRemoveTypeString(TypeDefinition typeDefinition)
-        {
-            return $"'{typeDefinition.TypeName}'";
-        }
-
-        private static string GetAddFieldString(string ownerTypeName, FieldDefinition fieldDefinition)
-        {
-            string columnName = GenerateLowerName(fieldDefinition.FieldName);
-            string fieldTypeName = fieldDefinition.FieldTypeName;
-            var fieldInfo = NezaboodkaSqlTypeMapper.SqlTypeByNezaboodkaTypeName(fieldTypeName);
-            string result =
-                $"'{fieldDefinition.FieldName}', '{columnName}', '{ownerTypeName}', '{fieldInfo.Name}', {fieldInfo.IsNullable.ToString().ToUpper()}, {fieldDefinition.IsList.ToString().ToUpper()}, '{fieldDefinition.CompareOptions:g}', '{fieldDefinition.BackReferenceFieldName}'";
-            return result;
-        }
-
-        private static string GetRemoveFieldString(string ownerTypeName, FieldDefinition fieldDefinition)
-        {
-            return $"'{ownerTypeName}', '{fieldDefinition.FieldName}'";
-        }
-
-        private static string GenerateLowerName(string typeName)
-        {
-            var result = new StringBuilder();
-
-            // TODO: limit result length to 64 symbols (+ unique part for alike results)
-            foreach (char c in typeName)
-            {
-                if (char.IsUpper(c))
-                    result.Append('_');
-                result.Append(char.ToLower(c));
-            }
-            return result.ToString();
         }
     }
 

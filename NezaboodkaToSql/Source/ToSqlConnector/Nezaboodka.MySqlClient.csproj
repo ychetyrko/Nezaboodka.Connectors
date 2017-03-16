@@ -50,6 +50,7 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="DbQueryBuilder.cs" />
     <Compile Include="NezaboodkaSqlTypeMapper.cs" />
+    <Compile Include="QueryFormatter.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Libraries\Source\Client\Nezaboodka.Client.csproj">
