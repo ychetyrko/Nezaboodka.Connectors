@@ -5,3 +5,5 @@
 #include "schema/field.sql"
 
 #include "schema/type.sql"
+
+#include "schema/backref.sql"
