@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Nezaboodka.ToSqlConnector
 {
@@ -72,11 +71,13 @@ namespace Nezaboodka.ToSqlConnector
             string typesAddListStr = FormatValuesList(diff.TypesToAdd);
             string fieldsRemoveListStr = FormatValuesList(diff.FieldsToRemove);
             string fieldsAddListStr = FormatValuesList(diff.FieldsToAdd);
+            string backrefUpdateListStr = FormatValuesList(diff.BackRefsToUpdate);
 
             string removeTypesPart = string.Empty;
             string addTypesPart = string.Empty;
             string removeFieldsPart = string.Empty;
             string addFieldsPart = string.Empty;
+            string backrefUpdatePart = string.Empty;
 
             if (!string.IsNullOrEmpty(typesRemoveListStr))
             {
@@ -122,16 +123,28 @@ namespace Nezaboodka.ToSqlConnector
                         "`" + SchemaFieldConst.FieldTypeName + "`, " +
                         "`" + SchemaFieldConst.FieldTypeIsNullable + "`, " +
                         "`" + SchemaFieldConst.FieldIsList + "`, " +
-                        "`" + SchemaFieldConst.FieldCompareOptions + "`, " +
-                        "`" + SchemaFieldConst.FieldBackRefName + "`" +
+                        "`" + SchemaFieldConst.FieldCompareOptions + "`" +
                     ") " +
                     $"VALUES {fieldsAddListStr};";
+            }
+
+            if (!string.IsNullOrEmpty(backrefUpdateListStr))
+            {
+                backrefUpdatePart =
+                    "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.UpdateBackRefsList + "` " +
+                    "(" +
+                        "`" + SchemaFieldConst.BackRefFieldOwnerTypeName + "`, " +
+                        "`" + SchemaFieldConst.BackRefFieldName + "`, " +
+                        "`" + SchemaFieldConst.BackRefNewRefFieldName + "`" +
+                    ") " +
+                    $"VALUES {backrefUpdateListStr};";
             }
 
             var result =
                 "CALL before_alter_database_schema(); " +
                 removeTypesPart + " " + addTypesPart + " " +
                 removeFieldsPart + " " + addFieldsPart + " " +
+                backrefUpdatePart + " " +
                 $"CALL alter_database_Schema('{dbName}');";
             return result;
         }

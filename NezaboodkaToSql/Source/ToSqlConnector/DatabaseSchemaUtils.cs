@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Text;
 
 namespace Nezaboodka.ToSqlConnector
 {
@@ -16,17 +15,20 @@ namespace Nezaboodka.ToSqlConnector
 
             List<string> typesToAdd, fieldsToAdd;
             List<string> typesToRemove, fieldsToRemove;
+            List<string> backRefsToUpdate;
 
             GetUpdatedTypesFields(oldTypeSystem, newTypeSystem, out typesToAdd, out fieldsToAdd, out typesToRemove,
-                out fieldsToRemove);
+                out fieldsToRemove, out backRefsToUpdate);
             result.TypesToAdd.AddRange(typesToAdd);
             result.FieldsToAdd.AddRange(fieldsToAdd);
             result.TypesToRemove.AddRange(typesToRemove);
             result.FieldsToRemove.AddRange(fieldsToRemove);
+            result.BackRefsToUpdate.AddRange(backRefsToUpdate);
 
-            GetNewTypesFields(oldTypeSystem, newTypeSystem, out typesToAdd, out fieldsToAdd);
+            GetNewTypesFields(oldTypeSystem, newTypeSystem, out typesToAdd, out fieldsToAdd, out backRefsToUpdate);
             result.TypesToAdd.AddRange(typesToAdd);
             result.FieldsToAdd.AddRange(fieldsToAdd);
+            result.BackRefsToUpdate.AddRange(backRefsToUpdate);
 
             return result;
         }
@@ -35,12 +37,14 @@ namespace Nezaboodka.ToSqlConnector
 
         private static void GetUpdatedTypesFields(ClientTypeSystem oldTypeSystem, ClientTypeSystem newTypeSystem,
             out List<string> typesToAdd, out List<string> fieldsToAdd,
-            out List<string> typesToRemove, out List<string> fieldsToRemove)
+            out List<string> typesToRemove, out List<string> fieldsToRemove,
+            out List<string> backRefsToUpdate)
         {
             typesToAdd = new List<string>();
             fieldsToAdd = new List<string>();
             typesToRemove = new List<string>();
             fieldsToRemove = new List<string>();
+            backRefsToUpdate = new List<string>();
 
             for (int oldTypeNumber = 0; oldTypeNumber < oldTypeSystem.GetTypeCount(); ++oldTypeNumber)
             {
@@ -62,23 +66,53 @@ namespace Nezaboodka.ToSqlConnector
                                 if (oldTypeSystem.GetFieldTypeName(oldTypeNumber, oldFieldNumber) ==
                                     newTypeSystem.GetFieldTypeName(typeNumber, fieldNumber))
                                 {
-                                    // TODO: update BackReferences if needed
+                                    int oldBackReferenceTypeNumber;
+                                    int oldBackReferenceFieldNumber;
+                                    oldTypeSystem.GetFieldBackReferenceInfo(oldTypeNumber, oldFieldNumber,
+                                        out oldBackReferenceTypeNumber, out oldBackReferenceFieldNumber);
+                                    int newBackReferenceTypeNumber;
+                                    int newBackReferenceFieldNumber;
+                                    newTypeSystem.GetFieldBackReferenceInfo(typeNumber, fieldNumber,
+                                        out newBackReferenceTypeNumber, out newBackReferenceFieldNumber);
+                                    if (newBackReferenceTypeNumber == oldBackReferenceTypeNumber &&
+                                        newBackReferenceFieldNumber != oldBackReferenceFieldNumber)
+                                    {
+                                        string fieldName = newTypeSystem.GetFieldName(typeNumber, fieldNumber);
+                                        string backRefName = newTypeSystem.GetFieldName(typeNumber,
+                                            newBackReferenceFieldNumber);
+                                        backRefsToUpdate.Add(QueryFormatter.GetAddBackRefString(typeName, fieldName,
+                                            backRefName));
+                                    }
                                 }
                                 else
                                 {
                                     FieldDefinition fieldDefinition = newTypeSystem.GetFieldDefinition(typeNumber,
                                         fieldNumber);
-                                    string fieldAddString = QueryFormatter.GetAddFieldString(typeName, fieldDefinition);
+                                    string fieldAddString = QueryFormatter.GetAddFieldString(typeName,
+                                        fieldDefinition);
                                     fieldsToAdd.Add(fieldAddString);
                                     fieldNumber = -1;
+                                    if (!string.IsNullOrEmpty(fieldDefinition.BackReferenceFieldName))
+                                    {
+                                        string backRefUpdString = QueryFormatter.GetAddBackRefString(typeName,
+                                        fieldDefinition.FieldName, fieldDefinition.BackReferenceFieldName);
+                                        backRefsToUpdate.Add(backRefUpdString);
+                                    }
                                 }
                             }
                             if (fieldNumber == -1 && !isInherited)
                             {
                                 FieldDefinition fieldDefinition = oldTypeSystem.GetFieldDefinition(oldTypeNumber,
                                     oldFieldNumber);
-                                string fieldRemoveString = QueryFormatter.GetRemoveFieldString(typeName, fieldDefinition);
+                                string fieldRemoveString = QueryFormatter.GetRemoveFieldString(typeName,
+                                    fieldDefinition.FieldName);
                                 fieldsToRemove.Add(fieldRemoveString);
+                                if (!string.IsNullOrEmpty(fieldDefinition.BackReferenceFieldName))
+                                {
+                                    string backRefUpdString = QueryFormatter.GetRemoveBackRefString(typeName,
+                                    fieldDefinition.FieldName);
+                                    backRefsToUpdate.Add(backRefUpdString);
+                                }
                             }
                         }
 
@@ -94,6 +128,12 @@ namespace Nezaboodka.ToSqlConnector
                                     newFieldNumber);
                                 string fieldAddString = QueryFormatter.GetAddFieldString(typeName, fieldDefinition);
                                 fieldsToAdd.Add(fieldAddString);
+                                if (!string.IsNullOrEmpty(fieldDefinition.BackReferenceFieldName))
+                                {
+                                    string backRefUpdString = QueryFormatter.GetAddBackRefString(typeName,
+                                    fieldDefinition.FieldName, fieldDefinition.BackReferenceFieldName);
+                                    backRefsToUpdate.Add(backRefUpdString);
+                                }
                             }
                         }
                     }
@@ -102,7 +142,7 @@ namespace Nezaboodka.ToSqlConnector
                         TypeDefinition typeDefinition = newTypeSystem.TypeDefinitions[typeNumber];
                         string typeAddString = QueryFormatter.GetAddTypeString(typeDefinition);
                         typesToAdd.Add(typeAddString);
-                        AddAllTypeFields(fieldsToAdd, typeDefinition);
+                        AddAllTypeFields(typeDefinition, fieldsToAdd, backRefsToUpdate);
                         typeNumber = -1;
                     }
                 }
@@ -132,10 +172,11 @@ namespace Nezaboodka.ToSqlConnector
         }
 
         private static void GetNewTypesFields(ClientTypeSystem oldTypeSystem, ClientTypeSystem newTypeSystem,
-            out List<string> newTypes, out List<string> newFields)
+            out List<string> newTypes, out List<string> newFields, out List<string> newBackRefs)
         {
             newTypes = new List<string>();
             newFields = new List<string>();
+            newBackRefs = new List<string>();
             for (int i = 0; i < newTypeSystem.GetTypeCount(); ++i)
             {
                 string typeName = newTypeSystem.GetTypeName(i);
@@ -145,17 +186,23 @@ namespace Nezaboodka.ToSqlConnector
                     TypeDefinition typeDefinition = newTypeSystem.TypeDefinitions[i];
                     string typeAddString = QueryFormatter.GetAddTypeString(typeDefinition);
                     newTypes.Add(typeAddString);
-                    AddAllTypeFields(newFields, typeDefinition);
+                    AddAllTypeFields(typeDefinition, newFields, newBackRefs);
                 }
             }
         }
 
-        private static void AddAllTypeFields(List<string> fieldsList, TypeDefinition typeDefinition)
+        private static void AddAllTypeFields(TypeDefinition typeDefinition, List<string> fieldsList, List<string> backRefsList)
         {
             foreach (var fieldDefinition in typeDefinition.FieldDefinitions)
             {
                 string fieldAddString = QueryFormatter.GetAddFieldString(typeDefinition.TypeName, fieldDefinition);
                 fieldsList.Add(fieldAddString);
+                if (!string.IsNullOrEmpty(fieldDefinition.BackReferenceFieldName))
+                {
+                    string backRefUpdString = QueryFormatter.GetAddBackRefString(typeDefinition.TypeName,
+                    fieldDefinition.FieldName, fieldDefinition.BackReferenceFieldName);
+                    backRefsList.Add(backRefUpdString);
+                }
             }
         }
     }
@@ -166,5 +213,6 @@ namespace Nezaboodka.ToSqlConnector
         public List<string> TypesToAdd = new List<string>();
         public List<string> FieldsToRemove = new List<string>();
         public List<string> FieldsToAdd = new List<string>();
+        public List<string> BackRefsToUpdate = new List<string>();
     }
 }

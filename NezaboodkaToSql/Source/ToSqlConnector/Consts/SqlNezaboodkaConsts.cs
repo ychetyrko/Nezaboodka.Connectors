@@ -17,6 +17,7 @@ namespace Nezaboodka.ToSqlConnector
         public const string AddTypeList = "type_add_list";
         public const string RemoveFieldList = "field_rem_list";
         public const string AddFieldList = "field_add_list";
+        public const string UpdateBackRefsList = "backref_upd_list";
         public const string NameField = "name";
         public const string AccessField = "access";
         public const string IsRemovedField = "is_removed";
@@ -45,5 +46,9 @@ namespace Nezaboodka.ToSqlConnector
         public const string FieldIsList = "is_list";
         public const string FieldCompareOptions = "compare_options";
         public const string FieldBackRefName = "back_ref_name";
+
+        public const string BackRefFieldOwnerTypeName = "field_owner_type_name";
+        public const string BackRefFieldName = "field_name";
+        public const string BackRefNewRefFieldName = "new_back_ref_name";
     }
 }
