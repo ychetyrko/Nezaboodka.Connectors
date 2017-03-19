@@ -78,10 +78,18 @@ namespace Nezaboodka.ToSqlConnector
                                         newBackReferenceFieldNumber != oldBackReferenceFieldNumber)
                                     {
                                         string fieldName = newTypeSystem.GetFieldName(typeNumber, fieldNumber);
-                                        string backRefName = newTypeSystem.GetFieldName(typeNumber,
-                                            newBackReferenceFieldNumber);
-                                        backRefsToUpdate.Add(QueryFormatter.GetAddBackRefString(typeName, fieldName,
-                                            backRefName));
+                                        if (newBackReferenceFieldNumber != -1)
+                                        {
+                                            string backRefName = newTypeSystem.GetFieldName(typeNumber,
+                                                newBackReferenceFieldNumber);
+                                            backRefsToUpdate.Add(QueryFormatter.GetAddBackRefString(typeName, fieldName,
+                                                backRefName));
+                                        }
+                                        else
+                                        {
+                                            backRefsToUpdate.Add(QueryFormatter.GetRemoveBackRefString(typeName,
+                                                fieldName));
+                                        }
                                     }
                                 }
                                 else
@@ -95,7 +103,7 @@ namespace Nezaboodka.ToSqlConnector
                                     if (!string.IsNullOrEmpty(fieldDefinition.BackReferenceFieldName))
                                     {
                                         string backRefUpdString = QueryFormatter.GetAddBackRefString(typeName,
-                                        fieldDefinition.FieldName, fieldDefinition.BackReferenceFieldName);
+                                            fieldDefinition.FieldName, fieldDefinition.BackReferenceFieldName);
                                         backRefsToUpdate.Add(backRefUpdString);
                                     }
                                 }
@@ -106,13 +114,7 @@ namespace Nezaboodka.ToSqlConnector
                                     oldFieldNumber);
                                 string fieldRemoveString = QueryFormatter.GetRemoveFieldString(typeName,
                                     fieldDefinition.FieldName);
-                                fieldsToRemove.Add(fieldRemoveString);
-                                if (!string.IsNullOrEmpty(fieldDefinition.BackReferenceFieldName))
-                                {
-                                    string backRefUpdString = QueryFormatter.GetRemoveBackRefString(typeName,
-                                    fieldDefinition.FieldName);
-                                    backRefsToUpdate.Add(backRefUpdString);
-                                }
+                                fieldsToRemove.Add(fieldRemoveString); // back reference is removed automatically
                             }
                         }
 
@@ -131,7 +133,7 @@ namespace Nezaboodka.ToSqlConnector
                                 if (!string.IsNullOrEmpty(fieldDefinition.BackReferenceFieldName))
                                 {
                                     string backRefUpdString = QueryFormatter.GetAddBackRefString(typeName,
-                                    fieldDefinition.FieldName, fieldDefinition.BackReferenceFieldName);
+                                        fieldDefinition.FieldName, fieldDefinition.BackReferenceFieldName);
                                     backRefsToUpdate.Add(backRefUpdString);
                                 }
                             }
