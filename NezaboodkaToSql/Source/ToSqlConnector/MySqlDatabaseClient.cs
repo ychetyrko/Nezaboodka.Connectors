@@ -821,6 +821,7 @@ namespace Nezaboodka.ToSqlConnector
                 // Fields list
                 if (reader.NextResult())
                 {
+                    int backRefColumnOrdinal = reader.GetOrdinal(SchemaFieldConst.FieldBackRefName);
                     while (reader.Read())
                     {
                         string fieldTypeName = reader.GetString(SchemaFieldConst.FieldTypeName);
@@ -828,10 +829,10 @@ namespace Nezaboodka.ToSqlConnector
                         var fieldInfo = new SqlType(fieldTypeName, nullable);
                         fieldTypeName = NezaboodkaSqlTypeMapper.NezaboodkaTypeNameBySqlType(fieldInfo);
 
-                        string backRefName = reader.GetString(SchemaFieldConst.FieldBackRefName);
-                        if (string.IsNullOrEmpty(backRefName))
+                        string backRefName = null;
+                        if (!reader.IsDBNull(backRefColumnOrdinal))
                         {
-                            backRefName = null;
+                            backRefName = reader.GetString(SchemaFieldConst.FieldBackRefName);
                         }
 
                         var fieldDef = new FieldDefinition()
