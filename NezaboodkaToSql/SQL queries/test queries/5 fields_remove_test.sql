@@ -1,10 +1,12 @@
-/*======================================
-		Remove fields tests
- (based on `Add types and fields tests`
-  and `Types ordering tests`)
-======================================*/
+/*********************************************
 
-USE `nz_test_closure`;
+			Remove fields tests
+	(based on `Add types and fields tests`
+		and `Types ordering tests`)
+
+**********************************************/
+
+USE `nz_admin_db`;
 
 /*---------------------------------------/
 	Remove single nested field
@@ -15,7 +17,7 @@ INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('User', 'Login');
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
 
 /*---------------------------------------/
 	Remove single nested field
@@ -26,7 +28,7 @@ INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('User', 'Group');
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
 
 /*---------------------------------------/
 	Remove single non-nested field
@@ -37,7 +39,7 @@ INSERT INTO `field_rem_list`
 (`owner_type_name`, `name`)
 VALUES
 ('Group', 'Admin');
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
 
 /*---------------------------------------/
 	Remove multiple non-nested fields
@@ -50,7 +52,7 @@ VALUES
 ('Admin', 'ControlGroup'),
 ('Group', 'Title'),
 ('UberAdmin', 'UberRating');
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
 
 /*---------------------------------------/
 	Remove multiple fields
@@ -64,4 +66,4 @@ VALUES
 ('GoodPeople', 'Goodies'),
 ('People', 'Name'),
 ('Admin', 'Login');	-- removed before
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');

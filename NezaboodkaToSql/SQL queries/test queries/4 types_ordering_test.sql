@@ -1,8 +1,10 @@
-/*======================================
-		Types ordering tests
-======================================*/
+/*********************************************
 
-USE `nz_test_closure`;
+			Types ordering tests
+
+**********************************************/
+
+USE `nz_admin_db`;
 
 /*---------------------------------------/
 			Reverse order
@@ -16,7 +18,7 @@ VALUES
 ('GoodPeople', '_good_people', 'People'),
 ('People', '_people', ''),
 ('Vehicle', '_vehicle', '');
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
 
 /*---------------------------------------/
 			Mixed order
@@ -33,16 +35,22 @@ VALUES
 ('Motocycle', '_motocycle', 'Vehicle'),
 ('Buildng', '_building', ''),
 ('Sedan', '_sedan', 'Car');
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
 
 /*---------------------------------------/
-	Fields for further tests
+		Fields for further tests
 --------------------------------------*/
 CALL before_alter_database_schema();
 INSERT INTO `field_add_list`
-(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`, `back_ref_name`)
+(`name`, `col_name`, `owner_type_name`, `type_name`, `is_list`, `compare_options`)
 VALUES
-('Name', '_name', 'People', 'VARCHAR(50)', FALSE, 'IgnoreCase', ''),
-('Goodies', '_goodies', 'GoodPeople', 'TEXT', TRUE, 'None', ''),
-('Car', '_car', 'VeryGoodPeople', 'Car', FALSE, 'None', '');
-CALL alter_database_schema('nz_test_closure');
+('Name', '_name', 'People', 'VARCHAR(50)', FALSE, 'IgnoreCase'),
+('Goodies', '_goodies', 'GoodPeople', 'TEXT', TRUE, 'None'),
+('Car', '_car', 'VeryGoodPeople', 'Car', FALSE, 'None');
+CALL alter_database_schema('nz_test_db');
+
+-- Get nz_test_db types
+USE `nz_test_db`;
+
+SELECT `name`, `base_type_name`
+FROM `type`;

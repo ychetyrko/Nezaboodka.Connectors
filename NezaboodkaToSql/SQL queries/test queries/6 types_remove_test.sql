@@ -1,10 +1,12 @@
-/*======================================
-		Remove types tests
- (based on `Types ordering tests`
-  and `Add types and fields tests`)
-======================================*/
+/*********************************************
 
-USE `nz_test_closure`;
+			Remove types tests
+	(based on `Types ordering tests`
+		and `Add types and fields tests`)
+
+**********************************************/
+
+USE `nz_admin_db`;
 
 /*---------------------------------------/
 		Remove full hierarchy
@@ -18,7 +20,7 @@ VALUES
 ('UberAdmin'),
 ('Group'),
 ('User');
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
 
 /*---------------------------------------/
 		Remove terminating types
@@ -30,7 +32,7 @@ VALUES
 ('CoolChopper'),
 ('Sedan'),
 ('HotRod');
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
 
 /*---------------------------------------/
 		Remove referenced type
@@ -41,4 +43,4 @@ INSERT INTO `type_rem_list`
 (`name`)
 VALUES
 ('Car');	-- referenced by VeryGoodPeople
-CALL alter_database_schema('nz_test_closure');
+CALL alter_database_schema('nz_test_db');
