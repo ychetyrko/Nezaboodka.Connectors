@@ -55,10 +55,16 @@ BEGIN
 		old_back_ref_id, old_back_ref_name,
 		new_back_ref_name;
 	WHILE NOT done DO
-		CALL _process_back_ref(f_id, f_ref_type_id,
-			old_back_ref_id, old_back_ref_name,
-			new_back_ref_name
-		);
+		IF new_back_ref_name IS NULL THEN
+			CALL _remove_back_ref(f_id, f_ref_type_id, old_back_ref_id);
+		ELSE
+			IF old_back_ref_name IS NULL THEN
+				CALL _add_back_ref(f_id, f_ref_type_id, new_back_ref_name);
+			ELSE
+				CALL _remove_back_ref(f_id, f_ref_type_id, old_back_ref_id);
+				CALL _add_back_ref(f_id, f_ref_type_id, new_back_ref_name);
+			END IF;
+		END IF;
 		FETCH back_refs_cur
 		INTO f_id, f_ref_type_id,
 			old_back_ref_id, old_back_ref_name,
@@ -69,19 +75,75 @@ END //
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS _process_back_ref //
-CREATE PROCEDURE _process_back_ref(
+DROP PROCEDURE IF EXISTS _remove_back_ref //
+CREATE PROCEDURE _remove_back_ref(
 	IN f_id INT UNSIGNED,
 	IN f_ref_type_id INT UNSIGNED,
-	IN old_back_ref_id INT UNSIGNED,
-	IN old_back_ref_name VARCHAR(128),
-	IN new_back_ref_name VARCHAR(128)
+	IN old_back_ref_id INT UNSIGNED
 )
 BEGIN
 
 -- Debug
-	SELECT f_id, f_ref_type_id,
-		old_back_ref_id, old_back_ref_name,
-		new_back_ref_name;
+	SELECT f_id, f_ref_type_id, old_back_ref_id;
 
+	SET @prep_str = CONCAT(
+		"UPDATE `", @db_name, "`.`field`
+		SET `back_ref_name` = NULL,
+			`back_ref_id` = NULL
+		WHERE `id` = ", f_id, ";"
+	);
+
+	-- check validity
+	PREPARE p_delete_back_ref FROM @prep_str;
+	DEALLOCATE PREPARE p_delete_back_ref;
+
+	INSERT INTO `nz_admin_db`.`alter_query`
+	(`query_text`)
+	VALUE
+	(@prep_str);
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _add_back_ref //
+CREATE PROCEDURE _add_back_ref(
+	IN f_id INT UNSIGNED,
+	IN f_ref_type_id INT UNSIGNED,
+	IN new_back_ref_name VARCHAR(128)
+)
+BEGIN
+DECLARE back_ref_field_id INT UNSIGNED DEFAULT NULL;
+
+-- Debug
+	SELECT f_id, f_ref_type_id, new_back_ref_name;
+
+	SELECT `id`
+	INTO back_ref_field_id
+	FROM `field_shadow`
+	WHERE `owner_type_id` = f_ref_type_id
+		AND `name` = new_back_ref_name;
+
+-- Debug
+	SELECT back_ref_field_id;
+
+	IF NOT back_ref_field_id IS NULL THEN
+		SET @prep_str = CONCAT(
+			"UPDATE `", @db_name, "`.`field`
+			SET `back_ref_name` = ", new_back_ref_name, ",
+				`back_ref_id` = ", back_ref_field_id, "
+			WHERE `id` = ", f_id, ";"
+		);
+
+		-- check validity
+		PREPARE p_delete_back_ref FROM @prep_str;
+		DEALLOCATE PREPARE p_delete_back_ref;
+
+		INSERT INTO `nz_admin_db`.`alter_query`
+		(`query_text`)
+		VALUE
+		(@prep_str);
+	ELSE
+		SIGNAL SQLSTATE 'HY000'
+			SET MESSAGE_TEXT = "Some back references can't be added";
+	END IF;
 END //
