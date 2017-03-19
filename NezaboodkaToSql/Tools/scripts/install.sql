@@ -12,7 +12,6 @@ USE `nz_admin_db`;
 /* ********************************************
 
 		Administrative database tables
-
 */
 
 /*	Databases list to store user rights:
@@ -28,10 +27,11 @@ CREATE TABLE `db_list`(
 	`is_removed` BOOLEAN NOT NULL DEFAULT FALSE
 ) ENGINE=`INNODB` COLLATE `UTF8_GENERAL_CI`;
 
+
+
 /* ********************************************
 
 			Stored procedures
-
 */
 
 DELIMITER //
@@ -73,139 +73,150 @@ BEGIN
 			Schema Info
 --------------------------------------*/
 	CALL QEXEC(CONCAT(	-- type
-		"CREATE TABLE `", db_name, "`.`type`(
-			`id` INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
-			`name` VARCHAR(128) NOT NULL UNIQUE
-				CHECK(`name` != ''),
-			`table_name` VARCHAR(64) NOT NULL UNIQUE COLLATE `UTF8_GENERAL_CI`
-				CHECK(`table_name` != ''),
-			`base_type_name` VARCHAR(128) NOT NULL DEFAULT ''
-		) ENGINE=`INNODB`;"
-	));
+	"
+CREATE TABLE `", db_name, "`.`type`(
+    `id` INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(128) NOT NULL UNIQUE
+        CHECK(`name` != ''),
+    `table_name` VARCHAR(64) NOT NULL UNIQUE COLLATE `UTF8_GENERAL_CI`
+        CHECK(`table_name` != ''),
+    `base_type_name` VARCHAR(128) NOT NULL DEFAULT ''
+) ENGINE=`INNODB`;
+
+	"));
 	CALL QEXEC(CONCAT(	-- type_closure
-		"CREATE TABLE `", db_name, "`.`type_closure`(
-			`ancestor` INT NOT NULL,
-			`descendant` INT NOT NULL,
-			
-			FOREIGN KEY(`ancestor`)
-				REFERENCES `type`(`id`)
-				ON DELETE CASCADE,
-			
-			FOREIGN KEY(`descendant`)
-				REFERENCES `type`(`id`)
-				ON DELETE CASCADE,
-			
-			CONSTRAINT `uc_keys`
-				UNIQUE (`ancestor`, `descendant`)
-		) ENGINE=`INNODB`;"
-	));
+	"
+CREATE TABLE `", db_name, "`.`type_closure`(
+    `ancestor` INT NOT NULL,
+    `descendant` INT NOT NULL,
+    
+    FOREIGN KEY(`ancestor`)
+        REFERENCES `type`(`id`)
+        ON DELETE CASCADE,
+    
+    FOREIGN KEY(`descendant`)
+        REFERENCES `type`(`id`)
+        ON DELETE CASCADE,
+    
+    CONSTRAINT `uc_keys`
+        UNIQUE (`ancestor`, `descendant`)
+) ENGINE=`INNODB`;
+
+	"));
 	CALL QEXEC(CONCAT(	-- field
-		"CREATE TABLE `", db_name, "`.`field` (
-			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`owner_type_name` VARCHAR(128) NOT NULL
-				CHECK(`owner_type_name` != ''),
-			`owner_type_id` INT DEFAULT NULL,
-			`name` VARCHAR(128) NOT NULL
-				CHECK(`name` != ''),
-			`col_name` VARCHAR(64) NOT NULL COLLATE `UTF8_GENERAL_CI`
-				CHECK(`col_name` != ''),
-			`type_name` VARCHAR(64) NOT NULL
-				CHECK(`type_name` != ''),
-			`is_nullable` BOOLEAN NOT NULL DEFAULT FALSE,
-			`ref_type_id` INT DEFAULT NULL,
-			`is_list` BOOLEAN NOT NULL DEFAULT FALSE,
-			`compare_options` ENUM (
-				'None',
-				'IgnoreCase',
-				'IgnoreNonSpace',
-				'IgnoreSymbols',
-				'IgnoreKanaType',
-				'IgnoreWidth',
-				'OrdinalIgnoreCase',
-				'StringSort',
-				'Ordinal'
-			) NOT NULL DEFAULT 'None',
-			`back_ref_name` VARCHAR(128) DEFAULT NULL
-				CHECK(`back_ref_name` != ''),
-			`back_ref_id` INT DEFAULT NULL,
-			
-			FOREIGN KEY(`owner_type_id`)
-				REFERENCES `type`(`id`)
-				ON DELETE CASCADE,
-			
-			FOREIGN KEY(`ref_type_id`)
-				REFERENCES `type`(`id`)
-				ON DELETE RESTRICT,	-- to prevent deletion of referenced type
-			
-			FOREIGN KEY(`back_ref_id`)
-				REFERENCES `field`(`id`)
-				ON DELETE SET NULL,
+	"
+CREATE TABLE `", db_name, "`.`field` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
+    `owner_type_name` VARCHAR(128) NOT NULL
+        CHECK(`owner_type_name` != ''),
+    `owner_type_id` INT DEFAULT NULL,
+    `name` VARCHAR(128) NOT NULL
+        CHECK(`name` != ''),
+    `col_name` VARCHAR(64) NOT NULL COLLATE `UTF8_GENERAL_CI`
+        CHECK(`col_name` != ''),
+    `type_name` VARCHAR(64) NOT NULL
+        CHECK(`type_name` != ''),
+    `is_nullable` BOOLEAN NOT NULL DEFAULT FALSE,
+    `ref_type_id` INT DEFAULT NULL,
+    `is_list` BOOLEAN NOT NULL DEFAULT FALSE,
+    `compare_options` ENUM (
+        'None',
+        'IgnoreCase',
+        'IgnoreNonSpace',
+        'IgnoreSymbols',
+        'IgnoreKanaType',
+        'IgnoreWidth',
+        'OrdinalIgnoreCase',
+        'StringSort',
+        'Ordinal'
+    ) NOT NULL DEFAULT 'None',
+    `back_ref_name` VARCHAR(128) DEFAULT NULL
+        CHECK(`back_ref_name` != ''),
+    `back_ref_id` INT DEFAULT NULL,
+    
+    FOREIGN KEY(`owner_type_id`)
+        REFERENCES `type`(`id`)
+        ON DELETE CASCADE,
+    
+    FOREIGN KEY(`ref_type_id`)
+        REFERENCES `type`(`id`)
+        ON DELETE RESTRICT,	-- to prevent deletion of referenced type
+    
+    FOREIGN KEY(`back_ref_id`)
+        REFERENCES `field`(`id`)
+        ON DELETE SET NULL,
 
-			CONSTRAINT `uc_type_fields`
-				UNIQUE (`owner_type_name`, `name`),
+    CONSTRAINT `uc_type_fields`
+        UNIQUE (`owner_type_name`, `name`),
 
-			CONSTRAINT `uc_table_columns`
-				UNIQUE (`owner_type_name`, `col_name`)
-		) ENGINE=`INNODB`;"
-	));
+    CONSTRAINT `uc_table_columns`
+        UNIQUE (`owner_type_name`, `col_name`)
+) ENGINE=`INNODB`;
+
+	"));
 
 /*---------------------------------------/
 			Default Structure
 --------------------------------------*/
 	CALL QEXEC(CONCAT(	-- db_key
-		"CREATE TABLE `", db_name, "`.`db_key` (
-			`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`rev_flags` BIGINT(0) NOT NULL DEFAULT 1,
-			`real_type_id` INT NOT NULL,
-			
-			FOREIGN KEY (`real_type_id`)
-				REFERENCES `type`(`id`)
-				ON DELETE CASCADE	-- delete key when it's type info is removed
-		) ENGINE=`INNODB`;"
-	));
-	CALL QEXEC(CONCAT(	-- list
-		"CREATE TABLE `", db_name, "`.`list` (
-			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`owner_id` BIGINT(0) NOT NULL,
-			`type_id` INT NOT NULL,
-			`field_id` INT NOT NULL,
-			
-			FOREIGN KEY (`owner_id`)
-				REFERENCES `db_key`(`sys_id`)
-				ON DELETE CASCADE,	-- cleanup list of deleted object
-			
-			FOREIGN KEY (`type_id`)
-				REFERENCES `type`(`id`)
-				ON DELETE CASCADE,	-- delete list when it's type info is removed
-			
-			FOREIGN KEY (`field_id`)
-				REFERENCES `field`(`id`)
-				ON DELETE CASCADE	-- delete list when it's field info is removed
-		) ENGINE=`INNODB`;"
-	));
-	CALL QEXEC(CONCAT(	-- list_item
-		"CREATE TABLE `", db_name, "`.`list_item` (
-			`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-			`list_id` INT NOT NULL,
-			`ref` BIGINT(0) NOT NULL,
-			
-			FOREIGN KEY (`list_id`)
-				REFERENCES `list`(`id`)
-				ON DELETE CASCADE,	-- clear removed lists
-			
-			FOREIGN KEY (`ref`)
-				REFERENCES `db_key`(`sys_id`)
-				ON DELETE CASCADE,	-- remove deleted object from all lists
+	"
+CREATE TABLE `", db_name, "`.`db_key` (
+    `sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
+    `rev_flags` BIGINT(0) NOT NULL DEFAULT 1,
+    `real_type_id` INT NOT NULL,
+    
+    FOREIGN KEY (`real_type_id`)
+        REFERENCES `type`(`id`)
+        ON DELETE CASCADE	-- delete key when it's type info is removed
+) ENGINE=`INNODB`;
 
-			CONSTRAINT `uc_list_ref`	-- no duplicates
-				UNIQUE (`list_id`, `ref`)
-		) ENGINE=`INNODB`;"
-	));
+	"));
+	CALL QEXEC(CONCAT(	-- list
+	"
+CREATE TABLE `", db_name, "`.`list` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
+    `owner_id` BIGINT(0) NOT NULL,
+    `type_id` INT NOT NULL,
+    `field_id` INT NOT NULL,
+    
+    FOREIGN KEY (`owner_id`)
+        REFERENCES `db_key`(`sys_id`)
+        ON DELETE CASCADE,	-- cleanup list of deleted object
+    
+    FOREIGN KEY (`type_id`)
+        REFERENCES `type`(`id`)
+        ON DELETE CASCADE,	-- delete list when it's type info is removed
+    
+    FOREIGN KEY (`field_id`)
+        REFERENCES `field`(`id`)
+        ON DELETE CASCADE	-- delete list when it's field info is removed
+) ENGINE=`INNODB`;
+
+	"));
+	CALL QEXEC(CONCAT(	-- list_item
+	"
+CREATE TABLE `", db_name, "`.`list_item` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
+    `list_id` INT NOT NULL,
+    `ref` BIGINT(0) NOT NULL,
+    
+    FOREIGN KEY (`list_id`)
+        REFERENCES `list`(`id`)
+        ON DELETE CASCADE,	-- clear removed lists
+    
+    FOREIGN KEY (`ref`)
+        REFERENCES `db_key`(`sys_id`)
+        ON DELETE CASCADE,	-- remove deleted object from all lists
+
+    CONSTRAINT `uc_list_ref`	-- no duplicates
+        UNIQUE (`list_id`, `ref`)
+) ENGINE=`INNODB`;
+	"));
 END //
 
 
 /*********************************************
-	Effectively alter database list
+		Alter database list
 */
 /*	Protocol for altering database list:
 
@@ -336,6 +347,7 @@ BEGIN
 END //
 
 
+
 /*********************************************
 		Alter database schema
 */
@@ -347,7 +359,7 @@ END //
 */
 
 /*---------------------------------------/
-			"Public" routines
+			Public routines
 --------------------------------------*/
 
 DELIMITER //
@@ -356,6 +368,7 @@ CREATE PROCEDURE before_alter_database_schema()
 BEGIN
 	CALL _before_alter_fields();
 	CALL _before_alter_types();
+	CALL _before_alter_back_refs();
 END //
 
 
@@ -390,10 +403,12 @@ BEGIN
 
 	START TRANSACTION;
 
+	CALL _remove_back_refs();
 	CALL _remove_fields();
 	CALL _remove_types();
 	CALL _add_types();
 	CALL _add_fields();
+	CALL _add_back_refs();
 
 	COMMIT;
 
@@ -442,6 +457,7 @@ BEGIN
 	CALL _temp_after_add_fields();
 	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`alter_query`;
 END //
+
 
 /*---------------------------------------/
 			Common routines
@@ -807,8 +823,6 @@ BEGIN
 			'StringSort',
 			'Ordinal'
 		) NOT NULL DEFAULT 'None',
-		`back_ref_name` VARCHAR(128) DEFAULT NULL
-			CHECK(`back_ref_name` != ''),
 
 		CONSTRAINT `uc_type_fields`
 			UNIQUE (`owner_type_name`, `name`),
@@ -869,26 +883,13 @@ BEGIN
 
 	CALL QEXEC(CONCAT(
 		"INSERT INTO `", @db_name, "`.`field`
-		(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
-		SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_nullable`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
+		(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `owner_type_id`, `ref_type_id`)
+		SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_nullable`, newf.`is_list`, newf.`compare_options`, ownt.`id`, reft.`id`
 		FROM `nz_admin_db`.`field_add_list` AS newf
 		JOIN `", @db_name, "`.`type` AS ownt
 		ON ownt.`name` = newf.`owner_type_name`
 		LEFT JOIN `", @db_name, "`.`type` AS reft
 		ON reft.`name` = newf.`type_name`;"
-	));
-	CALL QEXEC(CONCAT(
-		"UPDATE `", @db_name, "`.`field` AS f1
-		JOIN `", @db_name, "`.`field` AS f2
-		ON f2.`name` = f1.`back_ref_name`
-		SET f1.`back_ref_id` = f2.`id`;"
-	));
-	CALL QEXEC(CONCAT(
-		"UPDATE `", @db_name, "`.`field` AS f1
-		JOIN `", @db_name, "`.`field` AS f2
-		ON f2.`id` = f1.`back_ref_id`
-		SET f2.`back_ref_id` = f1.`id`,
-			f2.`back_ref_name` = f1.`name`;"
 	));
 	CALL QEXEC(CONCAT(
 		"INSERT INTO `nz_admin_db`.`new_field`
@@ -899,7 +900,6 @@ BEGIN
 			AND f.`owner_type_name` = newf.`owner_type_name`;"
 	));
 
-	CALL _init_type_shadow(@db_name);
 	CALL _check_types_duplicate_fields();
 	CALL _update_types_add_fields();
 
@@ -919,7 +919,9 @@ BEGIN
 		FROM `nz_admin_db`.`type_shadow` AS t;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
-	
+
+	CALL _init_type_shadow(@db_name);
+
 	OPEN type_cur;
 
 	FETCH type_cur	
@@ -1065,9 +1067,6 @@ BEGIN
 		SIGNAL SQLSTATE 'HY000';
 	END IF;
 
-	CALL _init_type_shadow(@db_name);
-	CALL _init_type_closure_shadow(@db_name);
-	CALL _init_field_shadow(@db_name);
 	CALL _update_types_remove_fields();
 
 	CALL _remove_deleted_fields_from_table();
@@ -1089,7 +1088,11 @@ BEGIN
 		FROM `nz_admin_db`.`type_shadow` AS t;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
-	
+
+	CALL _init_type_shadow(@db_name);
+	CALL _init_type_closure_shadow(@db_name);
+	CALL _init_field_shadow(@db_name);
+
 	OPEN type_cur;
 
 	FETCH type_cur	
@@ -1211,9 +1214,8 @@ BEGIN
 	) ENGINE=`MEMORY`;
 END //
 
-/*---------------------------------------/
-			Add types
---------------------------------------*/
+
+-- Add types
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_before_add_types //
@@ -1270,11 +1272,7 @@ BEGIN
 
 	DELETE FROM `nz_admin_db`.`type_add_list`;
 
-	CALL _init_type_shadow(@db_name);
-	CALL _init_type_shadow_base(@db_name);
 	CALL _add_new_types_to_closure();
-
-	CALL _init_type_shadow(@db_name);
 	CALL _process_new_types();
 END //
 
@@ -1292,7 +1290,6 @@ BEGIN
 	ORDER_LOOP: LOOP
 		SET current_ord = current_ord + 1;
 
-		CALL _init_type_shadow(@db_name);	-- reinit shadow
 		CALL _ord_insert_existing_children(current_ord, last_insert_count);
 
 		IF last_insert_count = 0 THEN
@@ -1376,6 +1373,7 @@ BEGIN
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET done = TRUE;
 
+	CALL _init_type_shadow(@db_name);
 	SET insert_count = 0;
 
 	OPEN cur;
@@ -1434,6 +1432,9 @@ BEGIN
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET done = TRUE;
 
+	CALL _init_type_shadow(@db_name);
+	CALL _init_type_shadow_base(@db_name);
+
 	OPEN cur;
 	FETCH cur
 	INTO type_id, base_id;
@@ -1473,7 +1474,9 @@ BEGIN
 		WHERE t.`id` = n.`id`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
-	
+
+	CALL _init_type_shadow(@db_name);
+
 	OPEN new_type_cur;
 
 	FETCH new_type_cur	
@@ -1526,9 +1529,8 @@ BEGIN
 	CLOSE new_type_cur;
 END //
 
-/*---------------------------------------/
-			Remove types
---------------------------------------*/
+
+-- Remove types
 
 DELIMITER //
 DROP PROCEDURE IF EXISTS _temp_before_remove_types //
@@ -1574,9 +1576,6 @@ BEGIN
 			SET MESSAGE_TEXT = "Some types can't be removed";
 	END;
 
-	CALL _init_type_shadow(@db_name);
-	CALL _init_type_closure_shadow(@db_name);
-	CALL _init_field_shadow(@db_name);
 	CALL _get_removing_types_constr();
 
 	CALL _remove_types_fields_from_table();
@@ -1609,7 +1608,11 @@ BEGIN
 		WHERE t.`name` = remt.`name`;
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET types_done = TRUE;
-	
+
+	CALL _init_type_shadow(@db_name);
+	CALL _init_type_closure_shadow(@db_name);
+	CALL _init_field_shadow(@db_name);
+
 	OPEN type_cur;
 
 	FETCH type_cur	
@@ -1794,6 +1797,139 @@ BEGIN
 END //
 
 
+/*---------------------------------------/
+		Back References routines
+--------------------------------------*/
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _before_alter_back_refs //
+CREATE PROCEDURE _before_alter_back_refs()
+BEGIN
+	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`backref_upd_list`;
+	CREATE TEMPORARY TABLE IF NOT EXISTS `nz_admin_db`.`backref_upd_list`(
+		`field_owner_type_name` VARCHAR(128) NOT NULL
+			CHECK(`owner_type_name` != ''),
+		`field_name` VARCHAR(128) NOT NULL
+			CHECK(`name` != ''),
+		`new_back_ref_name` VARCHAR(128) DEFAULT NULL
+			CHECK(`back_ref_name` != ''),
+
+		CONSTRAINT `uc_pair`
+			UNIQUE (`field_owner_type_name`, `field_name`)
+	);
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _remove_back_refs //
+CREATE PROCEDURE _remove_back_refs()
+BEGIN
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN
+		SIGNAL SQLSTATE 'HY000'
+			SET MESSAGE_TEXT = "Some back references can't be removed";
+	END;
+
+	CALL _init_field_shadow(@db_name);
+	CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field`
+		SET `back_ref_name` = NULL
+		WHERE `id` IN (
+			SELECT `id`
+			FROM `nz_admin_db`.`field_shadow`
+			JOIN `nz_admin_db`.`backref_upd_list`
+			ON `field_owner_type_name` = `owner_type_name`
+				AND `field_name` = `name`
+		)"
+	));
+
+	-- Remove back references pairs
+	CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field` AS f1
+		JOIN `", @db_name, "`.`field` AS f2
+		ON f2.`id` = f1.`back_ref_id`
+			AND f1.`back_ref_name` IS NULL
+		SET f2.`back_ref_name` = NULL"
+	));
+	CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field`
+		SET `back_ref_id` = NULL
+		WHERE `back_ref_name` IS NULL;"
+	));
+
+	DELETE FROM `nz_admin_db`.`backref_upd_list`
+	WHERE `new_back_ref_name` IS NULL;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _add_back_refs //
+CREATE PROCEDURE _add_back_refs()
+BEGIN
+	DECLARE f_id INT UNSIGNED DEFAULT 0;
+	DECLARE f_new_back_ref_name VARCHAR(128);
+
+	DECLARE done BOOLEAN DEFAULT FALSE;
+	DECLARE back_refs_cur CURSOR FOR
+		SELECT `id`, `new_back_ref_name`
+		FROM `nz_admin_db`.`field_shadow`
+		JOIN `nz_admin_db`.`backref_upd_list`
+		ON `field_owner_type_name` = `owner_type_name`
+			AND `field_name` = `name`;
+	DECLARE CONTINUE HANDLER FOR NOT FOUND
+		SET done = TRUE;
+
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN
+		SIGNAL SQLSTATE 'HY000'
+			SET MESSAGE_TEXT = "Some back references can't be added";
+	END;
+
+	CALL _init_field_shadow(@db_name);
+
+	OPEN back_refs_cur;
+	FETCH back_refs_cur
+	INTO f_id, f_new_back_ref_name;
+	WHILE NOT done DO
+		CALL QEXEC(CONCAT(
+			"UPDATE `", @db_name, "`.`field`
+			SET `back_ref_name` = '", f_new_back_ref_name, "'
+			WHERE `id` = ", f_id, ";"
+		));
+		FETCH back_refs_cur
+		INTO f_id, f_new_back_ref_name;
+	END WHILE;
+	CLOSE back_refs_cur;
+
+-- Refresh back references
+    CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field` AS f1
+		JOIN `", @db_name, "`.`field` AS f2
+		ON f2.`name` = f1.`back_ref_name`
+			AND f2.`ref_type_id` = f1.`owner_type_id`
+		SET f1.`back_ref_id` = f2.`id`;"
+	));
+	CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field` AS f1
+		JOIN `", @db_name, "`.`field` AS f2
+		ON f2.`id` = f1.`back_ref_id`
+		SET f2.`back_ref_id` = f1.`id`,
+			f2.`back_ref_name` = f1.`name`;"
+	));
+
+-- Check if all back references were added
+	CALL QEXEC(CONCAT(
+		"SELECT COUNT(`id`)
+		INTO @back_refs_left
+		FROM `", @db_name, "`.`field`
+		WHERE NOT `back_ref_name` IS NULL
+			AND `back_ref_id` IS NULL;"
+	));
+	IF @back_refs_left > 0 THEN
+		SIGNAL SQLSTATE '45000';
+	END IF;
+END //
+
+
+
 /* ********************************************
 
 		Create Nezaboodka users
@@ -1804,8 +1940,9 @@ END //
 CREATE USER `nz_admin`@'%' IDENTIFIED BY  'nezaboodka';
 GRANT ALL ON *.* TO `nz_admin`@'%';
 
-/*	Localhost user	*/
+-- Localhost user
 CREATE USER `nz_admin`@'localhost' IDENTIFIED BY  'nezaboodka';
 GRANT ALL ON *.* TO `nz_admin`@'localhost';
 
 FLUSH PRIVILEGES;
+

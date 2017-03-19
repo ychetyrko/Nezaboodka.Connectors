@@ -54,7 +54,7 @@ BEGIN
 	CALL QEXEC(CONCAT(
 		"UPDATE `", @db_name, "`.`field`
 		SET `back_ref_id` = NULL
-        WHERE `back_ref_name` IS NULL;"
+		WHERE `back_ref_name` IS NULL;"
 	));
 
 	DELETE FROM `nz_admin_db`.`backref_upd_list`

@@ -30,23 +30,28 @@ VALUES
 ('Group', '_group', '');
 
 INSERT INTO `field_add_list`
-(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`)
+(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`)
 VALUES
 # User
-('Login', '_login', 'User', 'VARCHAR(60)', FALSE, FALSE, 'IgnoreCase', ''),
-('Email', '_email', 'User', 'VARCHAR(120)', FALSE, FALSE, 'IgnoreCase', ''),
-('PassHash', '_pass_hash', 'User', 'VARCHAR(128)',FALSE,  FALSE, 'None', ''),
-('Group', '_group', 'User', 'Group', TRUE, FALSE, 'None', 'Participants'),
-('Age', '_age', 'User', 'INT UNSIGNED', FALSE, FALSE, 'None', ''),
+('Login', '_login', 'User', 'VARCHAR(60)', FALSE, FALSE, 'IgnoreCase'),
+('Email', '_email', 'User', 'VARCHAR(120)', FALSE, FALSE, 'IgnoreCase'),
+('PassHash', '_pass_hash', 'User', 'VARCHAR(128)',FALSE,  FALSE, 'None'),
+('Group', '_group', 'User', 'Group', TRUE, FALSE, 'None'),
+('Age', '_age', 'User', 'INT UNSIGNED', FALSE, FALSE, 'None'),
 #Admin
-('ControlGroup', '_control_group', 'Admin', 'Group', TRUE, FALSE, 'None', 'Admin'),
--- ('Email', '_email', 'Admin', 'VARCHAR(120)', FALSE, 'IgnoreCase', ''),	-- TODO: HANDLE DUPLICATED FIELDS
+('ControlGroup', '_control_group', 'Admin', 'Group', TRUE, FALSE, 'None'),
 #Group
-('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, FALSE, 'None', ''),
-('Admin', '_admin', 'Group', 'Admin', TRUE, FALSE, 'None', 'ControlGroup'),
-('Participants', '_participants', 'Group', 'User', TRUE,  TRUE, 'None', 'Group'),
-('Rating', '_rating', 'Group', 'INT UNSIGNED', TRUE, FALSE, 'None', ''),
-('DescriptionText', '_description_text', 'Group', 'TEXT', TRUE, FALSE, 'IgnoreCase', '');
+('Title', '_title', 'Group', 'VARCHAR(255)', FALSE, FALSE, 'None'),
+('Admin', '_admin', 'Group', 'Admin', TRUE, FALSE, 'None'),
+('Participants', '_participants', 'Group', 'User', TRUE,  TRUE, 'None'),
+('Rating', '_rating', 'Group', 'INT UNSIGNED', TRUE, FALSE, 'None'),
+('DescriptionText', '_description_text', 'Group', 'TEXT', TRUE, FALSE, 'IgnoreCase');
+
+INSERT INTO backref_upd_list
+(field_owner_type_name, field_name, new_back_ref_name)
+VALUES
+('Group', 'Participants', 'Group'),
+('Admin', 'ControlGroup', 'Admin');
 
 CALL alter_database_schema('nz_test_db');
 
