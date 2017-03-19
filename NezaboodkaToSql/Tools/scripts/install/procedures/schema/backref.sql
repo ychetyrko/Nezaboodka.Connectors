@@ -13,7 +13,7 @@ BEGIN
 		`field_name` VARCHAR(128) NOT NULL
 			CHECK(`name` != ''),
 		`new_back_ref_name` VARCHAR(128) DEFAULT NULL
-				CHECK(`back_ref_name` != ''),
+			CHECK(`back_ref_name` != ''),
 
 		CONSTRAINT `uc_pair`
 			UNIQUE (`field_owner_type_name`, `field_name`)
@@ -22,20 +22,56 @@ END //
 
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS _update_back_refs //
-CREATE PROCEDURE _update_back_refs()
+DROP PROCEDURE IF EXISTS _remove_back_refs //
+CREATE PROCEDURE _remove_back_refs()
+BEGIN
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN
+		SIGNAL SQLSTATE 'HY000'
+			SET MESSAGE_TEXT = "Some back references can't be removed";
+	END;
+
+	CALL _init_field_shadow(@db_name);
+	CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field`
+		SET `back_ref_name` = NULL
+		WHERE `id` IN (
+			SELECT `id`
+			FROM `nz_admin_db`.`field_shadow`
+			JOIN `nz_admin_db`.`backref_upd_list`
+			ON `field_owner_type_name` = `owner_type_name`
+				AND `field_name` = `name`
+		)"
+	));
+
+	-- Remove back references pairs
+	CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field` AS f1
+		JOIN `", @db_name, "`.`field` AS f2
+		ON f2.`id` = f1.`back_ref_id`
+			AND f1.`back_ref_name` IS NULL
+		SET f2.`back_ref_name` = NULL"
+	));
+	CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field`
+		SET `back_ref_id` = NULL
+        WHERE `back_ref_name` IS NULL;"
+	));
+
+	DELETE FROM `nz_admin_db`.`backref_upd_list`
+	WHERE `new_back_ref_name` IS NULL;
+END //
+
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS _add_back_refs //
+CREATE PROCEDURE _add_back_refs()
 BEGIN
 	DECLARE f_id INT UNSIGNED DEFAULT 0;
-	DECLARE f_ref_type_id INT UNSIGNED DEFAULT 0;
-	DECLARE old_back_ref_id INT UNSIGNED DEFAULT 0;
-	DECLARE old_back_ref_name VARCHAR(128);
-	DECLARE new_back_ref_name VARCHAR(128);
+	DECLARE f_new_back_ref_name VARCHAR(128);
 
 	DECLARE done BOOLEAN DEFAULT FALSE;
 	DECLARE back_refs_cur CURSOR FOR
-		SELECT `id`, `ref_type_id`,
-			`back_ref_id`, `back_ref_name`,
-			`new_back_ref_name`
+		SELECT `id`, `new_back_ref_name`
 		FROM `nz_admin_db`.`field_shadow`
 		JOIN `nz_admin_db`.`backref_upd_list`
 		ON `field_owner_type_name` = `owner_type_name`
@@ -43,107 +79,52 @@ BEGIN
 	DECLARE CONTINUE HANDLER FOR NOT FOUND
 		SET done = TRUE;
 
-	CALL _init_field_shadow(@db_name);
+	DECLARE EXIT HANDLER FOR SQLEXCEPTION BEGIN
+		SIGNAL SQLSTATE 'HY000'
+			SET MESSAGE_TEXT = "Some back references can't be added";
+	END;
 
--- Debug
-	SELECT * FROM field_shadow
-	WHERE NOT back_ref_id IS NULL;
+	CALL _init_field_shadow(@db_name);
 
 	OPEN back_refs_cur;
 	FETCH back_refs_cur
-	INTO f_id, f_ref_type_id,
-		old_back_ref_id, old_back_ref_name,
-		new_back_ref_name;
+	INTO f_id, f_new_back_ref_name;
 	WHILE NOT done DO
-		IF new_back_ref_name IS NULL THEN
-			CALL _remove_back_ref(f_id, f_ref_type_id, old_back_ref_id);
-		ELSE
-			IF old_back_ref_name IS NULL THEN
-				CALL _add_back_ref(f_id, f_ref_type_id, new_back_ref_name);
-			ELSE
-				CALL _remove_back_ref(f_id, f_ref_type_id, old_back_ref_id);
-				CALL _add_back_ref(f_id, f_ref_type_id, new_back_ref_name);
-			END IF;
-		END IF;
+		CALL QEXEC(CONCAT(
+			"UPDATE `", @db_name, "`.`field`
+			SET `back_ref_name` = '", f_new_back_ref_name, "'
+			WHERE `id` = ", f_id, ";"
+		));
 		FETCH back_refs_cur
-		INTO f_id, f_ref_type_id,
-			old_back_ref_id, old_back_ref_name,
-			new_back_ref_name;
+		INTO f_id, f_new_back_ref_name;
 	END WHILE;
 	CLOSE back_refs_cur;
-END //
 
+-- Refresh back references
+    CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field` AS f1
+		JOIN `", @db_name, "`.`field` AS f2
+		ON f2.`name` = f1.`back_ref_name`
+			AND f2.`ref_type_id` = f1.`owner_type_id`
+		SET f1.`back_ref_id` = f2.`id`;"
+	));
+	CALL QEXEC(CONCAT(
+		"UPDATE `", @db_name, "`.`field` AS f1
+		JOIN `", @db_name, "`.`field` AS f2
+		ON f2.`id` = f1.`back_ref_id`
+		SET f2.`back_ref_id` = f1.`id`,
+			f2.`back_ref_name` = f1.`name`;"
+	));
 
-DELIMITER //
-DROP PROCEDURE IF EXISTS _remove_back_ref //
-CREATE PROCEDURE _remove_back_ref(
-	IN f_id INT UNSIGNED,
-	IN f_ref_type_id INT UNSIGNED,
-	IN old_back_ref_id INT UNSIGNED
-)
-BEGIN
-
--- Debug
-	SELECT f_id, f_ref_type_id, old_back_ref_id;
-
-	SET @prep_str = CONCAT(
-		"UPDATE `", @db_name, "`.`field`
-		SET `back_ref_name` = NULL,
-			`back_ref_id` = NULL
-		WHERE `id` = ", f_id, ";"
-	);
-
-	-- check validity
-	PREPARE p_delete_back_ref FROM @prep_str;
-	DEALLOCATE PREPARE p_delete_back_ref;
-
-	INSERT INTO `nz_admin_db`.`alter_query`
-	(`query_text`)
-	VALUE
-	(@prep_str);
-END //
-
-
-DELIMITER //
-DROP PROCEDURE IF EXISTS _add_back_ref //
-CREATE PROCEDURE _add_back_ref(
-	IN f_id INT UNSIGNED,
-	IN f_ref_type_id INT UNSIGNED,
-	IN new_back_ref_name VARCHAR(128)
-)
-BEGIN
-DECLARE back_ref_field_id INT UNSIGNED DEFAULT NULL;
-
--- Debug
-	SELECT f_id, f_ref_type_id, new_back_ref_name;
-
-	SELECT `id`
-	INTO back_ref_field_id
-	FROM `field_shadow`
-	WHERE `owner_type_id` = f_ref_type_id
-		AND `name` = new_back_ref_name;
-
--- Debug
-	SELECT back_ref_field_id;
-
-	IF NOT back_ref_field_id IS NULL THEN
-		SET @prep_str = CONCAT(
-			"UPDATE `", @db_name, "`.`field`
-			SET `back_ref_name` = ", new_back_ref_name, ",
-				`back_ref_id` = ", back_ref_field_id, "
-			WHERE `id` = ", f_id, ";"
-		);
-
-		-- check validity
-		PREPARE p_delete_back_ref FROM @prep_str;
-		DEALLOCATE PREPARE p_delete_back_ref;
-
-		INSERT INTO `nz_admin_db`.`alter_query`
-		(`query_text`)
-		VALUE
-		(@prep_str);
-	ELSE
-		SIGNAL SQLSTATE 'HY000'
-			SET MESSAGE_TEXT = "Some back references can't be added";
+-- Check if all back references were added
+	CALL QEXEC(CONCAT(
+		"SELECT COUNT(`id`)
+		INTO @back_refs_left
+		FROM `", @db_name, "`.`field`
+		WHERE NOT `back_ref_name` IS NULL
+			AND `back_ref_id` IS NULL;"
+	));
+	IF @back_refs_left > 0 THEN
+		SIGNAL SQLSTATE '45000';
 	END IF;
 END //

@@ -8,6 +8,7 @@ CREATE PROCEDURE before_alter_database_schema()
 BEGIN
 	CALL _before_alter_fields();
 	CALL _before_alter_types();
+	CALL _before_alter_back_refs();
 END //
 
 
@@ -42,10 +43,12 @@ BEGIN
 
 	START TRANSACTION;
 
+	CALL _remove_back_refs();
 	CALL _remove_fields();
 	CALL _remove_types();
 	CALL _add_types();
 	CALL _add_fields();
+	CALL _add_back_refs();
 
 	COMMIT;
 

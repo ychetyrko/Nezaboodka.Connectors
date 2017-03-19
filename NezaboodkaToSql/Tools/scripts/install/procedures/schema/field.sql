@@ -29,8 +29,6 @@ BEGIN
 			'StringSort',
 			'Ordinal'
 		) NOT NULL DEFAULT 'None',
-		`back_ref_name` VARCHAR(128) DEFAULT NULL
-			CHECK(`back_ref_name` != ''),
 
 		CONSTRAINT `uc_type_fields`
 			UNIQUE (`owner_type_name`, `name`),
@@ -91,26 +89,13 @@ BEGIN
 
 	CALL QEXEC(CONCAT(
 		"INSERT INTO `", @db_name, "`.`field`
-		(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `back_ref_name`, `owner_type_id`, `ref_type_id`)
-		SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_nullable`, newf.`is_list`, newf.`compare_options`, newf.`back_ref_name`, ownt.`id`, reft.`id`
+		(`name`, `col_name`, `owner_type_name`, `type_name`, `is_nullable`, `is_list`, `compare_options`, `owner_type_id`, `ref_type_id`)
+		SELECT newf.`name`, newf.`col_name`, newf.`owner_type_name`, newf.`type_name`, newf.`is_nullable`, newf.`is_list`, newf.`compare_options`, ownt.`id`, reft.`id`
 		FROM `nz_admin_db`.`field_add_list` AS newf
 		JOIN `", @db_name, "`.`type` AS ownt
 		ON ownt.`name` = newf.`owner_type_name`
 		LEFT JOIN `", @db_name, "`.`type` AS reft
 		ON reft.`name` = newf.`type_name`;"
-	));
-	CALL QEXEC(CONCAT(
-		"UPDATE `", @db_name, "`.`field` AS f1
-		JOIN `", @db_name, "`.`field` AS f2
-		ON f2.`name` = f1.`back_ref_name`
-		SET f1.`back_ref_id` = f2.`id`;"
-	));
-	CALL QEXEC(CONCAT(
-		"UPDATE `", @db_name, "`.`field` AS f1
-		JOIN `", @db_name, "`.`field` AS f2
-		ON f2.`id` = f1.`back_ref_id`
-		SET f2.`back_ref_id` = f1.`id`,
-			f2.`back_ref_name` = f1.`name`;"
 	));
 	CALL QEXEC(CONCAT(
 		"INSERT INTO `nz_admin_db`.`new_field`
