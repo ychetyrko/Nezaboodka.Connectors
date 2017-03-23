@@ -1945,4 +1945,3 @@ CREATE USER `nz_admin`@'localhost' IDENTIFIED BY  'nezaboodka';
 GRANT ALL ON *.* TO `nz_admin`@'localhost';
 
 FLUSH PRIVILEGES;
-

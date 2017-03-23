@@ -18,5 +18,6 @@ CALL cleanup_removed_databases();
 
 DROP DATABASE `nz_admin_db`;
 
-DELETE FROM mysql.user WHERE User = 'nz_admin';
+DROP USER `nz_admin`@'localhost';
+DROP USER `nz_admin`@'%';
 FLUSH PRIVILEGES;
