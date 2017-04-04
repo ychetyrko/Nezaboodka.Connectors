@@ -55,43 +55,53 @@ namespace Nezaboodka.ToSqlConnector
             DatabaseConfiguration newConfig)
         {
             string result = string.Empty;
-            result += AlterDatabaseTypesFieldsQuery(dbName, oldConfig.DatabaseSchema, newConfig.DatabaseSchema);
+            DatabaseSchemaDiff diff = DatabaseSchemaUtils.GetDiff(oldConfig.DatabaseSchema, newConfig.DatabaseSchema);
+            result += AlterDatabaseTypesFieldsQuery(dbName, diff);
             // TODO: process SecondaryIndexDefinitions & ReferentialIntexDefinitions
             return result;
         }
 
         // Internal
 
-        private static string AlterDatabaseTypesFieldsQuery(string dbName, DatabaseSchema oldSchema,
-            DatabaseSchema newSchema)
+        private static string AlterDatabaseTypesFieldsQuery(string dbName, DatabaseSchemaDiff diff)
         {
-            DatabaseSchemaDiff diff = DatabaseSchemaUtils.GetDiff(oldSchema, newSchema);
+            string removeTypesPart = GetRemoveTypesPart(diff);
+            string addTypesPart = GetAddTypesPart(diff);
+            string removeFieldsPart = GetRemoveFieldsPart(diff);
+            string addFieldsPart = GetAddFieldsPart(diff);
+            string backrefUpdatePart = GetBackRefUpdatePart(diff);
+            string result =
+                CallBeforeAlterDatabaseSchema + " " +
+                removeTypesPart + " " + addTypesPart + " " +
+                removeFieldsPart + " " + addFieldsPart + " " +
+                backrefUpdatePart + " " +
+                CallAlterDatabaseSchema(dbName);
+            return result;
+        }
 
+        private static string GetRemoveTypesPart(DatabaseSchemaDiff diff)
+        {
+            string result = string.Empty;
             string typesRemoveListStr = FormatValuesList(diff.TypesToRemove);
-            string typesAddListStr = FormatValuesList(diff.TypesToAdd);
-            string fieldsRemoveListStr = FormatValuesList(diff.FieldsToRemove);
-            string fieldsAddListStr = FormatValuesList(diff.FieldsToAdd);
-            string backrefUpdateListStr = FormatValuesList(diff.BackRefsToUpdate);
-
-            string removeTypesPart = string.Empty;
-            string addTypesPart = string.Empty;
-            string removeFieldsPart = string.Empty;
-            string addFieldsPart = string.Empty;
-            string backrefUpdatePart = string.Empty;
-
             if (!string.IsNullOrEmpty(typesRemoveListStr))
             {
-                removeTypesPart =
+                result =
                     "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.RemoveTypeList + "` " +
                     "(" +
                         "`" + SchemaFieldConst.TypeName + "`" +
                     ") " +
                     $"VALUES {typesRemoveListStr};";
             }
+            return result;
+        }
 
+        private static string GetAddTypesPart(DatabaseSchemaDiff diff)
+        {
+            string result = string.Empty;
+            string typesAddListStr = FormatValuesList(diff.TypesToAdd);
             if (!string.IsNullOrEmpty(typesAddListStr))
             {
-                addTypesPart =
+                result =
                     "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddTypeList + "` " +
                     "(" +
                         "`" + SchemaFieldConst.TypeName + "`, " +
@@ -100,10 +110,16 @@ namespace Nezaboodka.ToSqlConnector
                     ") " +
                     $"VALUES {typesAddListStr};";
             }
+            return result;
+        }
 
+        private static string GetRemoveFieldsPart(DatabaseSchemaDiff diff)
+        {
+            string result = string.Empty;
+            string fieldsRemoveListStr = FormatValuesList(diff.FieldsToRemove);
             if (!string.IsNullOrEmpty(fieldsRemoveListStr))
             {
-                removeFieldsPart =
+                result =
                     "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.RemoveFieldList + "` " +
                     "(" +
                         "`" + SchemaFieldConst.FieldOwnerTypeName + "`, " +
@@ -111,10 +127,16 @@ namespace Nezaboodka.ToSqlConnector
                     ") " +
                     $"VALUES {fieldsRemoveListStr};";
             }
+            return result;
+        }
 
+        private static string GetAddFieldsPart(DatabaseSchemaDiff diff)
+        {
+            string result = string.Empty;
+            string fieldsAddListStr = FormatValuesList(diff.FieldsToAdd);
             if (!string.IsNullOrEmpty(fieldsAddListStr))
             {
-                addFieldsPart =
+                result =
                     "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.AddFieldList + "` " +
                     "(" +
                         "`" + SchemaFieldConst.FieldName + "`, " +
@@ -127,10 +149,16 @@ namespace Nezaboodka.ToSqlConnector
                     ") " +
                     $"VALUES {fieldsAddListStr};";
             }
+            return result;
+        }
 
+        private static string GetBackRefUpdatePart(DatabaseSchemaDiff diff)
+        {
+            string result = string.Empty;
+            string backrefUpdateListStr = FormatValuesList(diff.BackRefsToUpdate);
             if (!string.IsNullOrEmpty(backrefUpdateListStr))
             {
-                backrefUpdatePart =
+                result =
                     "INSERT INTO `" + AdminDatabaseConst.AdminDbName + "`.`" + AdminDatabaseConst.UpdateBackRefsList + "` " +
                     "(" +
                         "`" + SchemaFieldConst.BackRefFieldOwnerTypeName + "`, " +
@@ -139,13 +167,6 @@ namespace Nezaboodka.ToSqlConnector
                     ") " +
                     $"VALUES {backrefUpdateListStr};";
             }
-
-            var result =
-                "CALL before_alter_database_schema(); " +
-                removeTypesPart + " " + addTypesPart + " " +
-                removeFieldsPart + " " + addFieldsPart + " " +
-                backrefUpdatePart + " " +
-                $"CALL alter_database_Schema('{dbName}');";
             return result;
         }
 
@@ -191,5 +212,8 @@ namespace Nezaboodka.ToSqlConnector
 
         private const string BeforeAlterDatabaseListQuery = "CALL before_alter_database_list();";
         private const string CallAlterDatabaseListProc = "CALL alter_database_list();";
+        private const string CallBeforeAlterDatabaseSchema = "CALL before_alter_database_schema(); ";
+
+        private static string CallAlterDatabaseSchema(string dbName) => $"CALL alter_database_Schema('{dbName}');";
     }
 }
