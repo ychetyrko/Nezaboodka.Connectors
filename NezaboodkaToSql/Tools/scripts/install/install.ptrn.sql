@@ -26,28 +26,7 @@ USE `nz_admin_db`;
 
 #include "procedures/prepare new database.ptrn.sql"
 
-/*********************************************
-		Alter database list
-*/
-/*	Protocol for altering database list:
-
-	1. call `before_alter_database_list` to create temporary tables if not created;
-	2. fill `db_rem_list` and `db_add_list` tables with database names;
-	3. call `alter_database_list`.
-*/
-
 #include "procedures/alter database list.sql"
-
-
-/*********************************************
-		Alter database schema
-*/
-/*	Protocol for altering database schema:
-
-	1. call `before_alter_database_schema`;
-	2. fill `type_add_list`, `type_rem_list`, `field_add_list` and `field_rem_list` tables;
-	3. call `alter_database_schema`.
-*/
 
 #include "procedures/alter database schema.ptrn.sql"
 

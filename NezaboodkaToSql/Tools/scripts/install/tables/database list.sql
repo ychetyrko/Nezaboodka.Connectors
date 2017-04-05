@@ -1,4 +1,6 @@
-/*	Databases list to store user rights:
+/*	Databases list
+
+	User rights:
 		0 - ReadWrite
 		1 - ReadOnly
 		2 - NoAccess

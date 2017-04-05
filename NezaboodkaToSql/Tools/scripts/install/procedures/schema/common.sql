@@ -41,7 +41,7 @@ BEGIN
 
 	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`type_shadow_base`;
 	CREATE TEMPORARY TABLE `nz_admin_db`.`type_shadow_base`
-    LIKE `nz_admin_db`.`type_shadow`;
+	LIKE `nz_admin_db`.`type_shadow`;
 
 	DROP TEMPORARY TABLE IF EXISTS `nz_admin_db`.`type_closure_shadow`;
 	CREATE TEMPORARY TABLE `nz_admin_db`.`type_closure_shadow`(
