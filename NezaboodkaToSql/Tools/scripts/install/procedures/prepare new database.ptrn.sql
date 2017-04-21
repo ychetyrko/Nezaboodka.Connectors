@@ -37,18 +37,6 @@ BEGIN
 			'${db_name}': '", db_name, "'
 		}
 	"));
-	CALL QEXEC(CONCAT(	-- secondary index
-	"
-		#include "prepare/index/secondary_index.sql" {
-			'${db_name}': '", db_name, "'
-		}
-	"));
-	CALL QEXEC(CONCAT(	-- referencial index
-	"
-		#include "prepare/index/referencial_index.sql" {
-			'${db_name}': '", db_name, "'
-		}
-	"));
 
 /*---------------------------------------/
 			Default Structure
