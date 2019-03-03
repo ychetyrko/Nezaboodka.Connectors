@@ -543,9 +543,6 @@ namespace Nezaboodka.ToSqlConnector
                     {
                         if (error.ErrorStatus == ErrorStatus.SecurityError)
                         {
-                            //var newContext = new DatabaseClientContext(fContext);
-                            //newContext.DatabaseChangeNumbers = null;
-                            //Interlocked.Exchange(ref fContext, null);
                             throw new NezaboodkaSecurityException(error.ErrorMessage);
                         }
                         else if (error.ErrorStatus == ErrorStatus.AvailabilityError)
@@ -567,8 +564,7 @@ namespace Nezaboodka.ToSqlConnector
             DatabaseResponse result = null;
             var dbName = AdminDatabaseConst.AdminDbName;
             if (!(request is AdministrationRequest) || request is RefreshDatabaseCryptoKeyRequest ||
-                request is GetDatabaseConfigurationRequest || // request is AlterDatabaseConfigurationRequest || // <-- !! request for AdministrationDatabase
-                //request is GetDatabaseAccessModeRequest || request is SetDatabaseAccessModeRequest || // <-- !! requests for AdministrationDatabase
+                request is GetDatabaseConfigurationRequest ||
                 request is UnloadDatabaseRequest || request is LoadDatabaseRequest)
             {
                 dbName = DatabaseName;
@@ -840,7 +836,8 @@ namespace Nezaboodka.ToSqlConnector
                             FieldName = reader.GetString(SchemaFieldConst.FieldName),
                             FieldTypeName = fieldTypeName,
                             IsList = bool.Parse(reader.GetString(SchemaFieldConst.FieldIsList)),
-                            CompareOptions = (CompareOptions)Enum.Parse(typeof(CompareOptions), reader.GetString(SchemaFieldConst.FieldCompareOptions)),
+                            CompareOptions = (CompareOptions)Enum.Parse(typeof(CompareOptions),
+                                reader.GetString(SchemaFieldConst.FieldCompareOptions)),
                             BackReferenceFieldName = backRefName
                         };
 

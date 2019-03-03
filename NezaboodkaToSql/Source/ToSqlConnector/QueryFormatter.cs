@@ -54,7 +54,6 @@ namespace Nezaboodka.ToSqlConnector
         {
             var result = new StringBuilder();
 
-            // TODO: limit result length to 64 symbols (+ unique part for alike results)
             foreach (char c in typeName)
             {
                 if (char.IsUpper(c))
@@ -64,5 +63,4 @@ namespace Nezaboodka.ToSqlConnector
             return result.ToString();
         }
     }
-
 }

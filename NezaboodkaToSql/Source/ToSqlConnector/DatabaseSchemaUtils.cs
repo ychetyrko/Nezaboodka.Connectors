@@ -52,8 +52,8 @@ namespace Nezaboodka.ToSqlConnector
                 int typeNumber = newTypeSystem.GetTypeNumberByName(typeName);
                 if (typeNumber >= 0)
                 {
-                    if (oldTypeSystem.TypeDefinitions[oldTypeNumber].BaseTypeName ==
-                        newTypeSystem.TypeDefinitions[typeNumber].BaseTypeName)
+                    if (oldTypeSystem.TypeDefinitions[oldTypeNumber].BaseTypeName
+                        == newTypeSystem.TypeDefinitions[typeNumber].BaseTypeName)
                     {
                         int fieldCount = oldTypeSystem.GetFieldCount(oldTypeNumber);
                         for (int oldFieldNumber = 0; oldFieldNumber < fieldCount; ++oldFieldNumber)
@@ -63,27 +63,23 @@ namespace Nezaboodka.ToSqlConnector
                             bool isInherited = IsInheritedField(oldTypeSystem, oldTypeNumber, oldFieldNumber);
                             if (fieldNumber >= 0 && !isInherited)
                             {
-                                if (oldTypeSystem.GetFieldTypeName(oldTypeNumber, oldFieldNumber) ==
-                                    newTypeSystem.GetFieldTypeName(typeNumber, fieldNumber))
+                                if (oldTypeSystem.GetFieldTypeName(oldTypeNumber, oldFieldNumber)
+                                    == newTypeSystem.GetFieldTypeName(typeNumber, fieldNumber))
                                 {
-                                    int oldBackReferenceTypeNumber;
-                                    int oldBackReferenceFieldNumber;
                                     oldTypeSystem.GetFieldBackReferenceInfo(oldTypeNumber, oldFieldNumber,
-                                        out oldBackReferenceTypeNumber, out oldBackReferenceFieldNumber);
-                                    int newBackReferenceTypeNumber;
-                                    int newBackReferenceFieldNumber;
+                                        out int oldBackReferenceTypeNumber, out int oldBackReferenceFieldNumber);
                                     newTypeSystem.GetFieldBackReferenceInfo(typeNumber, fieldNumber,
-                                        out newBackReferenceTypeNumber, out newBackReferenceFieldNumber);
-                                    if (newBackReferenceTypeNumber == oldBackReferenceTypeNumber &&
-                                        newBackReferenceFieldNumber != oldBackReferenceFieldNumber)
+                                        out int newBackReferenceTypeNumber, out int newBackReferenceFieldNumber);
+                                    if (newBackReferenceTypeNumber == oldBackReferenceTypeNumber
+                                        && newBackReferenceFieldNumber != oldBackReferenceFieldNumber)
                                     {
                                         string fieldName = newTypeSystem.GetFieldName(typeNumber, fieldNumber);
                                         if (newBackReferenceFieldNumber != -1)
                                         {
                                             string backRefName = newTypeSystem.GetFieldName(typeNumber,
                                                 newBackReferenceFieldNumber);
-                                            backRefsToUpdate.Add(QueryFormatter.GetAddBackRefString(typeName, fieldName,
-                                                backRefName));
+                                            backRefsToUpdate.Add(QueryFormatter.GetAddBackRefString(typeName,
+                                                fieldName, backRefName));
                                         }
                                         else
                                         {
@@ -118,9 +114,8 @@ namespace Nezaboodka.ToSqlConnector
                             }
                         }
 
-                        for (int newFieldNumber = 0;
-                            newFieldNumber < newTypeSystem.GetFieldCount(oldTypeNumber);
-                            ++newFieldNumber)
+                        fieldCount = newTypeSystem.GetFieldCount(oldTypeNumber);
+                        for (int newFieldNumber = 0; newFieldNumber < fieldCount; ++newFieldNumber)
                         {
                             int fieldNumber = oldTypeSystem.GetFieldNumberByName(oldTypeNumber,
                                 newTypeSystem.GetFieldName(typeNumber, newFieldNumber));
@@ -193,7 +188,8 @@ namespace Nezaboodka.ToSqlConnector
             }
         }
 
-        private static void AddAllTypeFields(TypeDefinition typeDefinition, List<string> fieldsList, List<string> backRefsList)
+        private static void AddAllTypeFields(TypeDefinition typeDefinition, List<string> fieldsList,
+            List<string> backRefsList)
         {
             foreach (var fieldDefinition in typeDefinition.FieldDefinitions)
             {
