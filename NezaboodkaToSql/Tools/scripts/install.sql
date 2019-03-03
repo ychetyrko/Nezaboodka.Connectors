@@ -156,6 +156,58 @@ CREATE TABLE `", db_name, "`.`field` (
 ) ENGINE=`INNODB`;
 
 	"));
+	CALL QEXEC(CONCAT(	-- index base
+	"
+CREATE TABLE `", db_name, "`.`index_base` (
+	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+	`target_type_id` INT NOT NULL,
+	`index_type` ENUM (
+		'secondary',
+		'referencial'
+		) NOT NULL,
+
+	-- referencial index
+	`type_id` INT NOT NULL,
+	`field_id` INT,
+
+	-- secondary index
+	`is_unique` BOOLEAN NOT NULL,
+
+	FOREIGN KEY (`target_type_id`)
+		REFERENCES `type`(`id`)
+		ON DELETE CASCADE,
+
+	FOREIGN KEY (`type_id`)
+		REFERENCES `type`(`id`)
+		ON DELETE CASCADE,
+
+	FOREIGN KEY (`field_id`)
+		REFERENCES `field`(`id`)
+		ON DELETE CASCADE
+) ENGINE=`INNODB`;
+
+	"));
+	CALL QEXEC(CONCAT(	-- index field
+	"
+CREATE TABLE `", db_name, "`.`index_field` (
+	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+	`index_id` INT NOT NULL,
+	`field_id` INT NOT NULL,
+	`ordering` ENUM (
+		'ASC',
+		'DESC'
+	) NOT NULL,
+
+	FOREIGN KEY (`index_id`)
+		REFERENCES `index_base`(`id`)
+		ON DELETE CASCADE,
+
+	FOREIGN KEY (`field_id`)
+		REFERENCES `field`(`id`)
+		ON DELETE CASCADE
+) ENGINE=`INNODB`;
+
+	"));
 
 /*---------------------------------------/
 			Default Structure
@@ -164,7 +216,6 @@ CREATE TABLE `", db_name, "`.`field` (
 	"
 CREATE TABLE `", db_name, "`.`db_key` (
 	`sys_id` BIGINT(0) PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
-	`rev_flags` BIGINT(0) NOT NULL DEFAULT 1,
 	`real_type_id` INT NOT NULL,
 
 	FOREIGN KEY (`real_type_id`)
@@ -178,16 +229,11 @@ CREATE TABLE `", db_name, "`.`db_key` (
 CREATE TABLE `", db_name, "`.`list` (
 	`id` INT PRIMARY KEY AUTO_INCREMENT NOT NULL UNIQUE,
 	`owner_id` BIGINT(0) NOT NULL,
-	`type_id` INT NOT NULL,
 	`field_id` INT NOT NULL,
 
 	FOREIGN KEY (`owner_id`)
 		REFERENCES `db_key`(`sys_id`)
 		ON DELETE CASCADE,	-- cleanup list of deleted object
-
-	FOREIGN KEY (`type_id`)
-		REFERENCES `type`(`id`)
-		ON DELETE CASCADE,	-- delete list when it's type info is removed
 
 	FOREIGN KEY (`field_id`)
 		REFERENCES `field`(`id`)

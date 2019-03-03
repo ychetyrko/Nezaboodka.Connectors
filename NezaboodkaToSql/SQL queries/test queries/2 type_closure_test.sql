@@ -8,6 +8,8 @@
 		User and Group types
 --------------------------------------*/
 
+USE `nz_admin_db`;
+
 CALL before_alter_database_schema();
 
 INSERT INTO `type_add_list`	-- types
@@ -38,6 +40,8 @@ CALL alter_database_schema('nz_test_db');
 /*---------------------------------------/
 		Admin and Moderator types
 --------------------------------------*/
+
+USE `nz_admin_db`;
 
 CALL before_alter_database_schema();
 
@@ -70,6 +74,8 @@ CALL alter_database_schema('nz_test_db');
 /*---------------------------------------/
 			UberAdmin type
 --------------------------------------*/
+
+USE `nz_admin_db`;
 
 CALL before_alter_database_schema();
 
